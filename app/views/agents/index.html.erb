@@ -1,0 +1,35 @@
+<div class="screen">
+  <div class="title-row">
+    <span class="page-title">Agents</span>
+    <span class="mono-dim">spec-first harness · <%= @agents.size %> roles · $<%= format("%.2f", @total_cost) %> today</span>
+  </div>
+
+  <div class="agents-grid">
+    <% @agents.each do |agent| %>
+      <div class="agent-card">
+        <div class="agent-hd">
+          <span class="agent-abbr" style="background:<%= agent.soft %>;color:<%= agent.tone %>"><%= agent.abbr %></span>
+          <div class="agent-id">
+            <span class="agent-name"><%= agent.name %></span>
+            <span class="agent-role"><%= agent.role %></span>
+          </div>
+          <span class="tag" style="color:<%= agent.tone %>"><%= agent.status %></span>
+        </div>
+        <div class="agent-doing"><%= agent.doing %></div>
+        <div class="tool-chips">
+          <% agent.tools.each do |tool| %><span class="tool-chip"><%= tool %></span><% end %>
+        </div>
+        <div class="agent-stats">
+          <% [["model", agent.llm_model],
+              ["today", "$#{format('%.2f', agent.cost_today)}"],
+              ["tickets", agent.tickets.count]].each do |key, value| %>
+            <div class="agent-stat">
+              <span class="k"><%= key %></span>
+              <span class="v"><%= value %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

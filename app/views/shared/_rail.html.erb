@@ -1,0 +1,34 @@
+<div class="rail">
+  <div class="rail-hd">Workspace</div>
+
+  <% [["dashboard", "Dashboard", "◫", root_path, nil],
+      ["board", "Board", "▤", board_path, @board_count],
+      ["rfcs", "Feature request", "✦", rfc_path, nil],
+      ["specs", "Specs", "§", specs_path, nil],
+      ["agents", "Agents", "◇", agents_path, @agents_running],
+      ["activity", "Activity", "≋", activity_path, nil]].each do |ctrl, label, icon, path, badge| %>
+    <%= link_to path, class: "rail-item#{' on' if controller_name == ctrl}" do %>
+      <span class="rail-icon"><%= icon %></span>
+      <span class="rail-label"><%= label %></span>
+      <% if badge.present? && badge.to_i.positive? %><span class="rail-badge"><%= badge %></span><% end %>
+    <% end %>
+  <% end %>
+
+  <div class="rail-fill"></div>
+
+  <div class="spend-card">
+    <span class="k-label">Spend today</span>
+    <div class="spend-amount">$<%= format("%.2f", @setting.spend_today) %></div>
+    <div class="spend-bars">
+      <% max = @spend_bars.map(&:amount).max.to_f %>
+      <% @spend_bars.each do |sample| %>
+        <span style="<%= spend_bar_style(sample, max) %>"></span>
+      <% end %>
+    </div>
+    <div class="spend-note">cap $<%= @setting.spend_cap.to_i %>/day · <%= @setting.spend_pct %>% used</div>
+  </div>
+
+  <%= link_to url_for(wizard: 1), class: "wizard-btn hv-acc" do %>
+    <span class="mono">⚙</span>Setup wizard
+  <% end %>
+</div>

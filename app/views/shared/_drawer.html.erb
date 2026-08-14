@@ -1,0 +1,115 @@
+<% ticket = @drawer_ticket %>
+<% meta = state_meta(ticket.state) %>
+<div class="overlay">
+  <%= link_to "", request.path, class: "overlay-dismiss" %>
+  <div class="drawer">
+    <div class="drawer-hd">
+      <div class="drawer-hd-row">
+        <span class="drawer-id"><%= ticket.code %></span>
+        <span class="tag" style="color:<%= meta[:tone] %>"><%= meta[:name] %></span>
+        <span class="spacer"></span>
+        <%= link_to "✕", request.path, class: "close-btn" %>
+      </div>
+      <div class="drawer-title"><%= ticket.title %></div>
+      <div class="drawer-meta">
+        <span><%= ticket.repo %></span>
+        <span><%= ticket.agent_label %></span>
+        <span><%= ticket.est_label %></span>
+        <span>$<%= format("%.2f", ticket.cost) %><%= " · #{ticket.tokens_label}" if ticket.tokens_label %></span>
+      </div>
+    </div>
+
+    <div class="drawer-body">
+      <div class="phase-list">
+        <span class="k-label">Phases</span>
+        <% done_runs = ticket.phase_runs.select { |r| r.status == "done" }.index_by(&:phase) %>
+        <% Ticket::PHASES.each do |phase| %>
+          <% done = done_runs[phase] %>
+          <% active = ticket.state == phase %>
+          <% active_run = active ? ticket.current_phase_run : nil %>
+          <% failed = active_run&.status == "failed" %>
+          <% live = active_run&.runner == "claude" %>
+          <% tone = if done then "var(--ok)"
+                    elsif failed then "var(--err)"
+                    elsif active then (@setting.running? || live) ? "var(--accent)" : "var(--warn)"
+                    else "var(--tx3)" end %>
+          <div class="phase-row<%= ' active' if active %>">
+            <span class="dot" style="background:<%= tone %>"></span>
+            <span class="phase-name"><%= phase.capitalize %></span>
+            <span class="phase-note"><%= active_run&.note || done&.note || (active ? DemoScript.note_for(phase) : "not started") %></span>
+            <span class="phase-dur"><%= done ? short_duration(done.duration_s.to_i) : failed ? "failed" : active ? (live ? "live" : "running") : "—" %></span>
+            <% if failed %>
+              <%= button_to "retry", ticket_phase_path(ticket.code, op: "retry"),
+                            form_class: "bt", class: "phase-btn", style: "border-color:var(--err);color:var(--err)" %>
+            <% elsif active && live %>
+              <span class="phase-btn acc" style="cursor:default">claude</span>
+            <% elsif active %>
+              <%= button_to @setting.running? ? "pause" : "resume",
+                            ticket_phase_path(ticket.code, op: @setting.running? ? "pause" : "resume"),
+                            form_class: "bt", class: "phase-btn acc" %>
+            <% else %>
+              <span class="phase-btn" style="cursor:default"><%= done ? "redo" : "run" %></span>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <% log_run = ticket.phase_runs.select { |r| r.log.present? }.max_by { |r| r.started_at || Time.at(0) } %>
+      <% if log_run %>
+        <details class="panel" style="padding:10px 13px">
+          <summary class="k-label" style="cursor:pointer">Run log · <%= log_run.phase %><%= " · exit #{log_run.exit_status}" if log_run.exit_status %></summary>
+          <pre class="mono" style="font-size:10.5px;line-height:1.6;color:var(--tx2);white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;margin:8px 0 0"><%= log_run.log.last(4000) %></pre>
+        </details>
+      <% end %>
+
+      <div class="panel">
+        <div class="panel-hd" style="padding:10px 13px">
+          <span class="k-label">Diff · review</span>
+          <span class="spacer"></span>
+          <% adds = ticket.diff.count { |d| d["line"].to_s.start_with?("+") } %>
+          <% dels = ticket.diff.count { |d| d["line"].to_s.start_with?("-") } %>
+          <span class="mono-meta" style="color:var(--ok)">+<%= adds %></span>
+          <span class="mono-meta" style="color:var(--err)">−<%= dels %></span>
+        </div>
+        <% if ticket.diff.any? %>
+          <div class="diff-body">
+            <% ticket.diff.each do |d| %>
+              <div class="diff-line" style="background:<%= d["bg"] %>;color:<%= d["fg"] %>"><%= d["line"] %></div>
+            <% end %>
+          </div>
+          <div class="diff-foot">
+            <span class="btn-outline-ok" style="cursor:default">Approve &amp; merge</span>
+            <span class="btn-ghost btn-sm" style="cursor:default">Request changes</span>
+            <span class="btn-ghost btn-sm" style="cursor:default">Open in editor</span>
+          </div>
+        <% else %>
+          <div class="diff-body" style="padding:12px 13px">
+            <span class="mono-meta">no diff yet — nothing has reached review for this ticket</span>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="drawer-grid">
+        <div class="drawer-mini">
+          <span class="k-label">Depends on</span>
+          <% deps = Ticket.where(code: ticket.dep_codes).index_by(&:code) %>
+          <% if ticket.dep_codes.empty? %><span class="mono-meta">no dependencies</span><% end %>
+          <% ticket.dep_codes.each do |code| %>
+            <% dep = deps[code] %>
+            <div class="dep-row">
+              <span class="dep-id" style="color:<%= dep ? state_meta(dep.state)[:tone] : 'var(--tx3)' %>"><%= code %></span>
+              <span class="dep-title"><%= dep&.title || "—" %></span>
+            </div>
+          <% end %>
+        </div>
+        <div class="drawer-mini">
+          <span class="k-label">Artifacts</span>
+          <% if ticket.artifacts.empty? %><span class="mono-meta">none yet</span><% end %>
+          <% ticket.artifacts.each do |artifact| %>
+            <div class="artifact"><%= artifact %></div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

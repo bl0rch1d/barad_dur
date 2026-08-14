@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html data-theme="<%= current_theme %>">
+  <head>
+    <title>algo · SDLC pipeline</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= turbo_refreshes_with method: :morph, scroll: :preserve %>
+    <%= yield :head %>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+  <body data-theme="<%= current_theme %>">
+    <%= turbo_stream_from :app %>
+    <div class="app">
+      <%= render "shared/titlebar" %>
+      <div class="app-body">
+        <%= render "shared/rail" %>
+        <main class="main"><%= yield %></main>
+      </div>
+      <%= render "shared/drawer" if @drawer_ticket %>
+      <%= render "shared/wizard" if @wizard_step %>
+    </div>
+  </body>
+</html>

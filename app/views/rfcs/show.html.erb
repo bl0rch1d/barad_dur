@@ -1,0 +1,107 @@
+<div class="screen">
+  <div class="rfc-wrap">
+    <div class="title-row">
+      <span class="page-title">Feature request</span>
+      <span class="mono-dim">describe intent → system investigates, clarifies, plans, files tickets</span>
+    </div>
+
+    <div class="steps-strip">
+      <% %w[Describe Investigate Clarify Plan].each_with_index do |label, i| %>
+        <div class="step-cell<%= ' reached' if @rfc.stage >= i %><%= ' current' if @rfc.stage == i %>">
+          <span class="step-n"><%= i + 1 %></span>
+          <span class="step-label"><%= label %></span>
+        </div>
+      <% end %>
+    </div>
+
+    <%= form_with url: rfc_advance_path, method: :post, class: "rfc-form" do %>
+      <textarea name="body" id="rfc-body" data-turbo-permanent class="textarea" style="min-height:82px"
+                placeholder="e.g. Traders need to cap per-venue exposure in real time; breach should halt new orders on that venue only."><%= @rfc.body %></textarea>
+      <div class="rfc-actions">
+        <button type="submit" class="btn-accent" style="padding:7px 14px;font-size:12.5px">
+          <%= ["Investigate", "Ask for clarifications", "Plan it", "Re-plan"][@rfc.stage] %>
+        </button>
+        <%= button_to "Reset", rfc_reset_path, form_class: "bt", class: "btn-ghost", style: "padding:7px 12px;font-size:12.5px" %>
+        <span class="mono-dim">
+          <%= ["Scout reads code + history before proposing anything",
+               "It found 3 things it will not guess at",
+               "Answers folded in — planning next",
+               "Too big for one ticket — split into 5 by dependency depth"][@rfc.stage] %>
+        </span>
+      </div>
+    <% end %>
+
+    <% if @rfc.stage >= 1 %>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="dot" style="background:var(--info)"></span>
+          <span class="k-label">Investigation trace</span>
+          <span class="spacer"></span>
+          <span class="mono-meta">Scout · 38s · 24k tok</span>
+        </div>
+        <div class="trace-body">
+          <% @rfc.trace.each do |line| %>
+            <div class="trace-row">
+              <span style="color:<%= line["tone"] %>;flex:none"><%= line["mark"] %></span>
+              <span class="text"><%= line["text"] %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @rfc.stage >= 2 %>
+      <div class="panel clarify-panel">
+        <div class="clarify-hd">Clarify before planning · <%= @rfc.questions.size %> questions</div>
+        <% @rfc.questions.each do |question| %>
+          <div class="clarify-item">
+            <div class="clarify-q"><%= question["q"] %></div>
+            <div class="chip-row">
+              <% question["opts"].each do |option| %>
+                <%= button_to option, rfc_answer_path(key: question["key"], value: option), form_class: "bt",
+                              class: "chip#{' on' if @rfc.answers[question['key']] == option}" %>
+              <% end %>
+            </div>
+            <span class="mono-meta"><%= question["why"] %></span>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if @rfc.stage >= 3 %>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="k-label">Proposed tickets · dependency order</span>
+          <span class="spacer"></span>
+          <span class="mono-meta">est 5h 40m · ~$9.20</span>
+        </div>
+        <% @rfc.proposals.each do |proposal| %>
+          <div class="plan-row">
+            <span class="plan-step"><%= proposal["step"] %></span>
+            <div class="plan-dot"><span class="dot" style="background:<%= proposal["tone"] %>"></span></div>
+            <div class="plan-body">
+              <div class="plan-hd">
+                <span class="plan-id"><%= proposal["id"] %></span>
+                <span class="plan-title"><%= proposal["title"] %></span>
+              </div>
+              <div class="plan-meta">
+                <span><%= proposal["repo"] %></span><span><%= proposal["dep"] %></span><span><%= proposal["est"] %></span>
+              </div>
+            </div>
+            <span class="tag" style="color:<%= proposal["tone"] %>"><%= proposal["tag"] %></span>
+          </div>
+        <% end %>
+        <div class="plan-foot">
+          <% if @rfc.pushed? %>
+            <span class="mono-meta">tickets are on the board</span>
+          <% else %>
+            <%= button_to "Push #{@rfc.proposals.size} tickets to board", rfc_push_path, form_class: "bt",
+                          class: "btn-accent", style: "padding:6px 13px" %>
+          <% end %>
+          <span class="btn-ghost btn-sm" style="cursor:default">Edit plan</span>
+          <span class="mono-meta">also writes spec: risk/venue-exposure-cap</span>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

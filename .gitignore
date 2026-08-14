@@ -1,0 +1,4 @@
+
+# live-mode workspace mount (user repos, never committed)
+/workspace/*
+!/workspace/.gitkeep

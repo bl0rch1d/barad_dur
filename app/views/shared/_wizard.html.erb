@@ -1,0 +1,425 @@
+<% step = @wizard_step %>
+<% setup = @setting.setup %>
+<% copy = [
+  ["Choose the workspace", "Point at a single project or a folder of repos. The pipeline only touches what you check here — everything else is read-only context."],
+  ["Authentication", "Use your subscription or a raw API key. Keys never leave the machine; they sit in the OS keychain and are injected per agent process."],
+  ["Development framework", "This decides what a phase actually runs. Detected openspec in algo/ — recommended."],
+  ["Parsing the workspace", "Indexing code, commit history and specs to build the dashboard. Anything ambiguous becomes a question rather than a guess."],
+  ["Ready — pick your leash", "Autonomy is a feature flag, not a one-way door. Switch it from the titlebar mid-run; in-flight phases finish, the next one respects the new setting."]
+][step - 1] %>
+<% repo_defaults = %w[true true true false] %>
+<% ws_repos = Workspace.repos %>
+<% repos_selected = if ws_repos.any?
+     ws_repos.count { |r| wizard_setup("repo:#{r[:name]}", "true") == "true" }
+   else
+     (0..3).count { |i| wizard_setup("repo#{i}", repo_defaults[i]) == "true" }
+   end %>
+<% repos_total = ws_repos.any? ? ws_repos.size : 4 %>
+
+<div class="overlay-center">
+  <div class="wizard">
+    <div class="wizard-hd">
+      <span class="screen-title">Setup</span>
+      <span class="mono-dim">step <%= step %> of 5</span>
+      <span class="spacer"></span>
+      <%= link_to "✕", request.path, class: "close-btn" %>
+    </div>
+
+    <div class="wsteps">
+      <% %w[Folder Auth Framework Parse Autonomy].each_with_index do |label, i| %>
+        <div class="wstep<%= ' reached' if step >= i + 1 %><%= ' current' if step == i + 1 %>">
+          <span class="bar"></span>
+          <span class="lbl"><%= label %></span>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="wizard-body">
+      <div class="wizard-intro">
+        <span class="wizard-title"><%= copy[0] %></span>
+        <span class="wizard-blurb"><%= copy[1] %></span>
+      </div>
+
+      <% if step == 1 %>
+        <div class="wizard-stack">
+          <% ws_mounted = Workspace.mount_root.directory? %>
+          <% ws_layout = ws_mounted ? Workspace.layout : :empty %>
+          <div class="path-row">
+            <span class="path"><%= ws_mounted ? Workspace.root : "~/dev/algo" %></span>
+            <% if ws_mounted %>
+              <span class="tag" style="color:<%= ws_layout == :empty ? 'var(--tx3)' : 'var(--info)' %>">
+                <%= { monorepo: "monorepo", multi_repo: "#{ws_repos.size} repos", empty: "no repos here" }[ws_layout] %>
+              </span>
+            <% else %>
+              <span class="btn-ghost btn-sm" style="cursor:default">Browse…</span>
+            <% end %>
+          </div>
+          <% if ws_mounted %>
+            <% ws_browse = Workspace.browse %>
+            <% ws_parent = Workspace.parent_rel %>
+            <% if ws_parent || ws_browse.any? %>
+              <div class="k-label" style="letter-spacing:.1em">Choose a folder — a monorepo or a folder of repositories</div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <% unless ws_parent.nil? %>
+                  <%= button_to wizard_patch_path(key: "workspace_dir", value: ws_parent, wizard: step),
+                                form_class: "bt", class: "check-row hv-acc" do %>
+                    <span class="mono" style="width:15px;color:var(--tx3)">↑</span>
+                    <span class="check-name" style="width:auto;flex:none">..</span>
+                    <span class="check-meta">up one level</span>
+                  <% end %>
+                <% end %>
+                <% ws_browse.each do |entry| %>
+                  <%= button_to wizard_patch_path(key: "workspace_dir", value: entry[:rel], wizard: step),
+                                form_class: "bt", class: "check-row hv-acc" do %>
+                    <span class="mono" style="width:15px;color:<%= entry[:kind] == :git_repo ? 'var(--info)' : 'var(--tx3)' %>"><%= entry[:kind] == :git_repo ? "◆" : "▸" %></span>
+                    <span class="check-name" style="width:auto;flex:none"><%= entry[:name] %></span>
+                    <span class="check-meta">
+                      <%= case entry[:kind]
+                          when :git_repo    then "git repository — select as monorepo"
+                          when :repo_folder then "#{entry[:repo_count]} repos inside — select as multi-repo"
+                          else "folder — open" end %>
+                    </span>
+                  <% end %>
+                <% end %>
+              </div>
+            <% end %>
+            <% if ws_repos.any? %>
+              <div class="k-label" style="letter-spacing:.1em">
+                <%= ws_layout == :monorepo ? "Monorepo detected — the pipeline owns this repository" : "Detected #{ws_repos.size} repos — pick what the pipeline owns" %>
+              </div>
+              <% ws_repos.each do |repo| %>
+                <% on = wizard_setup("repo:#{repo[:name]}", "true") == "true" %>
+                <% subs = Workspace.subprojects(repo) %>
+                <%= button_to wizard_patch_path(key: "repo:#{repo[:name]}", value: (!on).to_s, wizard: step),
+                              form_class: "bt", class: "check-row#{' on' if on}" do %>
+                  <span class="checkbox"><%= "✓" if on %></span>
+                  <span class="check-name"><%= repo[:name] %></span>
+                  <span class="check-meta"><%= repo[:branch] %> · <%= repo[:commits] %> commits<%= " · #{subs.size} sub-projects" if subs.any? %></span>
+                  <span class="mono-meta"><%= repo[:files] %> files</span>
+                <% end %>
+              <% end %>
+            <% elsif ws_browse.empty? && ws_parent.nil? %>
+              <span class="mono-meta">the mount is empty — put repositories under ./workspace or start with WORKSPACE_PATH=~/dev/yourproject</span>
+            <% end %>
+          <% else %>
+          <div class="k-label" style="letter-spacing:.1em">Detected 4 repos — pick what the pipeline owns</div>
+          <% [["algo-core", "python · 1.2k files · 4.1k commits", "82k LOC"],
+              ["algo-api", "python · 340 files · 1.9k commits", "21k LOC"],
+              ["algo-jobs", "python · 180 files · 900 commits", "9k LOC"],
+              ["algo-web", "typescript · 620 files · 2.2k commits", "38k LOC"]].each_with_index do |(name, meta, loc), i| %>
+            <% on = wizard_setup("repo#{i}", repo_defaults[i]) == "true" %>
+            <%= button_to wizard_patch_path(key: "repo#{i}", value: (!on).to_s, wizard: step), form_class: "bt",
+                          class: "check-row#{' on' if on}" do %>
+              <span class="checkbox"><%= "✓" if on %></span>
+              <span class="check-name"><%= name %></span>
+              <span class="check-meta"><%= meta %></span>
+              <span class="mono-meta"><%= loc %></span>
+            <% end %>
+          <% end %>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% if step == 2 %>
+        <div class="wizard-stack">
+          <% sub_ok = ClaudeCodeRunner.subscription_credentials? %>
+          <% key_ok = ClaudeCodeRunner.api_key? %>
+          <% [["Claude subscription", "Uses your Claude Pro/Max login — the host's ~/.claude is mounted into the pipeline containers (or set CLAUDE_CODE_OAUTH_TOKEN). No per-token billing.",
+               sub_ok ? "✓ detected" : "not found", sub_ok],
+              ["API key", "Per-token billing via ANTHROPIC_API_KEY with the daily spend cap. Best when several agents run in parallel.",
+               key_ok ? "✓ key set" : "metered", key_ok]].each_with_index do |(label, blurb, tag, ok), i| %>
+            <% on = wizard_setup("auth", "0") == i.to_s %>
+            <%= button_to wizard_patch_path(key: "auth", value: i, wizard: step), form_class: "bt",
+                          class: "radio-card#{' on' if on}" do %>
+              <span class="radio-dot"></span>
+              <div class="radio-body">
+                <span class="radio-label"><%= label %><%= " · default" if i.zero? %></span>
+                <span class="radio-blurb"><%= blurb %></span>
+              </div>
+              <span class="mono-meta" style="<%= 'color:var(--ok)' if ok %>"><%= tag %></span>
+            <% end %>
+          <% end %>
+          <div class="key-box">
+            <span class="k-label"><%= @setting.subscription_auth? ? "Subscription credentials" : "API key" %></span>
+            <% status = ClaudeCodeRunner.auth_status(@setting) %>
+            <input class="key-input" readonly
+                   value="<%= @setting.subscription_auth? ? "auth: claude subscription (mounted login)" : (key_ok ? "sk-ant-•••••••••••••••••••••#{ENV['ANTHROPIC_API_KEY'].to_s.last(4)}" : "no ANTHROPIC_API_KEY in environment") %>">
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+              <span class="mono-meta" style="<%= 'color:var(--ok)' if status[:ok] %>"><%= status[:label] %></span>
+            </div>
+          </div>
+          <div class="cap-row">
+            <span style="font-size:12.5px;flex:1">Live runner</span>
+            <% if AgentRunner.live_available? %>
+              <span class="mono-meta" style="color:var(--ok)">✓ claude code CLI ready — phases run for real in the workspace</span>
+            <% else %>
+              <span class="mono-meta">demo driver active (claude CLI or auth missing)</span>
+            <% end %>
+          </div>
+          <div class="cap-row">
+            <span style="font-size:12.5px;flex:1">Daily spend cap</span>
+            <span class="mono" style="font-size:13px;font-weight:600">$<%= @setting.spend_cap.to_i %></span>
+            <span class="mono-meta">pipeline pauses at cap</span>
+          </div>
+        </div>
+      <% end %>
+
+      <% if step == 3 %>
+        <% fw = wizard_setup("fw", "0") %>
+        <div class="wizard-stack">
+          <% [["openspec", "Specs are the contract: each phase reads and writes openspec files, so plans and code stay attached to requirements.", "detected", "var(--ok)"],
+              ["Custom agentic harness", "Point at your own harness. The app drives it through phase hooks and reads its artifacts back into the board.", "folder", "var(--info)"],
+              ["Vanilla — let the model decide", "No framework in the repo. The app runs its built-in spec-first loop: spec → plan → tasks → diff, with every phase producing a written artifact you can review.", "fallback", "var(--tx3)"]].each_with_index do |(label, blurb, tag, tag_tone), i| %>
+            <% on = fw == i.to_s %>
+            <%= button_to wizard_patch_path(key: "fw", value: i, wizard: step), form_class: "bt",
+                          class: "radio-card#{' on' if on}" do %>
+              <span class="radio-dot"></span>
+              <div class="radio-body">
+                <span class="radio-label"><%= label %></span>
+                <span class="radio-blurb"><%= blurb %></span>
+                <% if i == 1 && on %>
+                  <span class="mono-meta" style="padding-top:4px">~/dev/algo/.harness</span>
+                <% end %>
+              </div>
+              <span class="tag" style="color:<%= tag_tone %>"><%= tag %></span>
+            <% end %>
+          <% end %>
+
+          <% if fw == "1" %>
+            <div class="panel harness-panel">
+              <div class="panel-hd">
+                <span class="k-label" style="color:var(--info)">Parsed harness · ~/dev/quant_development</span>
+                <span class="spacer"></span>
+                <span class="mono-meta">openspec integration · 9 commands · 4 skills</span>
+              </div>
+              <div style="padding:12px 13px;display:flex;flex-direction:column;gap:7px">
+                <div class="k-label" style="letter-spacing:.08em;padding-bottom:2px">Phase → command · click a row to switch source</div>
+                <% [["Investigation", "opsx:explore", "harness"],
+                    ["Planning", "opsx:propose", "harness"],
+                    ["Implementation", "opsx:apply", "harness"],
+                    ["Review", "/review (skill)", "harness"],
+                    ["Testing", "built-in: tox -e py311", "built-in"],
+                    ["Deployment", "built-in: tag + changelog", "built-in"]].each_with_index do |(phase, cmd, src), i| %>
+                  <% own = wizard_setup("map#{i}", "") == "built-in" ? "built-in" : src %>
+                  <% harness = own == "harness" %>
+                  <% shown_cmd = harness ? cmd : (src == "built-in" ? cmd : "built-in: default runner") %>
+                  <%= button_to wizard_patch_path(key: "map#{i}", value: harness ? "built-in" : "harness", wizard: step),
+                                form_class: "bt", class: "map-row#{' on' if harness}" do %>
+                    <span class="dot" style="background:<%= harness ? 'var(--info)' : 'var(--tx3)' %>"></span>
+                    <span class="map-phase"><%= phase %></span>
+                    <span class="mono-meta" style="flex:none">→</span>
+                    <span class="map-cmd" style="color:<%= harness ? 'var(--info)' : 'var(--tx3)' %>"><%= shown_cmd %></span>
+                    <span class="tag" style="color:<%= harness ? 'var(--info)' : 'var(--tx3)' %>"><%= own %></span>
+                  <% end %>
+                <% end %>
+                <div style="display:flex;flex-direction:column;gap:7px;padding-top:9px;border-top:1px solid var(--soft);margin-top:3px">
+                  <span class="k-label" style="letter-spacing:.08em">Also found — add as phases?</span>
+                  <% [["opsx:validate", "checks a proposal against existing specs before code is written", "before implementation"],
+                      ["opsx:archive", "moves the applied spec delta into the permanent spec tree", "after deployment"],
+                      ["/commit", "harness commit convention with spec + ticket trailers", "inside implementation"]].each_with_index do |(cmd, blurb, slot), i| %>
+                    <% on = wizard_setup("add#{i}", "yes") != "no" %>
+                    <%= button_to wizard_patch_path(key: "add#{i}", value: on ? "no" : "yes", wizard: step),
+                                  form_class: "bt", class: "check-row#{' on' if on}",
+                                  style: on ? "border-color:var(--info);background:var(--info-soft)" : "" do %>
+                      <span class="checkbox" style="<%= 'border-color:var(--info);background:var(--info)' if on %>"><%= "✓" if on %></span>
+                      <span class="check-name" style="width:118px"><%= cmd %></span>
+                      <span style="font-size:11.5px;color:var(--tx2);flex:1;min-width:0"><%= blurb %></span>
+                      <span class="mono-meta" style="flex:none"><%= slot %></span>
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
+              <div class="harness-qs">
+                <span class="k-label" style="color:var(--warn)">Harness left this ambiguous · 2 questions</span>
+                <% [["h1", "opsx:explore writes to openspec/changes/ but never reads the board. Should investigation results land as ticket comments too?", ["Yes, mirror to ticket", "Files only"]],
+                    ["h2", "No testing command found in the harness. Use the built-in runner, or treat testing as part of opsx:apply?", ["Built-in runner", "Fold into apply", "Skip phase"]]].each do |key, q, opts| %>
+                  <div style="display:flex;flex-direction:column;gap:7px">
+                    <span style="font-size:12.5px;line-height:1.5"><%= q %></span>
+                    <div class="chip-row">
+                      <% opts.each do |option| %>
+                        <%= button_to option, wizard_patch_path(key: key, value: option, wizard: step), form_class: "bt",
+                                      class: "chip#{' on' if wizard_setup(key, '') == option}" %>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <% if fw == "2" %>
+            <div class="panel">
+              <div class="panel-hd"><span class="k-label">Built-in spec-first loop · what each phase runs</span></div>
+              <% [["Investigation", "explore", "evidence file: call sites, history, root-cause candidates"],
+                  ["Planning", "spec → plan", "spec delta + task list with dependency order"],
+                  ["Implementation", "apply", "one branch per ticket, commit per task"],
+                  ["Review", "critique", "diff review against the spec delta, not vibes"],
+                  ["Testing", "verify", "inferred test command + property tests on changed logic"],
+                  ["Deployment", "ship", "tag, changelog entry, staged rollout"]].each do |phase, step_name, out| %>
+                <div class="vanilla-row">
+                  <span class="vanilla-phase"><%= phase %></span>
+                  <span class="vanilla-step"><%= step_name %></span>
+                  <span class="vanilla-out"><%= out %></span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% if step == 4 %>
+        <div class="wizard-stack">
+          <% if ws_repos.any? %>
+            <% openspec_names = Workspace.openspec_repos %>
+            <% unchecked_spec_repos = openspec_names - Workspace.selected_repos(@setting).map { |r| r[:name] } %>
+            <% spec_count = Capability.count %>
+            <div class="parse-card" style="border-color:var(--info)">
+              <span class="k-label" style="color:var(--info)">Workspace · live</span>
+              <div class="parse-log">
+                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= ws_repos.size %> <%= "repo".pluralize(ws_repos.size) %> mounted at <%= Workspace.root %></span></div>
+                <% if openspec_names.any? %>
+                  <div class="row"><span style="color:var(--ok)">✓</span><span class="t">openspec found in: <%= openspec_names.join(", ") %></span></div>
+                <% else %>
+                  <div class="row"><span style="color:var(--tx3)">◦</span><span class="t">no openspec/specs directories — expected &lt;repo&gt;/openspec/specs/&lt;capability&gt;/spec.md</span></div>
+                <% end %>
+                <% if unchecked_spec_repos.any? %>
+                  <div class="row"><span style="color:var(--warn)">!</span><span class="t" style="color:var(--warn)"><%= unchecked_spec_repos.join(", ") %> contains openspec specs but is unchecked in the Folder step</span></div>
+                <% end %>
+                <div class="row">
+                  <span style="color:<%= spec_count.positive? ? 'var(--ok)' : 'var(--tx3)' %>"><%= spec_count.positive? ? "✓" : "◦" %></span>
+                  <span class="t"><%= spec_count.positive? ? "#{spec_count} capabilities · #{SpecRequirement.count} requirements in the spec index" : "spec index is empty — parse below" %></span>
+                </div>
+                <div class="row"><span style="color:<%= AgentRunner.live_available? ? 'var(--ok)' : 'var(--tx3)' %>"><%= AgentRunner.live_available? ? "✓" : "◦" %></span><span class="t">claude code runner <%= AgentRunner.live_available? ? "ready" : "unavailable — demo driver" %></span></div>
+              </div>
+              <% sync_progress = setup["spec_sync_progress"] %>
+              <% sync_progress = nil if sync_progress && sync_progress["at"].to_i < 90.seconds.ago.to_i %>
+              <% if sync_progress %>
+                <% total = sync_progress["total"].to_i %>
+                <% done = sync_progress["done"].to_i %>
+                <% pct = total.positive? ? (100 * done / total) : 4 %>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;align-items:baseline;gap:10px">
+                    <span class="mono-meta" style="color:var(--accent);flex:1">parsing <%= sync_progress["label"] %></span>
+                    <span class="mono-dim"><%= total.positive? ? "#{done}/#{total} spec files" : "…" %></span>
+                  </div>
+                  <div class="meter"><span style="width:<%= pct %>%;background:var(--accent);transition:width .4s ease"></span></div>
+                </div>
+              <% else %>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <%= button_to "Parse workspace specs now", specs_sync_path(wizard: step),
+                                form: { id: "parse-specs-form", data: { turbo_permanent: true } },
+                                form_class: "bt", class: "btn-ghost btn-sm hv-acc busy-btn",
+                                data: { turbo_submits_with: "Starting parse…" } %>
+                  <% if (last = setup["last_spec_sync"]).present? %>
+                    <span class="mono-meta" style="color:<%= last.start_with?('nothing', 'parse failed') ? 'var(--warn)' : 'var(--ok)' %>">last parse: <%= last %></span>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+          <div class="parse-card" id="indexing-progress-card" data-turbo-permanent
+               data-controller="progress" data-progress-cap-value="100"
+               data-progress-done-label-value="Workspace indexed ✓">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="mono" data-progress-target="title" style="font-size:11px;color:var(--accent);flex:1">Indexing workspace…</span>
+              <span class="mono-dim" data-progress-target="label">0%</span>
+            </div>
+            <div class="meter"><span data-progress-target="bar" style="width:0%;background:var(--accent);transition:width .2s linear"></span></div>
+            <div class="parse-log">
+              <% index_line = if ws_repos.any?
+                   "indexed #{ws_repos.sum { |r| r[:files] }} files · #{ws_repos.sum { |r| r[:commits] }} commits · #{ws_repos.size} #{"repo".pluralize(ws_repos.size)}"
+                 else
+                   "indexed 2,140 files · 9,100 commits · 3 default branches"
+                 end %>
+              <% spec_line = Capability.any? ? "parsed #{Capability.count} openspec capabilities, #{SpecRequirement.count} requirements" : "parsed 11 openspec capabilities, 68 requirements" %>
+              <% [[index_line, 20], [spec_line, 45],
+                  ["inferred test commands from the workspace", 65],
+                  ["mapped 7 agent roles onto phases", 78],
+                  ["building dependency graph from imports", 88],
+                  ["summarising recent commit history", 95]].each do |text, threshold| %>
+                <div class="row" data-progress-target="row" data-threshold="<%= threshold %>">
+                  <span data-mark style="color:var(--tx3)">◦</span><span class="t"><%= text %></span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+          <% unless ws_repos.any? %>
+          <div class="parse-card warn">
+            <span class="k-label" style="color:var(--warn)">2 questions found while parsing</span>
+            <% [["p1", "algo-web has no tests wired to CI. Should the testing phase treat it as pass-through or block on a smoke suite?", ["Pass-through", "Require smoke", "Skip repo"]],
+                ["p2", "Two migration systems found in algo-core (alembic + raw SQL in scripts/). Which is authoritative?", ["alembic", "scripts/", "Ask each time"]]].each do |key, q, opts| %>
+              <div style="display:flex;flex-direction:column;gap:7px;padding-bottom:9px;border-bottom:1px solid var(--soft)">
+                <span style="font-size:12.5px;line-height:1.5"><%= q %></span>
+                <div class="chip-row">
+                  <% opts.each do |option| %>
+                    <%= button_to option, wizard_patch_path(key: key, value: option, wizard: step), form_class: "bt",
+                                  class: "chip#{' on' if wizard_setup(key, '') == option}" %>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% if step == 5 %>
+        <div class="wizard-stack">
+          <div class="summary-grid">
+            <% fw_label = ["openspec (detected)", "custom harness", "vanilla loop"][wizard_setup("fw", "0").to_i] || "openspec (detected)" %>
+            <% auth_label = wizard_setup("auth", "0") == "1" ? "API key" : "subscription" %>
+            <% workspace_label = ws_repos.any? ? "#{Workspace.root} · #{repos_selected} repos" : "~/dev/algo · #{repos_selected} repos" %>
+            <% [["Workspace", workspace_label],
+                ["Framework", fw_label],
+                ["Auth", auth_label],
+                ["Agents", "7 roles mapped"],
+                ["Spend cap", "$#{@setting.spend_cap.to_i} / day"],
+                ["Indexed", "2,140 files · 68 reqs"]].each do |key, value| %>
+              <div class="summary-card">
+                <div class="k-label" style="letter-spacing:.08em"><%= key %></div>
+                <div class="summary-v"><%= value %></div>
+              </div>
+            <% end %>
+          </div>
+          <div class="parse-card">
+            <span class="k-label">Autonomy — changeable any time from the titlebar</span>
+            <% [["auto", "Full auto", "Runs every phase end to end. Stops only on a real block, a failing gate, or the spend cap."],
+                ["risky", "Gate risky phases", "Pauses before anything that touches money, migrations, deploys or files marked risky."],
+                ["every", "Gate every phase", "One approval per phase transition. Slowest, fully auditable — good for a first week."]].each do |value, label, blurb| %>
+              <% on = @setting.autonomy == value %>
+              <%= button_to settings_autonomy_path(value: value, wizard: step), form_class: "bt",
+                            class: "radio-card#{' on' if on}", style: "padding:10px 12px" do %>
+                <span class="radio-dot" style="width:13px;height:13px"></span>
+                <div class="radio-body" style="gap:3px">
+                  <span style="font-size:12.5px;font-weight:600"><%= label %></span>
+                  <span style="font-size:11.5px;color:var(--tx2);line-height:1.5"><%= blurb %></span>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="wizard-foot">
+      <%= link_to "Back", step > 1 ? url_for(wizard: step - 1) : request.path, class: "btn-ghost" %>
+      <span class="spacer"></span>
+      <span class="mono-meta">
+        <%= ["#{repos_selected} of #{repos_total} repos selected",
+             AgentRunner.live_available? ? "live runner ready · #{@setting.auth_mode.tr('_', ' ')}" : "auth not detected — demo driver",
+             "openspec detected",
+             ws_repos.any? ? (Capability.any? ? "#{Capability.count} capabilities in the spec index" : "no specs parsed yet") : "2 questions waiting",
+             "you can change this later"][step - 1] %>
+      </span>
+      <% if step < 5 %>
+        <% gate_on_indexing = step == 4 %>
+        <%= link_to "Continue", url_for(wizard: step + 1),
+                    id: gate_on_indexing ? "wizard-continue" : nil,
+                    data: gate_on_indexing ? { progress_unlock: true, turbo_permanent: true } : {},
+                    class: "btn-accent#{' locked' if gate_on_indexing}", style: "padding:7px 15px" %>
+      <% else %>
+        <%= button_to "Start pipeline", wizard_finish_path, form_class: "bt", class: "btn-accent", style: "padding:7px 15px" %>
+      <% end %>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,38 @@
+<div class="titlebar">
+  <div class="tl-dots"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+  <div class="brand">
+    <span class="brand-name">algo</span>
+    <span class="mono-dim">4 repos · openspec</span>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="seg">
+    <% [["auto", "Full auto", "Runs every phase; stops only on blocks"],
+        ["risky", "Gate risky", "Approve money, migrations, deploys"],
+        ["every", "Gate all", "Approve every phase transition"]].each do |value, label, hint| %>
+      <%= button_to label, settings_autonomy_path(value: value), form_class: "bt", title: hint,
+                    class: "seg-btn#{' on' if @setting.autonomy == value}" %>
+    <% end %>
+  </div>
+
+  <div class="seg" data-controller="theme">
+    <% %w[dark light].each do |theme| %>
+      <button type="button" class="seg-btn mono<%= ' on' if current_theme == theme %>"
+              data-action="theme#set" data-theme-theme-param="<%= theme %>"><%= theme %></button>
+    <% end %>
+  </div>
+
+  <div class="vdiv"></div>
+
+  <div class="run-group">
+    <span class="run-label">
+      <span class="dot" style="background:<%= @setting.running? ? 'var(--accent)' : 'var(--warn)' %>;<%= 'animation:pulse 1.8s infinite' if @setting.running? %>"></span>
+      <%= @setting.running? ? "running" : "paused" %>
+    </span>
+    <%= button_to settings_toggle_run_path, form_class: "bt", class: "btn-accent" do %>
+      <span class="run-glyph"><%= @setting.running? ? "❙❙" : "▶" %></span><%= @setting.running? ? "Pause" : "Start" %>
+    <% end %>
+    <%= button_to "Stop", settings_stop_path, form_class: "bt", class: "btn-ghost hv-err" %>
+  </div>
+</div>

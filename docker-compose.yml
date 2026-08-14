@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: barad_dur
+      POSTGRES_PASSWORD: barad_dur
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U barad_dur"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: barad_dur-app
+    command: bash -c "rm -f tmp/pids/server.pid && bin/rails db:prepare db:seed && bin/rails server -b 0.0.0.0"
+    volumes:
+      - .:/app
+      - ${WORKSPACE_PATH:-../algo}:/workspace
+      - ${CLAUDE_CONFIG_PATH:-~/.claude}:/root/.claude
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: db
+      DB_USER: barad_dur
+      DB_PASSWORD: barad_dur
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      PIPELINE_RUNNER: ${PIPELINE_RUNNER:-auto}
+      CLAUDE_BIN: ${CLAUDE_BIN:-claude}
+      CLAUDE_FLAGS: ${CLAUDE_FLAGS:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Advances the pipeline: enqueues one engine tick every few seconds.
+  # Separate from the web process; broadcasts reach browsers via Solid Cable.
+  # Shares the web image (agent runs execute here — claude CLI included).
+  ticker:
+    image: barad_dur-app
+    command: bin/rails pipeline:ticker
+    volumes:
+      - .:/app
+      - ${WORKSPACE_PATH:-../algo}:/workspace
+      - ${CLAUDE_CONFIG_PATH:-~/.claude}:/root/.claude
+    environment:
+      DB_HOST: db
+      DB_USER: barad_dur
+      DB_PASSWORD: barad_dur
+      DISABLE_RELOADING: "1"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      PIPELINE_RUNNER: ${PIPELINE_RUNNER:-auto}
+      CLAUDE_BIN: ${CLAUDE_BIN:-claude}
+      CLAUDE_FLAGS: ${CLAUDE_FLAGS:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

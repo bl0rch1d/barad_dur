@@ -1,0 +1,33 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%= ENV.fetch("DB_HOST", "localhost") %>
+  port: <%= ENV.fetch("DB_PORT", 5432) %>
+  username: <%= ENV.fetch("DB_USER", "postgres") %>
+  password: <%= ENV.fetch("DB_PASSWORD", "postgres") %>
+
+development:
+  <<: *default
+  database: barad_dur_development
+
+test:
+  <<: *default
+  database: barad_dur_test
+
+production:
+  primary: &primary_production
+    <<: *default
+    database: barad_dur_production
+  cache:
+    <<: *primary_production
+    database: barad_dur_production_cache
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_production
+    database: barad_dur_production_queue
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_production
+    database: barad_dur_production_cable
+    migrations_paths: db/cable_migrate

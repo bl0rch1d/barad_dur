@@ -1,0 +1,179 @@
+<div class="screen">
+
+  <div class="stats-grid">
+    <% @stats.each do |stat| %>
+      <div class="stat-card">
+        <span class="k-label"><%= stat[:label] %></span>
+        <span class="stat-value" style="color:<%= stat[:tone] %>"><%= stat[:value] %></span>
+        <span class="stat-sub"><%= stat[:sub] %></span>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="dash-grid">
+
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="k-label">Live pipeline</span>
+        <span class="spacer"></span>
+        <span class="mono-dim"><%= Event.count %> events · 24h</span>
+      </div>
+
+      <% if @gate %>
+        <div class="gate-banner">
+          <span class="gate-word">GATE</span>
+          <span class="gate-text"><%= @gate.reason %></span>
+          <%= button_to "Approve", approve_gate_path(@gate), form_class: "bt", class: "btn-outline-warn" %>
+        </div>
+      <% end %>
+
+      <div class="timeline">
+        <% if @now_ticket %>
+          <% run = @now_ticket.current_phase_run %>
+          <div class="tl-row">
+            <div class="tl-gutter" style="padding-top:4px">
+              <span class="dot-lg" style="background:var(--accent);animation:pulse 1.8s infinite"></span>
+              <span class="line"></span>
+            </div>
+            <div class="now-card">
+              <div class="now-hd">
+                <span class="now-ticket"><%= @now_ticket.code %></span>
+                <span class="now-title"><%= @now_ticket.title %></span>
+                <span class="now-phase"><%= @now_ticket.state %></span>
+              </div>
+              <div class="now-step">
+                <span class="arrow">▸</span>
+                <span><%= @setting.running? ? (@now_ticket.agent&.doing || "working…") : "paused — resume to continue" %><span class="cursor">▌</span></span>
+              </div>
+              <div class="sweep-track"><span class="sweep-fill" style="<%= 'animation:none' unless @setting.running? %>"></span></div>
+              <div class="now-meta">
+                <span><%= @now_ticket.agent&.name || "unassigned" %><%= " · #{@now_ticket.agent.llm_model}" if @now_ticket.agent %></span>
+                <% if run&.started_at %><span>elapsed <%= short_duration(Time.current - run.started_at) %></span><% end %>
+                <span><%= @now_ticket.tokens_label || "—" %> · $<%= format("%.2f", @now_ticket.cost) %></span>
+                <span><%= @now_ticket.repo %></span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <% @events.first(7).each do |event| %>
+          <div class="tl-row">
+            <div class="tl-gutter">
+              <span class="dot" style="background:<%= event.tone %>"></span>
+              <span class="line"></span>
+            </div>
+            <div class="stream-body">
+              <div class="stream-hd">
+                <span class="stream-time"><%= event_time(event) %></span>
+                <span class="stream-phase" style="color:<%= event.tone %>"><%= event.phase_tag %></span>
+                <span class="stream-text"><%= event.text %></span>
+              </div>
+              <div class="stream-meta">
+                <span><%= event.ticket_code %></span>
+                <span><%= event.agent_name %></span>
+                <% if event.meta.present? %><span><%= event.meta %></span><% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="col-stack">
+
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="k-label">Needs you</span>
+          <span class="spacer"></span>
+          <span class="count-badge"><%= @questions.size %></span>
+        </div>
+        <% if @questions.empty? %>
+          <div class="needs-item"><span class="mono-meta">nothing blocked — agents are unattended</span></div>
+        <% end %>
+        <% @questions.each do |question| %>
+          <div class="needs-item">
+            <div class="needs-hd">
+              <span class="needs-ticket"><%= question.ticket_code %></span>
+              <span class="mono-meta"><%= question.phase %> · <%= question.waited_label %></span>
+            </div>
+            <div class="needs-q"><%= question.body %></div>
+            <div class="chip-row">
+              <% question.options.each do |option| %>
+                <%= button_to option, answer_question_path(question, option: option), form_class: "bt", class: "chip hv-acc" %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd"><span class="k-label">Agents</span></div>
+        <% @agents.first(5).each do |agent| %>
+          <div class="agent-row">
+            <span class="dot" style="background:<%= agent.tone %>"></span>
+            <span class="agent-row-name"><%= agent.name %></span>
+            <span class="agent-row-doing"><%= agent.doing %></span>
+            <span class="agent-row-cost">$<%= format("%.2f", agent.cost_today) %></span>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd"><span class="k-label">CI &amp; tests</span></div>
+        <% @ci.each do |suite| %>
+          <div class="ci-row">
+            <div class="ci-hd">
+              <span class="ci-name"><%= suite.name %></span>
+              <span class="ci-pct" style="color:<%= suite.tone %>"><%= suite.pct %>%</span>
+            </div>
+            <div class="meter"><span style="width:<%= suite.pct %>%;background:<%= suite.tone %>"></span></div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-bottom">
+    <div class="panel">
+      <div class="panel-hd"><span class="k-label">Commits</span></div>
+      <% @commits.each do |commit| %>
+        <div class="commit-row">
+          <span class="commit-sha"><%= commit.sha %></span>
+          <span class="commit-msg"><%= commit.message %></span>
+          <span class="mono-meta"><%= commit.author %></span>
+          <span class="mono-meta"><%= ago_label(commit.committed_at) %></span>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd"><span class="k-label">Changelog</span></div>
+      <% @releases.each do |release| %>
+        <div class="changelog-item">
+          <div class="changelog-hd">
+            <span class="changelog-ver"><%= release.version %></span>
+            <span class="mono-meta"><%= release.date_label %></span>
+            <span class="tag" style="color:<%= release.tone %>"><%= release.kind %></span>
+          </div>
+          <% release.lines.each do |line| %>
+            <div class="changelog-line">— <%= line %></div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd"><span class="k-label">Cycle time by phase</span></div>
+      <div class="cycle-body">
+        <% @cycle.each do |row| %>
+          <div class="cycle-row">
+            <span class="cycle-name"><%= row.name %></span>
+            <span class="cycle-track"><span style="width:<%= row.pct %>%;background:<%= row.tone %>"></span></span>
+            <span class="cycle-val"><%= row.label %></span>
+          </div>
+        <% end %>
+        <div class="cycle-foot">Median RFC → deploy: <span class="val"><%= @median %></span> over <%= @done_count %> tickets</div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,45 @@
+<div class="activity-wrap">
+  <div class="chat-pane">
+    <div class="chat-hd">
+      <span class="dot" style="background:var(--accent)"></span>
+      <span class="chat-title">Architect</span>
+      <span class="mono-dim">planning ALG-215 · thread scoped to ticket</span>
+    </div>
+
+    <div class="chat-log">
+      <% @messages.each do |message| %>
+        <div class="msg <%= message.from_user? ? 'mine' : 'theirs' %>">
+          <div class="msg-hd">
+            <span class="msg-who" style="color:<%= message.from_user? ? 'var(--tx2)' : 'var(--accent)' %>"><%= message.sender.upcase %></span>
+            <span class="msg-time"><%= message.sent_at.strftime("%H:%M") %></span>
+          </div>
+          <div class="msg-body"><%= message.body %></div>
+          <% if message.attach_label.present? %>
+            <div class="msg-attach">▤ <%= message.attach_label %></div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <%= form_with url: chat_messages_path, method: :post, class: "chat-composer",
+                  data: { controller: "composer", action: "turbo:submit-end->composer#clear" } do %>
+      <textarea name="body" id="chat-body" data-turbo-permanent data-composer-target="input"
+                data-action="keydown->composer#submitOnEnter"
+                class="textarea" placeholder="Steer the agent — constraints, corrections, context…"></textarea>
+      <button type="submit" class="btn-accent" style="padding:9px 15px;font-size:12.5px">Send</button>
+    <% end %>
+  </div>
+
+  <div class="events-side">
+    <div class="events-side-hd">Event stream</div>
+    <% @events.each do |event| %>
+      <div class="side-event">
+        <div class="side-event-hd">
+          <span class="mono-meta" style="font-size:10px"><%= event_time(event) %></span>
+          <span class="stream-phase" style="font-size:10px;color:<%= event.tone %>"><%= event.phase_tag %></span>
+        </div>
+        <div class="side-event-text"><%= event.text %></div>
+      </div>
+    <% end %>
+  </div>
+</div>

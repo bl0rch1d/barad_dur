@@ -1,0 +1,20 @@
+# Solid Cable in development too (not async): the pipeline ticker runs as a
+# separate process (see the `ticker` service in docker-compose.yml), and its
+# Turbo Stream broadcasts must reach the web process. In development the
+# solid_cable_messages table lives in the primary database (see the
+# AddSolidCableMessages migration).
+development:
+  adapter: solid_cable
+  polling_interval: 0.5.seconds
+  message_retention: 1.hour
+
+test:
+  adapter: test
+
+production:
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: 0.1.seconds
+  message_retention: 1.day
