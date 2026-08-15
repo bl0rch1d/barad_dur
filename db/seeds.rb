@@ -1,8 +1,10 @@
 # Demo workspace seed — the "algo" trading platform from the design prototype.
 # Idempotent: skips when data is already present.
 
-if Ticket.any?
-  puts "Seed data already present — skipping."
+# Guard on Setting, not tickets: once the app has booted (and especially once
+# live mode purged the demo board), a restart must never re-seed demo data.
+if Setting.any? || Ticket.any?
+  puts "Application state already present — skipping seeds."
 else
   now = Time.current
 

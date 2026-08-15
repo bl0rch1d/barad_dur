@@ -11,6 +11,7 @@ class PipelineEngine
   class << self
     def tick!
       setting = Setting.instance
+      sweep_stale_runs!
       return unless setting.running?
 
       if setting.spend_today >= setting.spend_cap
@@ -58,6 +59,20 @@ class PipelineEngine
       Turbo::StreamsChannel.broadcast_refresh_to(:app)
     rescue => e
       Rails.logger.debug { "pipeline broadcast skipped: #{e.message}" }
+    end
+
+    # Live phase runs whose process died (restart, crash) never finish and
+    # would freeze their ticket forever. A healthy run touches its record
+    # continuously while streaming; one silent past the CLI timeout is dead.
+    def sweep_stale_runs!
+      cutoff = (Float(ENV.fetch("CLAUDE_TIMEOUT", 900)) + 120).seconds.ago
+      PhaseRun.where(runner: "claude", status: "running")
+              .where(updated_at: ...cutoff).find_each do |run|
+        run.update!(status: "failed", finished_at: Time.current)
+        Event.record!(phase_tag: "SYS", tone: "var(--err)", ticket: run.ticket,
+                      meta: run.phase,
+                      text: "#{run.ticket.code} #{run.phase} run went silent — likely interrupted; retry from the ticket drawer")
+      end
     end
 
     private

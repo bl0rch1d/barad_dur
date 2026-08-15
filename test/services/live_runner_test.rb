@@ -227,6 +227,45 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal ["late-repo"], Workspace.repo_names
   end
 
+  test "boot recovery fails orphaned rfc runs and clears job markers" do
+    rfc = Rfc.create!(body: "orphaned", stage: 0, job_state: "investigating")
+    setting = Setting.instance
+    setting.update!(setup: setting.setup.merge(
+      "spec_sync_progress" => { "done" => 1, "total" => 5, "at" => Time.current.to_i },
+      "live_mode_progress" => { "stage" => "tickets", "at" => Time.current.to_i }
+    ))
+
+    BootRecovery.run!
+
+    rfc.reload
+    assert_equal "failed", rfc.job_state
+    assert_match(/restart/, rfc.error)
+
+    setting.reload
+    assert_nil setting.setup["spec_sync_progress"]
+    assert_nil setting.setup["live_mode_progress"]
+    assert_match(/interrupted/, setting.setup["last_spec_sync"])
+    assert_match(/interrupted/, setting.setup["live_mode_result"])
+    assert Event.exists?(["text LIKE ?", "%interrupted by a restart%"])
+  end
+
+  test "engine sweeps silent live phase runs but leaves fresh ones alone" do
+    stuck = Ticket.create!(code: "TST-S1", title: "Stuck run", repo: "demo-repo", state: :implementation)
+    dead_run = stuck.phase_runs.create!(phase: "implementation", status: "running",
+                                        runner: "claude", started_at: 2.hours.ago)
+    dead_run.update_columns(updated_at: 2.hours.ago)
+
+    fresh = Ticket.create!(code: "TST-S2", title: "Fresh run", repo: "demo-repo", state: :implementation)
+    live_run = fresh.phase_runs.create!(phase: "implementation", status: "running",
+                                        runner: "claude", started_at: Time.current)
+
+    PipelineEngine.tick!
+
+    assert_equal "failed", dead_run.reload.status
+    assert_equal "running", live_run.reload.status
+    assert Event.exists?(["text LIKE ?", "%went silent%"])
+  end
+
   test "workspace scans are cached briefly and refreshable" do
     assert_equal ["demo-repo"], Workspace.repo_names
 
