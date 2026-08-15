@@ -1,4 +1,5 @@
 require "open3"
+require "monitor"
 
 # The mounted workspace the pipeline can operate on. The host folder given by
 # WORKSPACE_PATH is mounted at /workspace (the "mount root"); the wizard's
@@ -21,6 +22,9 @@ class Workspace
   # out-of-band filesystem changes stay unnoticed.
   CACHE_TTL = 120
   CACHE_MUTEX = Mutex.new
+  # Reentrant: cached blocks nest (openspec_repos wraps repos). Single-flights
+  # scans so concurrent cache misses can't stampede the slow mount.
+  SCAN_LOCK = Monitor.new
 
   class << self
     def refresh!
@@ -185,9 +189,25 @@ class Workspace
         entry = @cache[key]
         return entry[1] if entry && entry[0] > now
       end
-      value = yield
-      CACHE_MUTEX.synchronize { (@cache ||= {})[key] = [now + ttl, value] }
-      value
+
+      SCAN_LOCK.synchronize do
+        # single-flight: whoever queued behind the scan reuses its result
+        CACHE_MUTEX.synchronize do
+          entry = @cache[key]
+          return entry[1] if entry && entry[0] > now
+        end
+
+        value = yield
+        if value.present?
+          CACHE_MUTEX.synchronize { @cache[key] = [now + ttl, value] }
+        else
+          # empty scans are often transient mount hiccups under load — never
+          # cache them; fall back to the last good (possibly expired) value
+          stale = CACHE_MUTEX.synchronize { @cache[key]&.last }
+          return stale if stale.present?
+        end
+        value
+      end
     end
 
     def project_marker?(dir)

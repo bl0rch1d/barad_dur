@@ -28,6 +28,7 @@ services:
       DB_HOST: db
       DB_USER: barad_dur
       DB_PASSWORD: barad_dur
+      RAILS_MAX_THREADS: "5"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       PIPELINE_RUNNER: ${PIPELINE_RUNNER:-auto}

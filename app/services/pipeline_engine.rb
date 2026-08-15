@@ -21,12 +21,13 @@ class PipelineEngine
       setting.increment!(:tick_count)
       in_flight = Ticket.in_flight.includes(:agent).order(:code).to_a
       workable = in_flight.reject { |t| t.gated? || t.blocked_by_question? }
-      # live tickets progress when their agent process finishes, not by ticks
-      demo_workable = workable.reject(&:live_run?)
+      # live tickets progress when their agent process finishes, not by ticks;
+      # in live mode there is no simulated work at all
+      demo_workable = setting.live_mode? ? [] : workable.reject(&:live_run?)
 
       emit_activity(setting, demo_workable)
       demo_workable.each { |ticket| progress(setting, ticket) }
-      pull_ready_work(in_flight.size)
+      pull_ready_work(in_flight.size, setting)
       accrue_spend(setting) if demo_workable.any?
       broadcast
     end
@@ -144,10 +145,16 @@ class PipelineEngine
       )
     end
 
-    def pull_ready_work(in_flight_count)
+    def pull_ready_work(in_flight_count, setting = Setting.instance)
       return if in_flight_count >= MAX_IN_FLIGHT
 
-      ticket = Ticket.ready.order(:code).first || groom_backlog
+      ticket =
+        if setting.live_mode?
+          # only tickets an agent can actually execute; never fabricate work
+          Ticket.ready.order(:code).detect { |t| AgentRunner.live?(t) }
+        else
+          Ticket.ready.order(:code).first || groom_backlog
+        end
       agent = Agent.idle.ordered.first
       return unless ticket && agent
 

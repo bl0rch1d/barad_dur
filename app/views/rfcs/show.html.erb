@@ -4,6 +4,9 @@
       <span class="page-title">Feature request</span>
       <span class="mono-dim">describe intent → system investigates, clarifies, plans, files tickets</span>
     </div>
+    <% if @setting.live_mode? %>
+      <span class="mono-meta" style="color:var(--warn)">this flow is still simulated — live workspace investigation is the next milestone</span>
+    <% end %>
 
     <div class="steps-strip">
       <% %w[Describe Investigate Clarify Plan].each_with_index do |label, i| %>

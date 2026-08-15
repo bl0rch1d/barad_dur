@@ -5,7 +5,8 @@
   ["Authentication", "Use your subscription or a raw API key. Keys never leave the machine; they sit in the OS keychain and are injected per agent process."],
   ["Development framework", "This decides what a phase actually runs. Detected openspec in algo/ — recommended."],
   ["Parsing the workspace", "Indexing code, commit history and specs to build the dashboard. Anything ambiguous becomes a question rather than a guess."],
-  ["Ready — pick your leash", "Autonomy is a feature flag, not a one-way door. Switch it from the titlebar mid-run; in-flight phases finish, the next one respects the new setting."]
+  ["Ready — pick your leash", "Autonomy is a feature flag, not a one-way door. Switch it from the titlebar mid-run; in-flight phases finish, the next one respects the new setting."],
+  ["Going live", "Retiring the demo workspace and switching the engine to live execution. This is a one-time transition — your workspace tickets and parsed specs are kept."]
 ][step - 1] %>
 <% repo_defaults = %w[true true true false] %>
 <% ws_repos = Workspace.repos %>
@@ -20,13 +21,13 @@
   <div class="wizard">
     <div class="wizard-hd">
       <span class="screen-title">Setup</span>
-      <span class="mono-dim">step <%= step %> of 5</span>
+      <span class="mono-dim">step <%= step %> of 6</span>
       <span class="spacer"></span>
       <%= link_to "✕", request.path, class: "close-btn" %>
     </div>
 
     <div class="wsteps">
-      <% %w[Folder Auth Framework Parse Autonomy].each_with_index do |label, i| %>
+      <% %w[Folder Auth Framework Parse Autonomy Go\ live].each_with_index do |label, i| %>
         <div class="wstep<%= ' reached' if step >= i + 1 %><%= ' current' if step == i + 1 %>">
           <span class="bar"></span>
           <span class="lbl"><%= label %></span>
@@ -297,7 +298,7 @@
                 <% total = sync_progress["total"].to_i %>
                 <% done = sync_progress["done"].to_i %>
                 <% pct = total.positive? ? (100 * done / total) : 4 %>
-                <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;flex-direction:column;gap:6px" data-controller="live-refresh">
                   <div style="display:flex;align-items:baseline;gap:10px">
                     <span class="mono-meta" style="color:var(--accent);flex:1">parsing <%= sync_progress["label"] %></span>
                     <span class="mono-dim"><%= total.positive? ? "#{done}/#{total} spec files" : "…" %></span>
@@ -365,6 +366,16 @@
 
       <% if step == 5 %>
         <div class="wizard-stack">
+          <% if ws_repos.any? && !@setting.live_mode? %>
+            <div class="parse-card warn">
+              <span class="k-label" style="color:var(--warn)">Going live</span>
+              <span style="font-size:12px;color:var(--tx2);line-height:1.55">
+                Starting switches the app to live mode: the demo board and history are cleared,
+                and the pipeline will only work tickets that target your workspace repos.
+                Tickets already pointing at the workspace and your parsed specs are kept.
+              </span>
+            </div>
+          <% end %>
           <div class="summary-grid">
             <% fw_label = ["openspec (detected)", "custom harness", "vanilla loop"][wizard_setup("fw", "0").to_i] || "openspec (detected)" %>
             <% auth_label = wizard_setup("auth", "0") == "1" ? "API key" : "subscription" %>
@@ -399,6 +410,60 @@
           </div>
         </div>
       <% end %>
+
+      <% if step == 6 %>
+        <% lm_progress = setup["live_mode_progress"] %>
+        <% lm_progress = nil if lm_progress && lm_progress["at"].to_i < 90.seconds.ago.to_i %>
+        <% lm_stages = [["tickets", "Purge demo tickets"], ["history", "Clear demo history"],
+                        ["agents", "Reset agent roles"], ["engine", "Switch engine to live"]] %>
+        <div class="wizard-stack">
+          <% if lm_progress %>
+            <% current = lm_stages.index { |key, _| key == lm_progress["stage"] } || 0 %>
+            <% fraction = lm_progress["total"].to_i.positive? ? lm_progress["done"].to_f / lm_progress["total"].to_i : 0.0 %>
+            <% overall = (((current + fraction) / lm_stages.size) * 100).round %>
+            <div class="parse-card" style="border-color:var(--accent)" data-controller="live-refresh">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="mono" style="font-size:11px;color:var(--accent);flex:1">Going live…</span>
+                <span class="mono-dim"><%= overall %>%</span>
+              </div>
+              <div class="meter"><span style="width:<%= overall %>%;background:var(--accent);transition:width .4s ease"></span></div>
+              <div class="parse-log">
+                <% lm_stages.each_with_index do |(key, label), i| %>
+                  <div class="row" style="align-items:center">
+                    <% if i < current %>
+                      <span style="color:var(--ok)">✓</span>
+                    <% elsif i == current %>
+                      <span class="dot" style="background:var(--accent);animation:pulse 1.8s infinite"></span>
+                    <% else %>
+                      <span style="color:var(--tx3)">◦</span>
+                    <% end %>
+                    <span class="t" style="<%= 'color:var(--tx)' if i == current %>">
+                      <%= label %><%= " — #{lm_progress['label']} (#{lm_progress['done']}/#{lm_progress['total']})" if i == current && lm_progress['total'].to_i.positive? %>
+                    </span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% elsif @setting.live_mode? %>
+            <div class="parse-card" style="border-color:var(--ok)">
+              <span class="k-label" style="color:var(--ok)">Workspace is live ✓</span>
+              <div class="parse-log">
+                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= setup["live_mode_result"] || "demo data cleared" %></span></div>
+                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= ws_repos.size %> <%= "repo".pluralize(ws_repos.size) %> · <%= Capability.count %> capabilities · agents ready</span></div>
+                <div class="row"><span style="color:var(--ok)">✓</span><span class="t">the board now only works tickets that target your workspace</span></div>
+              </div>
+              <div><%= link_to "Enter mission control", root_path, class: "btn-accent", style: "padding:8px 16px;display:inline-block" %></div>
+            </div>
+          <% else %>
+            <% result = setup["live_mode_result"] %>
+            <div class="parse-card <%= 'warn' if result&.start_with?('activation failed') %>">
+              <span class="k-label" style="<%= 'color:var(--warn)' if result&.start_with?('activation failed') %>">
+                <%= result&.start_with?("activation failed") ? result : "Nothing to activate — configure a workspace in the Folder step first" %>
+              </span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </div>
 
     <div class="wizard-foot">
@@ -409,7 +474,8 @@
              AgentRunner.live_available? ? "live runner ready · #{@setting.auth_mode.tr('_', ' ')}" : "auth not detected — demo driver",
              "openspec detected",
              ws_repos.any? ? (Capability.any? ? "#{Capability.count} capabilities in the spec index" : "no specs parsed yet") : "2 questions waiting",
-             "you can change this later"][step - 1] %>
+             "you can change this later",
+             @setting.live_mode? ? "workspace is live" : "one-time transition"][step - 1] %>
       </span>
       <% if step < 5 %>
         <% gate_on_indexing = step == 4 %>
@@ -417,8 +483,16 @@
                     id: gate_on_indexing ? "wizard-continue" : nil,
                     data: gate_on_indexing ? { progress_unlock: true, turbo_permanent: true } : {},
                     class: "btn-accent#{' locked' if gate_on_indexing}", style: "padding:7px 15px" %>
-      <% else %>
-        <%= button_to "Start pipeline", wizard_finish_path, form_class: "bt", class: "btn-accent", style: "padding:7px 15px" %>
+      <% elsif step == 5 %>
+        <%# morph-permanent: a broadcast refresh mid-submission must not replace
+            the submitting form, or Turbo drops the redirect follow-through %>
+        <%= button_to ws_repos.any? && !@setting.live_mode? ? "Start live pipeline" : "Start pipeline",
+                      wizard_finish_path,
+                      form: { id: "wizard-finish-form", data: { turbo_permanent: true } },
+                      form_class: "bt", class: "btn-accent busy-btn", style: "padding:7px 15px",
+                      data: { turbo_submits_with: "Starting…" } %>
+      <% elsif @setting.live_mode? && setup["live_mode_progress"].nil? %>
+        <%= link_to "Enter mission control", root_path, class: "btn-accent", style: "padding:7px 15px" %>
       <% end %>
     </div>
   </div>

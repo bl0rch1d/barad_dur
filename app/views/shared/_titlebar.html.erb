@@ -1,8 +1,13 @@
 <div class="titlebar">
   <div class="tl-dots"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
   <div class="brand">
-    <span class="brand-name">algo</span>
-    <span class="mono-dim">4 repos · openspec</span>
+    <% if @setting.live_mode? %>
+      <span class="brand-name"><%= Workspace.root.basename %></span>
+      <span class="mono-dim"><%= Workspace.repos.size %> <%= "repo".pluralize(Workspace.repos.size) %> · openspec · live</span>
+    <% else %>
+      <span class="brand-name">algo</span>
+      <span class="mono-dim">4 repos · openspec</span>
+    <% end %>
   </div>
 
   <div class="spacer"></div>

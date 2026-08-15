@@ -56,6 +56,11 @@
           </div>
         <% end %>
 
+        <% if @events.empty? && @now_ticket.nil? %>
+          <div class="stream-body" style="padding-bottom:8px">
+            <span class="mono-meta">quiet — file a ticket on the board to start the pipeline</span>
+          </div>
+        <% end %>
         <% @events.first(7).each do |event| %>
           <div class="tl-row">
             <div class="tl-gutter">
@@ -120,6 +125,9 @@
 
       <div class="panel">
         <div class="panel-hd"><span class="k-label">CI &amp; tests</span></div>
+        <% if @ci.empty? %>
+          <div class="ci-row"><span class="mono-meta">no CI provider wired yet</span></div>
+        <% end %>
         <% @ci.each do |suite| %>
           <div class="ci-row">
             <div class="ci-hd">
@@ -136,6 +144,9 @@
   <div class="dash-bottom">
     <div class="panel">
       <div class="panel-hd"><span class="k-label">Commits</span></div>
+      <% if @commits.empty? %>
+        <div class="commit-row"><span class="mono-meta">no commits yet — agent runs will land here</span></div>
+      <% end %>
       <% @commits.each do |commit| %>
         <div class="commit-row">
           <span class="commit-sha"><%= commit.sha %></span>
@@ -148,6 +159,9 @@
 
     <div class="panel">
       <div class="panel-hd"><span class="k-label">Changelog</span></div>
+      <% if @releases.empty? %>
+        <div class="changelog-item"><span class="mono-meta">no releases yet — shipped tickets appear here</span></div>
+      <% end %>
       <% @releases.each do |release| %>
         <div class="changelog-item">
           <div class="changelog-hd">

@@ -31,7 +31,7 @@ class CycleStats
   def self.median_label
     durations = Ticket.done.where.not(started_at: nil).where.not(finished_at: nil)
                       .pluck(:started_at, :finished_at).map { |s, f| f - s }.sort
-    return "6h 12m" if durations.empty?
+    return "—" if durations.empty?
 
     ApplicationController.helpers.short_duration(durations[durations.size / 2])
   end

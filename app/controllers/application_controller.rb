@@ -14,7 +14,7 @@ class ApplicationController < ActionController::Base
     if params[:ticket].present?
       @drawer_ticket = Ticket.includes(:agent, :phase_runs).find_by(code: params[:ticket])
     end
-    @wizard_step = params[:wizard].to_i.clamp(1, 5) if params[:wizard].present?
+    @wizard_step = params[:wizard].to_i.clamp(1, 6) if params[:wizard].present?
   end
 
   def current_theme

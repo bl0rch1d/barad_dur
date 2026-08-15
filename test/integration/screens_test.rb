@@ -16,7 +16,7 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "wizard renders each step" do
-    (1..5).each do |step|
+    (1..6).each do |step|
       get root_path(wizard: step)
       assert_response :success
     end
