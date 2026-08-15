@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # RFC-flow Claude CLI stand-in. Mode via FAKE_MODE, else sniffed from the
-# prompt (argv $2): Architect prompts get a plan, everything else findings.
+# prompt (argv $2): propose/Architect prompts get a plan, else findings.
 MODE="${FAKE_MODE:-}"
 if [ -z "$MODE" ]; then
-  case "$2" in *Architect*) MODE=plan ;; *) MODE=invest ;; esac
+  case "$2" in *opsx:propose*|*Architect*) MODE=plan ;; *) MODE=invest ;; esac
 fi
 echo '{"type":"system","subtype":"init","session_id":"rfc-stub","model":"stub"}'
 echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Reading workspace structure"}]}}'
 sleep 1.2
 if [ "$MODE" = "plan" ]; then
 cat <<'EOF'
-{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.031,"duration_ms":900,"usage":{"input_tokens":500,"output_tokens":200},"result":"Plan ready.\n```json\n{\"tickets\":[{\"title\":\"Add farewell method to Greeting\",\"repo\":\"demo-repo\",\"estimate\":\"40m\",\"risky\":false,\"tag\":\"core\",\"depends_on\":[]},{\"title\":\"Property tests for greetings\",\"repo\":\"demo-repo\",\"estimate\":\"30m\",\"risky\":false,\"tag\":\"tests\",\"depends_on\":[1]}]}\n```"}
+{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.031,"duration_ms":900,"usage":{"input_tokens":500,"output_tokens":200},"result":"Plan ready.\n```json\n{\"change\":\"add-farewell\",\"tickets\":[{\"title\":\"Add farewell method to Greeting\",\"repo\":\"demo-repo\",\"estimate\":\"40m\",\"risky\":false,\"tag\":\"core\",\"depends_on\":[]},{\"title\":\"Property tests for greetings\",\"repo\":\"demo-repo\",\"estimate\":\"30m\",\"risky\":false,\"tag\":\"tests\",\"depends_on\":[1]}]}\n```"}
 EOF
 else
 cat <<'EOF'

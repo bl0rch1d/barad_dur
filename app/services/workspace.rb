@@ -32,6 +32,12 @@ class Workspace
     def refresh!
       CACHE_MUTEX.synchronize { @cache = {} }
     end
+
+    # Public memoization hook for services scanning the workspace (Harness…),
+    # sharing the same single-flight cache and refresh! lifecycle.
+    def memo(key, ttl: CACHE_TTL, &block)
+      cached(key, ttl: ttl, &block)
+    end
     def mount_root
       Pathname.new(ENV.fetch("WORKSPACE_ROOT", "/workspace"))
     end

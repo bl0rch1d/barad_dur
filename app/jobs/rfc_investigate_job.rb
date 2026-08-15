@@ -10,8 +10,10 @@ class RfcInvestigateJob < RfcAgentJob
     scout = Agent.find_by(name: "Scout")
     scout&.update!(status: "running", doing: "Investigating feature request in the workspace")
 
-    result = HeadlessAgent.call(prompt: RfcPrompts.investigate(rfc, targets),
-                                chdir: Workspace.root(setting).to_s, max_turns: 30) do |data|
+    context = execution_context(setting)
+    result = HeadlessAgent.call(prompt: RfcPrompts.investigate(rfc, targets, setting),
+                                chdir: context[:chdir], extra_args: context[:extra_args],
+                                max_turns: 30) do |data|
       narrate(rfc, data, "INVEST", "Scout")
     end
 

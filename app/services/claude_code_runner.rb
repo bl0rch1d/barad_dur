@@ -76,11 +76,14 @@ class ClaudeCodeRunner
     return fail_run("repository #{ticket.repo.inspect} not found in workspace") unless repo
 
     prepare_branch(repo)
+    plan = PhasePrompts.execution(ticket, phase, repo)
+    harness_run = plan[:chdir] != repo
     Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
-                  meta: "live run", text: "Started #{phase} run (claude code)")
+                  meta: harness_run ? "harness run" : "live run",
+                  text: "Started #{phase} run (#{harness_run ? plan[:prompt].lines.first.to_s.strip.truncate(40) : 'claude code'})")
 
-    result = HeadlessAgent.call(prompt: PhasePrompts.build(ticket, phase),
-                                chdir: repo, env: child_env) do |data|
+    result = HeadlessAgent.call(prompt: plan[:prompt], chdir: plan[:chdir],
+                                extra_args: plan[:extra_args], env: child_env) do |data|
       case data["type"]
       when "system"
         run.update!(session_id: data["session_id"]) if data["session_id"]

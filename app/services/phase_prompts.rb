@@ -1,7 +1,56 @@
 # Prompts handed to the headless agent for each pipeline phase.
 # Deliberately artifact-oriented: every phase leaves something reviewable.
+#
+# When a custom harness is detected (Harness), mapped phases invoke the
+# harness's own commands/skills inside the harness repo instead of the
+# built-in prompts below.
 module PhasePrompts
   module_function
+
+  # Full execution plan for a phase run: prompt, working directory and extra
+  # CLI args. Harness-mapped phases run in the harness repo with the whole
+  # workspace reachable; everything else uses the built-in prompt in the
+  # ticket's repo.
+  def execution(ticket, phase, repo_path, setting = Setting.instance)
+    invocation = Harness.phase_invocation(phase, setting)
+    if invocation && (phase != "implementation" || change_ref(ticket).present?)
+      info = Harness.detect(setting)
+      { prompt: harness_prompt(ticket, phase, invocation, setting),
+        chdir: info.path,
+        extra_args: ["--add-dir", Workspace.root(setting).to_s] }
+    else
+      { prompt: build(ticket, phase), chdir: repo_path, extra_args: [] }
+    end
+  end
+
+  # The openspec change a ticket belongs to (set when pushed from a
+  # harness-planned RFC) — /opsx:apply needs it.
+  def change_ref(ticket)
+    ticket.artifacts.find { |a| a.start_with?("openspec change: ") }
+          &.delete_prefix("openspec change: ")
+  end
+
+  def harness_prompt(ticket, phase, invocation, setting = Setting.instance)
+    argument =
+      case phase
+      when "implementation" then change_ref(ticket)
+      else "#{ticket.code}: #{ticket.title}"
+      end
+    agents = Harness.phase_agents(phase, setting)
+    scope = Workspace.subpath(ticket.repo)
+
+    <<~TXT
+      #{invocation} #{argument}
+
+      Pipeline context: you are running non-interactively as the #{role_for(phase)}
+      agent for ticket #{ticket.code} ("#{ticket.title}") targeting repository
+      #{ticket.repo}#{scope ? " (scope: #{scope} subdirectory)" : ""}.
+      Never ask the user questions — make reasonable choices and note them.
+      #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
+      Work autonomously until the #{phase} outcome is complete, then summarize
+      what you did.
+    TXT
+  end
 
   def build(ticket, phase)
     header = <<~TXT

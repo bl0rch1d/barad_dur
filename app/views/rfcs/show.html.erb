@@ -104,7 +104,14 @@
         <div class="panel-hd">
           <span class="k-label">Proposed tickets · dependency order</span>
           <span class="spacer"></span>
-          <span class="mono-meta"><%= @rfc_live ? "#{@rfc.proposals.size} tickets · codes assigned on push" : "est 5h 40m · ~$9.20" %></span>
+          <% change_name = @rfc.proposals.first&.dig("change") %>
+          <span class="mono-meta">
+            <%= if @rfc_live
+                  [change_name && "openspec change: #{change_name}", "#{@rfc.proposals.size} tickets · codes assigned on push"].compact.join(" · ")
+                else
+                  "est 5h 40m · ~$9.20"
+                end %>
+          </span>
         </div>
         <% @rfc.proposals.each do |proposal| %>
           <div class="plan-row">

@@ -15,14 +15,18 @@ class RfcPlanJob < RfcAgentJob
     architect = Agent.find_by(name: "Architect")
     architect&.update!(status: "running", doing: "Planning tickets for the feature request")
 
-    result = HeadlessAgent.call(prompt: RfcPrompts.plan(rfc, targets),
-                                chdir: Workspace.root(setting).to_s, max_turns: 20) do |data|
+    context = execution_context(setting)
+    result = HeadlessAgent.call(prompt: RfcPrompts.plan(rfc, targets, setting),
+                                chdir: context[:chdir], extra_args: context[:extra_args],
+                                max_turns: 30) do |data|
       narrate(rfc, data, "PLAN", "Architect")
     end
 
     if result.ok
-      tickets = Array(StructuredOutput.json_block(result.result_text)&.dig("tickets"))
-      proposals = build_proposals(tickets, targets)
+      data = StructuredOutput.json_block(result.result_text) || {}
+      tickets = Array(data["tickets"])
+      change = data["change"].to_s.parameterize.presence
+      proposals = build_proposals(tickets, targets, change)
       if proposals.any?
         rfc.update!(proposals: proposals, stage: 3, job_state: "idle",
                     error: nil, progress_note: nil, pushed: false)
@@ -41,7 +45,7 @@ class RfcPlanJob < RfcAgentJob
 
   private
 
-  def build_proposals(tickets, targets)
+  def build_proposals(tickets, targets, change = nil)
     tickets.first(6).each_with_index.filter_map do |ticket, index|
       title = ticket["title"].to_s.strip
       next if title.blank?
@@ -54,7 +58,8 @@ class RfcPlanJob < RfcAgentJob
         "dep" => deps.any? ? "needs #{deps.join(', ')}" : "no deps",
         "dep_indexes" => deps, "est" => ticket["estimate"].to_s.presence || "?",
         "tag" => tag, "tone" => TONES.fetch(tag, "var(--accent)"),
-        "risky" => ticket["risky"] == true || tag == "risky" }
+        "risky" => ticket["risky"] == true || tag == "risky",
+        "change" => change }.compact
     end
   end
 end

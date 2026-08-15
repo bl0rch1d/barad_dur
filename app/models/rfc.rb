@@ -49,11 +49,12 @@ class Rfc < ApplicationRecord
       deps = p["dep_codes"].presence ||
              Array(p["dep_indexes"]).map { |di| codes[di.to_i - 1] }.compact
       est = p["est"].to_s
+      artifacts = p["change"].present? ? ["openspec change: #{p['change']}"] : []
       Ticket.create!(
         code: codes[i], title: p["title"], repo: p["repo"],
         est_label: est.start_with?("~") ? est : "~#{est}",
         risky: p["risky"] == true || p["tag"] == "risky",
-        state: :ready, dep_codes: deps
+        state: :ready, dep_codes: deps, artifacts: artifacts
       )
     end
     update!(pushed: true)

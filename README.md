@@ -133,6 +133,15 @@ Ticket codes/titles you enter are passed to the agent as prompt text.
   hand the ticket back to `PipelineEngine.phase_finished!` for the (possibly
   gated) transition. `PhasePrompts` defines what each phase asks the agent to
   do; `Workspace`/`SpecSync` handle repo scanning and openspec parsing.
+- **Custom harness support**: if a workspace repo contains `.claude/commands`
+  (plus skills/agents), it is auto-detected and mapped onto phases —
+  e.g. investigation → `/opsx:explore`, planning → `/opsx:propose`,
+  implementation → `/opsx:apply <change>`, review → `/review` skill; unmapped
+  phases keep built-in prompts. Harness runs execute inside the harness repo
+  with the workspace reachable (`--add-dir`), project agents are surfaced to
+  phases for delegation, and the wizard's Framework step shows the live
+  mapping with per-phase overrides. The RFC flow also goes through the
+  harness, recording the created openspec change so `apply` targets it.
 - `HeadlessAgent` is the shared one-shot CLI execution seam;
   `RfcInvestigateJob`/`RfcPlanJob` drive the live RFC flow with structured
   JSON output (`StructuredOutput`), and the dashboard commits panel reads

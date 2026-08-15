@@ -11,13 +11,14 @@ class HeadlessAgent
                       :log, :exit_status, :session_id, :raw, keyword_init: true)
 
   class << self
-    def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, &on_message)
+    def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, extra_args: [], &on_message)
       bin = ClaudeCodeRunner.bin_path
       return Result.new(ok: false, error: "claude CLI not found", log: "") unless bin
 
       flags = (ENV["CLAUDE_FLAGS"].presence || ClaudeCodeRunner::DEFAULT_FLAGS).shellsplit
       command = [bin, "-p", prompt, "--output-format", "stream-json", "--verbose",
-                 "--max-turns", (max_turns || ENV.fetch("CLAUDE_MAX_TURNS", "40")).to_s, *flags]
+                 "--max-turns", (max_turns || ENV.fetch("CLAUDE_MAX_TURNS", "40")).to_s,
+                 *extra_args, *flags]
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) +
                  Float(timeout || ENV.fetch("CLAUDE_TIMEOUT", 900))
 

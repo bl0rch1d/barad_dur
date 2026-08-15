@@ -5,6 +5,17 @@ class RfcAgentJob < ApplicationJob
 
   private
 
+  # Harness runs execute in the harness repo with the workspace reachable;
+  # plain runs execute at the workspace root.
+  def execution_context(setting)
+    harness = Harness.active?(setting) ? Harness.detect(setting) : nil
+    if harness
+      { chdir: harness.path, extra_args: ["--add-dir", Workspace.root(setting).to_s] }
+    else
+      { chdir: Workspace.root(setting).to_s, extra_args: [] }
+    end
+  end
+
   def narrate(rfc, data, tag, agent_name)
     return unless data["type"] == "assistant"
 

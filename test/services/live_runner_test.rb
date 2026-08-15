@@ -365,6 +365,83 @@ class LiveRunnerTest < ActiveSupport::TestCase
     ENV.delete("FAKE_MODE")
   end
 
+  def install_harness!
+    base = File.join(@repo, ".claude")
+    FileUtils.mkdir_p(File.join(base, "commands", "opsx"))
+    %w[explore propose apply].each do |cmd|
+      File.write(File.join(base, "commands", "opsx", "#{cmd}.md"), "# opsx #{cmd}")
+    end
+    FileUtils.mkdir_p(File.join(base, "skills", "review"))
+    FileUtils.mkdir_p(File.join(base, "agents"))
+    %w[explorer critic reviewer].each do |agent|
+      File.write(File.join(base, "agents", "#{agent}.md"), "name: #{agent}")
+    end
+    Workspace.refresh!
+  end
+
+  test "harness detection maps commands, skills and agents onto phases" do
+    install_harness!
+
+    info = Harness.detect
+    assert_equal "demo-repo", info.repo
+    assert_includes info.commands, "opsx:explore"
+    assert_includes info.skills, "review"
+    assert_includes info.agents, "critic"
+
+    assert_equal "/opsx:explore", Harness.phase_invocation("investigation")
+    assert_equal "/opsx:propose", Harness.phase_invocation("planning")
+    assert_equal "/review", Harness.phase_invocation("review"), "skill fallback"
+    assert_nil Harness.phase_invocation("testing"), "no harness match stays built-in"
+    assert_equal %w[explorer], Harness.phase_agents("investigation")
+    assert_equal %w[reviewer critic], Harness.phase_agents("review") & %w[reviewer critic]
+
+    Setting.instance.update!(setup: { "map:investigation" => "built-in" })
+    assert_nil Harness.phase_invocation("investigation"), "override forces built-in"
+
+    Setting.instance.update!(setup: { "fw" => "2" })
+    assert_nil Harness.phase_invocation("planning"), "vanilla framework disables harness"
+  end
+
+  test "harness-mapped phases execute in the harness repo with workspace access" do
+    install_harness!
+    ticket = Ticket.new(code: "TST-H1", title: "Harness ticket", repo: "demo-repo", artifacts: [])
+
+    plan = PhasePrompts.execution(ticket, "investigation", "/elsewhere")
+    assert plan[:prompt].start_with?("/opsx:explore TST-H1"), plan[:prompt].lines.first
+    assert_equal @repo, plan[:chdir]
+    assert_includes plan[:extra_args], "--add-dir"
+    assert_includes plan[:prompt], "explorer", "suggests matching project agents"
+
+    # implementation needs a change ref — without one it falls back to built-in
+    fallback = PhasePrompts.execution(ticket, "implementation", "/elsewhere")
+    refute fallback[:prompt].start_with?("/opsx:apply")
+    assert_equal "/elsewhere", fallback[:chdir]
+
+    ticket.artifacts = ["openspec change: add-farewell"]
+    apply_plan = PhasePrompts.execution(ticket, "implementation", "/elsewhere")
+    assert apply_plan[:prompt].start_with?("/opsx:apply add-farewell")
+    assert_equal @repo, apply_plan[:chdir]
+  end
+
+  test "rfc flow through the harness records the openspec change" do
+    install_harness!
+    ENV["CLAUDE_BIN"] = Rails.root.join("test/fixtures/files/fake_claude_rfc").to_s
+    Agent.create!(name: "Architect", abbr: "AR", role: "planning", llm_model: "opus", status: "idle")
+    rfc = Rfc.create!(body: "Add a farewell", stage: 2, job_state: "planning")
+
+    assert RfcPrompts.plan(rfc, ["demo-repo"]).start_with?("/opsx:propose"), "harness planning prompt"
+
+    RfcPlanJob.perform_now(rfc.id)
+
+    rfc.reload
+    assert_equal 3, rfc.stage
+    assert_equal "add-farewell", rfc.proposals.first["change"]
+
+    rfc.push_to_board!
+    ticket = Ticket.order(:id).last
+    assert_includes ticket.artifacts, "openspec change: add-farewell"
+  end
+
   test "workspace recent commits merges selected repos newest first" do
     File.write(File.join(@repo, "second.txt"), "x")
     system("git", "-C", @repo, "add", ".")

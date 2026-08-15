@@ -186,7 +186,51 @@
             <% end %>
           <% end %>
 
-          <% if fw == "1" %>
+          <% detected_harness = Harness.detect %>
+          <% if detected_harness && fw != "2" %>
+            <div class="panel harness-panel">
+              <div class="panel-hd">
+                <span class="k-label" style="color:var(--info)">Detected harness · <%= detected_harness.repo %></span>
+                <span class="spacer"></span>
+                <span class="mono-meta"><%= detected_harness.commands.size %> commands · <%= detected_harness.skills.size %> skills · <%= detected_harness.agents.size %> agents</span>
+              </div>
+              <div style="padding:12px 13px;display:flex;flex-direction:column;gap:7px">
+                <div class="k-label" style="letter-spacing:.08em;padding-bottom:2px">Phase → command · click a row to switch source</div>
+                <% Ticket::PHASES.each do |phase| %>
+                  <% default_inv = Harness.default_invocation(phase) %>
+                  <% active_inv = Harness.phase_invocation(phase) %>
+                  <% overridden = wizard_setup("map:#{phase}", "") == "built-in" %>
+                  <% if default_inv %>
+                    <%= button_to wizard_patch_path(key: "map:#{phase}", value: overridden ? "harness" : "built-in", wizard: step),
+                                  form_class: "bt", class: "map-row#{' on' if active_inv}" do %>
+                      <span class="dot" style="background:<%= active_inv ? 'var(--info)' : 'var(--tx3)' %>"></span>
+                      <span class="map-phase"><%= phase.capitalize %></span>
+                      <span class="mono-meta" style="flex:none">→</span>
+                      <span class="map-cmd" style="color:<%= active_inv ? 'var(--info)' : 'var(--tx3)' %>"><%= active_inv || "built-in: default prompt" %></span>
+                      <span class="tag" style="color:<%= active_inv ? 'var(--info)' : 'var(--tx3)' %>"><%= active_inv ? "harness" : "built-in" %></span>
+                    <% end %>
+                  <% else %>
+                    <div class="map-row" style="cursor:default">
+                      <span class="dot" style="background:var(--tx3)"></span>
+                      <span class="map-phase"><%= phase.capitalize %></span>
+                      <span class="mono-meta" style="flex:none">→</span>
+                      <span class="map-cmd" style="color:var(--tx3)">built-in prompt (no harness match)</span>
+                      <span class="tag" style="color:var(--tx3)">built-in</span>
+                    </div>
+                  <% end %>
+                <% end %>
+                <% if detected_harness.agents.any? %>
+                  <div style="padding-top:9px;border-top:1px solid var(--soft);margin-top:3px;display:flex;flex-direction:column;gap:5px">
+                    <span class="k-label" style="letter-spacing:.08em">Project agents — auto-loaded, offered to phases for delegation</span>
+                    <span class="mono-meta"><%= detected_harness.agents.first(10).join(" · ") %><%= " · +#{detected_harness.agents.size - 10} more" if detected_harness.agents.size > 10 %></span>
+                  </div>
+                <% end %>
+                <% if detected_harness.skills.any? %>
+                  <span class="mono-meta">skills: <%= detected_harness.skills.first(10).join(" · ") %></span>
+                <% end %>
+              </div>
+            </div>
+          <% elsif fw == "1" %>
             <div class="panel harness-panel">
               <div class="panel-hd">
                 <span class="k-label" style="color:var(--info)">Parsed harness · ~/dev/quant_development</span>
