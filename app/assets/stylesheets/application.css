@@ -81,6 +81,23 @@ input, textarea, select { font:inherit; color:inherit }
 .btn-accent.locked { opacity:.45; pointer-events:none; cursor:default }
 .busy-btn[disabled]::before { content:""; width:10px; height:10px; border:2px solid var(--accent); border-top-color:transparent; border-radius:50%; display:inline-block; animation:spin .7s linear infinite; margin-right:8px; vertical-align:-1px }
 
+/* toggle rows and chips submitting via Turbo: the clicked element dims and
+   its glyph spins in place until the re-render lands (Turbo sets [disabled]
+   on the submitter automatically — no markup needed) */
+.check-row[disabled], .radio-card[disabled], .map-row[disabled], .chip[disabled] { opacity:.65; pointer-events:none; cursor:progress }
+.check-row[disabled] .checkbox {
+  border-color:var(--accent)!important; border-top-color:transparent!important;
+  background:transparent!important; color:transparent; border-width:2px;
+  border-radius:50%; animation:spin .6s linear infinite;
+}
+.radio-card[disabled] .radio-dot {
+  border-color:var(--accent)!important; border-top-color:transparent!important;
+  background:transparent!important; border-width:2px; animation:spin .6s linear infinite;
+}
+.map-row[disabled] .dot { background:var(--accent)!important; animation:pulse .9s infinite }
+.chip[disabled] { color:var(--accent)!important; border-color:var(--accent)!important }
+.seg-btn[disabled] { opacity:.55 }
+
 .hv-err:hover { border-color:var(--err)!important; color:var(--err)!important }
 .hv-acc:hover { border-color:var(--accent)!important; color:var(--accent)!important }
 .hv-soft:hover { border-color:var(--tx3)!important; color:var(--tx2)!important }
