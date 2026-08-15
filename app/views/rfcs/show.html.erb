@@ -4,8 +4,8 @@
       <span class="page-title">Feature request</span>
       <span class="mono-dim">describe intent → system investigates, clarifies, plans, files tickets</span>
     </div>
-    <% if @setting.live_mode? %>
-      <span class="mono-meta" style="color:var(--warn)">this flow is still simulated — live workspace investigation is the next milestone</span>
+    <% if @setting.live_mode? && !@rfc_live %>
+      <span class="mono-meta" style="color:var(--warn)">agent runner unavailable — this flow falls back to the simulated driver</span>
     <% end %>
 
     <div class="steps-strip">
@@ -21,16 +21,44 @@
       <textarea name="body" id="rfc-body" data-turbo-permanent class="textarea" style="min-height:82px"
                 placeholder="e.g. Traders need to cap per-venue exposure in real time; breach should halt new orders on that venue only."><%= @rfc.body %></textarea>
       <div class="rfc-actions">
-        <button type="submit" class="btn-accent" style="padding:7px 14px;font-size:12.5px">
-          <%= ["Investigate", "Ask for clarifications", "Plan it", "Re-plan"][@rfc.stage] %>
-        </button>
-        <%= button_to "Reset", rfc_reset_path, form_class: "bt", class: "btn-ghost", style: "padding:7px 12px;font-size:12.5px" %>
-        <span class="mono-dim">
-          <%= ["Scout reads code + history before proposing anything",
-               "It found 3 things it will not guess at",
-               "Answers folded in — planning next",
-               "Too big for one ticket — split into 5 by dependency depth"][@rfc.stage] %>
-        </span>
+        <% if @rfc.busy? %>
+          <div data-controller="live-refresh" style="display:flex;align-items:center;gap:9px;min-height:33px">
+            <span class="dot" style="background:var(--accent);animation:pulse 1.8s infinite"></span>
+            <span class="mono-meta" style="color:var(--accent)">
+              <%= @rfc.job_state == "investigating" ? "Scout is reading your workspace…" : "Architect is planning…" %>
+            </span>
+            <% if @rfc.progress_note.present? %>
+              <span class="mono-meta"><%= @rfc.progress_note %></span>
+            <% end %>
+          </div>
+        <% else %>
+          <button type="submit" class="btn-accent" style="padding:7px 14px;font-size:12.5px">
+            <%= if @rfc.job_state == "failed"
+                  "Retry"
+                elsif @rfc_live
+                  @rfc.stage < 2 ? "Investigate workspace" : (@rfc.stage >= 3 ? "Re-plan" : "Plan it")
+                else
+                  ["Investigate", "Ask for clarifications", "Plan it", "Re-plan"][@rfc.stage]
+                end %>
+          </button>
+          <%= button_to "Reset", rfc_reset_path, form_class: "bt", class: "btn-ghost", style: "padding:7px 12px;font-size:12.5px" %>
+          <% if @rfc.job_state == "failed" %>
+            <span class="mono-meta" style="color:var(--err)"><%= @rfc.error %></span>
+          <% else %>
+            <span class="mono-dim">
+              <%= if @rfc_live
+                    ["Scout will read your repos before proposing anything", "",
+                     "Answers folded in — Architect plans next",
+                     "Push to board to execute the plan"][[@rfc.stage, 3].min]
+                  else
+                    ["Scout reads code + history before proposing anything",
+                     "It found 3 things it will not guess at",
+                     "Answers folded in — planning next",
+                     "Too big for one ticket — split into 5 by dependency depth"][@rfc.stage]
+                  end %>
+            </span>
+          <% end %>
+        <% end %>
       </div>
     <% end %>
 
@@ -40,7 +68,7 @@
           <span class="dot" style="background:var(--info)"></span>
           <span class="k-label">Investigation trace</span>
           <span class="spacer"></span>
-          <span class="mono-meta">Scout · 38s · 24k tok</span>
+          <span class="mono-meta"><%= @rfc_live ? "Scout · live workspace run" : "Scout · 38s · 24k tok" %></span>
         </div>
         <div class="trace-body">
           <% @rfc.trace.each do |line| %>
@@ -53,7 +81,7 @@
       </div>
     <% end %>
 
-    <% if @rfc.stage >= 2 %>
+    <% if @rfc.stage >= 2 && @rfc.questions.any? %>
       <div class="panel clarify-panel">
         <div class="clarify-hd">Clarify before planning · <%= @rfc.questions.size %> questions</div>
         <% @rfc.questions.each do |question| %>
@@ -76,7 +104,7 @@
         <div class="panel-hd">
           <span class="k-label">Proposed tickets · dependency order</span>
           <span class="spacer"></span>
-          <span class="mono-meta">est 5h 40m · ~$9.20</span>
+          <span class="mono-meta"><%= @rfc_live ? "#{@rfc.proposals.size} tickets · codes assigned on push" : "est 5h 40m · ~$9.20" %></span>
         </div>
         <% @rfc.proposals.each do |proposal| %>
           <div class="plan-row">
@@ -84,7 +112,7 @@
             <div class="plan-dot"><span class="dot" style="background:<%= proposal["tone"] %>"></span></div>
             <div class="plan-body">
               <div class="plan-hd">
-                <span class="plan-id"><%= proposal["id"] %></span>
+                <span class="plan-id"><%= proposal["id"].presence || "NEW" %></span>
                 <span class="plan-title"><%= proposal["title"] %></span>
               </div>
               <div class="plan-meta">
@@ -101,8 +129,10 @@
             <%= button_to "Push #{@rfc.proposals.size} tickets to board", rfc_push_path, form_class: "bt",
                           class: "btn-accent", style: "padding:6px 13px" %>
           <% end %>
-          <span class="btn-ghost btn-sm" style="cursor:default">Edit plan</span>
-          <span class="mono-meta">also writes spec: risk/venue-exposure-cap</span>
+          <% unless @rfc_live %>
+            <span class="btn-ghost btn-sm" style="cursor:default">Edit plan</span>
+            <span class="mono-meta">also writes spec: risk/venue-exposure-cap</span>
+          <% end %>
         </div>
       </div>
     <% end %>

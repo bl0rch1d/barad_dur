@@ -3,9 +3,10 @@ require "json"
 require "shellwords"
 
 # Executes one pipeline phase as a real headless Claude Code run inside the
-# ticket's workspace repository. Streams the agent's messages into the live
-# event feed, accounts real cost, captures commits/diff, then hands the
-# ticket back to PipelineEngine for the (possibly gated) transition.
+# ticket's workspace repository (process handling lives in HeadlessAgent).
+# Streams the agent's messages into the live event feed, accounts real cost,
+# captures commits/diff, then hands the ticket back to PipelineEngine for the
+# (possibly gated) transition.
 class ClaudeCodeRunner
   DEFAULT_FLAGS = "--permission-mode acceptEdits".freeze
   DEFAULT_BIN = "claude".freeze
@@ -78,43 +79,28 @@ class ClaudeCodeRunner
     Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
                   meta: "live run", text: "Started #{phase} run (claude code)")
 
-    log = +""
-    result = nil
-    timed_out = false
-    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + Float(ENV.fetch("CLAUDE_TIMEOUT", 900))
-
-    Open3.popen3(child_env, *command, chdir: repo) do |stdin, stdout, stderr, wait|
-      stdin.close
-      err_reader = Thread.new { stderr.read }
-      buffer = +""
-
-      loop do
-        if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-          timed_out = true
-          begin
-            Process.kill("TERM", wait.pid)
-          rescue Errno::ESRCH
-          end
-          break
-        end
-
-        ready = IO.select([stdout], nil, nil, 5)
-        next unless ready
-
-        chunk = stdout.read_nonblock(65_536, exception: false)
-        break if chunk.nil?
-        next if chunk == :wait_readable
-
-        buffer << chunk
-        while (newline = buffer.index("\n"))
-          line = buffer.slice!(0..newline)
-          log << line
-          result = handle_line(line) || result
-        end
+    result = HeadlessAgent.call(prompt: PhasePrompts.build(ticket, phase),
+                                chdir: repo, env: child_env) do |data|
+      case data["type"]
+      when "system"
+        run.update!(session_id: data["session_id"]) if data["session_id"]
+      when "assistant"
+        narrate(data)
       end
+    end
 
-      log << err_reader.value.to_s
-      finalize(repo, wait.value, result, log, timed_out)
+    run.update!(log: result.log.to_s.last(50_000), exit_status: result.exit_status,
+                cost: result.cost.to_f)
+
+    if result.ok
+      accrue_cost(result.raw)
+      capture_outputs(repo)
+      Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
+                    meta: run_meta(result.raw),
+                    text: "#{phase.capitalize} run finished — #{summary(result.raw)}")
+      PipelineEngine.phase_finished!(ticket)
+    else
+      fail_run(result.error.to_s)
     end
   rescue StandardError => e
     fail_run("#{e.class}: #{e.message}")
@@ -132,13 +118,6 @@ class ClaudeCodeRunner
     end
   end
 
-  def command
-    flags = (ENV["CLAUDE_FLAGS"].presence || DEFAULT_FLAGS).shellsplit
-    [self.class.bin_path, "-p", PhasePrompts.build(ticket, phase),
-     "--output-format", "stream-json", "--verbose",
-     "--max-turns", ENV.fetch("CLAUDE_MAX_TURNS", "40"), *flags]
-  end
-
   def tag
     DemoScript::TAGS.fetch(phase, "IMPL")
   end
@@ -151,22 +130,6 @@ class ClaudeCodeRunner
     branch = "pipe/#{ticket.code.downcase}"
     created = system("git", "-C", repo, "checkout", "-B", branch, out: File::NULL, err: File::NULL)
     ticket.update!(artifacts: ticket.artifacts | ["branch #{branch}"]) if created
-  end
-
-  def handle_line(line)
-    data = JSON.parse(line)
-    case data["type"]
-    when "system"
-      run.update!(session_id: data["session_id"]) if data["session_id"]
-      nil
-    when "assistant"
-      narrate(data)
-      nil
-    when "result"
-      data
-    end
-  rescue JSON::ParserError
-    nil
   end
 
   def narrate(data)
@@ -190,23 +153,6 @@ class ClaudeCodeRunner
     return "" unless input.is_a?(Hash)
 
     (input["file_path"] || input["command"] || input["pattern"] || input["path"]).to_s.truncate(80)
-  end
-
-  def finalize(repo, status, result, log, timed_out)
-    run.update!(log: log.last(50_000), exit_status: status.exitstatus,
-                cost: result&.dig("total_cost_usd").to_f)
-
-    if timed_out
-      fail_run("timed out after #{ENV.fetch('CLAUDE_TIMEOUT', 900)}s")
-    elsif status.success? && result && !result["is_error"]
-      accrue_cost(result)
-      capture_outputs(repo)
-      Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
-                    meta: run_meta(result), text: "#{phase.capitalize} run finished — #{summary(result)}")
-      PipelineEngine.phase_finished!(ticket)
-    else
-      fail_run(result&.dig("result").presence || "exit #{status.exitstatus}")
-    end
   end
 
   def run_meta(result)

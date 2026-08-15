@@ -12,7 +12,7 @@ class DashboardController < ApplicationController
                   Ticket.in_flight.order(updated_at: :desc).first
     @agents = Agent.ordered.to_a
     @ci = CiSuite.ordered.to_a
-    @commits = CommitRecord.recent.limit(6).to_a
+    @commits = @setting.live_mode? ? Workspace.recent_commits(@setting) : CommitRecord.recent.limit(6).to_a
     @releases = Release.ordered.limit(3).to_a
     @cycle = CycleStats.rows
     @median = CycleStats.median_label

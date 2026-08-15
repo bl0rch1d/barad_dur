@@ -20,6 +20,8 @@ class Workspace
   # Results are memoized in-process, keyed by directory. Folder navigation and
   # the specs rescan call refresh! explicitly, so the TTL only bounds how long
   # out-of-band filesystem changes stay unnoticed.
+  CommitEntry = Struct.new(:sha, :message, :author, :committed_at)
+
   CACHE_TTL = 120
   CACHE_MUTEX = Mutex.new
   # Reentrant: cached blocks nest (openspec_repos wraps repos). Single-flights
@@ -170,6 +172,22 @@ class Workspace
     # Repos ticked in the setup wizard (all by default).
     def selected_repos(setting)
       repos(setting).select { |r| setting.setup.fetch("repo:#{r[:name]}", "true") == "true" }
+    end
+
+    # Most recent commits across the selected repos, newest first — powers
+    # the dashboard commits panel in live mode.
+    def recent_commits(setting = Setting.instance, limit: 8)
+      cached("commits:#{root(setting)}", ttl: 60) do
+        selected_repos(setting).flat_map do |repo|
+          out = git(Pathname.new(repo[:path]), "log", "-n", limit.to_s, "--pretty=%h%x09%ct%x09%s")
+          next [] unless out
+
+          out.lines.map do |line|
+            sha, epoch, subject = line.chomp.split("\t", 3)
+            CommitEntry.new(sha, subject.to_s, repo[:name], Time.zone.at(epoch.to_i))
+          end
+        end.sort_by.with_index { |c, i| [-c.committed_at.to_i, i] }.first(limit)
+      end
     end
 
     # Names of workspace repos (selected or not) that contain openspec specs.

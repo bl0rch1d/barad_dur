@@ -22,27 +22,42 @@ class Rfc < ApplicationRecord
   end
 
   def reset!
-    update!(stage: 0, trace: [], questions: [], answers: {}, proposals: [], pushed: false)
+    update!(stage: 0, trace: [], questions: [], answers: {}, proposals: [],
+            pushed: false, job_state: "idle", error: nil, progress_note: nil)
+  end
+
+  def busy?
+    %w[investigating planning].include?(job_state)
   end
 
   def record_answer!(key, value)
     update!(answers: answers.merge(key.to_s => value))
   end
 
+  # Creates real tickets from the proposals. Demo proposals carry fixed ids
+  # and dep_codes; live proposals get codes allocated here, with depends_on
+  # indexes resolved to the allocated codes.
   def push_to_board!
-    return if pushed?
+    return if pushed? || proposals.empty?
 
-    proposals.each do |p|
-      next if Ticket.exists?(code: p["id"])
+    next_number = Ticket.pluck(:code).filter_map { |c| c[/\d+/]&.to_i }.max.to_i
+    codes = proposals.map { |p| p["id"].presence || "ALG-#{next_number += 1}" }
 
+    proposals.each_with_index do |p, i|
+      next if Ticket.exists?(code: codes[i])
+
+      deps = p["dep_codes"].presence ||
+             Array(p["dep_indexes"]).map { |di| codes[di.to_i - 1] }.compact
+      est = p["est"].to_s
       Ticket.create!(
-        code: p["id"], title: p["title"], repo: p["repo"],
-        est_label: "~#{p["est"]}", risky: p["tag"] == "risky",
-        state: :ready, dep_codes: Array(p["dep_codes"])
+        code: codes[i], title: p["title"], repo: p["repo"],
+        est_label: est.start_with?("~") ? est : "~#{est}",
+        risky: p["risky"] == true || p["tag"] == "risky",
+        state: :ready, dep_codes: deps
       )
     end
     update!(pushed: true)
-    Event.record!(phase_tag: "PLAN", agent_name: "Architect", meta: "est 5h 40m · ~$9.20",
-                  text: "#{proposals.size} tickets pushed to board — also wrote spec: risk/venue-exposure-cap")
+    Event.record!(phase_tag: "PLAN", agent_name: "Architect", meta: "ready to run",
+                  text: "#{proposals.size} tickets pushed to board")
   end
 end

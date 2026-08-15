@@ -93,7 +93,13 @@ pipeline pauses itself; pressing Start begins a fresh budget window.
    `openspec/specs/*/spec.md` files into the Specs screen (there is also a
    "⟳ rescan" button on the Specs screen).
 
-4. File a ticket from the Board's inline form against a workspace repo. When
+4. Or start from a **feature request** (RFC screen): in live mode, "Investigate
+   workspace" runs a real read-only Scout pass over your repos (streamed into
+   the event feed), returning findings and clarifying questions; your answers
+   feed a real Architect planning run that proposes ordered tickets with
+   dependencies — "Push to board" files them and the pipeline executes them.
+
+5. File a ticket from the Board's inline form against a workspace repo. When
    an agent picks it up, each phase spawns `claude -p` in that repo:
    investigation (read-only) → plan written to `openspec/changes/` →
    implementation on a `pipe/<ticket>` branch with real commits → review →
@@ -127,8 +133,11 @@ Ticket codes/titles you enter are passed to the agent as prompt text.
   hand the ticket back to `PipelineEngine.phase_finished!` for the (possibly
   gated) transition. `PhasePrompts` defines what each phase asks the agent to
   do; `Workspace`/`SpecSync` handle repo scanning and openspec parsing.
-- `DemoScript` / `RfcScript` supply the canned narrative for demo tickets and
-  the (still simulated) RFC investigation flow.
+- `HeadlessAgent` is the shared one-shot CLI execution seam;
+  `RfcInvestigateJob`/`RfcPlanJob` drive the live RFC flow with structured
+  JSON output (`StructuredOutput`), and the dashboard commits panel reads
+  real `git log` from the workspace in live mode.
+- `DemoScript` / `RfcScript` supply the canned narrative for demo mode.
 - `lib/tasks/pipeline.rake` is the tick loop run by the `ticker` service
   (`PIPELINE_TICK_INTERVAL` to tune, `DISABLE_RELOADING=1` because a
   non-request process shouldn't pay dev-mode reload checks).

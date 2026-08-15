@@ -311,6 +311,72 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal "investigation", ticket.reload.state
   end
 
+  test "headless agent returns a structured result from the stub CLI" do
+    result = HeadlessAgent.call(prompt: "hello", chdir: @repo)
+    assert result.ok
+    assert_equal "stub-session", result.session_id
+    assert_in_delta 0.0421, result.cost, 0.001
+    assert_includes result.result_text, "Root cause identified"
+    assert result.raw.is_a?(Hash)
+  end
+
+  test "rfc investigation job parses trace and questions from a live run" do
+    ENV["CLAUDE_BIN"] = Rails.root.join("test/fixtures/files/fake_claude_rfc").to_s
+    Agent.create!(name: "Scout", abbr: "SC", role: "investigation", llm_model: "sonnet", status: "idle")
+    rfc = Rfc.create!(body: "Add a farewell to greetings", job_state: "investigating")
+
+    RfcInvestigateJob.perform_now(rfc.id)
+
+    rfc.reload
+    assert_equal 2, rfc.stage
+    assert_equal "idle", rfc.job_state
+    assert_equal 2, rfc.trace.size
+    assert_equal "var(--warn)", rfc.trace.last["tone"]
+    assert_equal 1, rfc.questions.size
+    assert_equal "q1", rfc.questions.first["key"]
+    assert_equal %w[Formal Casual], rfc.questions.first["opts"]
+    assert Setting.instance.spend_today.positive?
+    assert Event.exists?(["text LIKE ?", "%Investigation complete%"])
+  end
+
+  test "rfc plan job builds proposals and push allocates codes with deps" do
+    ENV["CLAUDE_BIN"] = Rails.root.join("test/fixtures/files/fake_claude_rfc").to_s
+    ENV["FAKE_MODE"] = "plan"
+    Agent.create!(name: "Architect", abbr: "AR", role: "planning", llm_model: "opus", status: "idle")
+    rfc = Rfc.create!(body: "Add a farewell", stage: 2, job_state: "planning",
+                      questions: [{ "key" => "q1", "q" => "Tone?", "opts" => %w[Formal Casual] }],
+                      answers: { "q1" => "Casual" })
+
+    RfcPlanJob.perform_now(rfc.id)
+
+    rfc.reload
+    assert_equal 3, rfc.stage
+    assert_equal 2, rfc.proposals.size
+    assert_equal [1], rfc.proposals.last["dep_indexes"]
+
+    rfc.push_to_board!
+    codes = Ticket.order(:id).last(2).map(&:code)
+    assert codes.all? { |c| c.match?(/\AALG-\d+\z/) }
+    second = Ticket.find_by(code: codes.last)
+    assert_equal [codes.first], second.dep_codes
+    assert_equal "ready", second.state
+    assert_equal "~30m", second.est_label
+  ensure
+    ENV.delete("FAKE_MODE")
+  end
+
+  test "workspace recent commits merges selected repos newest first" do
+    File.write(File.join(@repo, "second.txt"), "x")
+    system("git", "-C", @repo, "add", ".")
+    system("git", "-C", @repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "second commit")
+    Workspace.refresh!
+
+    commits = Workspace.recent_commits(Setting.instance, limit: 5)
+    assert_equal ["second commit", "initial commit"], commits.map(&:message)
+    assert_equal "demo-repo", commits.first.author
+    assert commits.first.committed_at >= commits.last.committed_at
+  end
+
   test "failed run marks the phase and can fall back on retry" do
     ticket = Ticket.create!(code: "TST-79", title: "Broken ticket", repo: "missing-repo",
                             state: :implementation)
