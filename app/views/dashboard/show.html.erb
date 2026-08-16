@@ -22,8 +22,9 @@
       <% if @gate %>
         <div class="gate-banner">
           <span class="gate-word">GATE</span>
-          <span class="gate-text"><%= @gate.reason %></span>
-          <%= button_to "Approve", approve_gate_path(@gate), form_class: "bt", class: "btn-outline-warn" %>
+          <span class="gate-text"><%= @gate.reason %><%= " · +#{@gates.size - 1} more waiting" if @gates.size > 1 %></span>
+          <%= button_to "Approve", approve_gate_path(@gate), form_class: "bt",
+                        class: "btn-outline-warn busy-btn", data: { turbo_submits_with: "Approving…" } %>
         </div>
       <% end %>
 
@@ -90,10 +91,37 @@
         <div class="panel-hd">
           <span class="k-label">Needs you</span>
           <span class="spacer"></span>
-          <span class="count-badge"><%= @questions.size %></span>
+          <span class="count-badge"><%= @questions.size + @gates.size + @failed_tickets.size %></span>
         </div>
-        <% if @questions.empty? %>
+        <% if @questions.empty? && @gates.empty? && @failed_tickets.empty? %>
           <div class="needs-item"><span class="mono-meta">nothing blocked — agents are unattended</span></div>
+        <% end %>
+        <% @gates.each do |gate| %>
+          <div class="needs-item">
+            <div class="needs-hd">
+              <span class="needs-ticket"><%= gate.ticket.code %></span>
+              <span class="mono-meta">gate · <%= ago_label(gate.created_at) %></span>
+            </div>
+            <div class="needs-q"><%= gate.reason %></div>
+            <div class="chip-row">
+              <%= button_to "✓ Approve", approve_gate_path(gate), form_class: "bt",
+                            class: "chip hv-acc busy-btn", data: { turbo_submits_with: "Approving…" } %>
+            </div>
+          </div>
+        <% end %>
+        <% @failed_tickets.each do |ticket| %>
+          <div class="needs-item">
+            <div class="needs-hd">
+              <span class="needs-ticket" style="color:var(--err)"><%= ticket.code %></span>
+              <span class="mono-meta"><%= ticket.state %> · run failed</span>
+            </div>
+            <div class="needs-q"><%= ticket.current_phase_run&.note.presence || "the agent run failed" %></div>
+            <div class="chip-row">
+              <%= button_to "↻ Retry", ticket_phase_path(ticket.code, op: "retry"), form_class: "bt",
+                            class: "chip hv-err busy-btn", data: { turbo_submits_with: "Retrying…" } %>
+              <%= link_to "open", url_for(ticket: ticket.code), class: "chip" %>
+            </div>
+          </div>
         <% end %>
         <% @questions.each do |question| %>
           <div class="needs-item">
@@ -123,21 +151,43 @@
         <% end %>
       </div>
 
-      <div class="panel">
-        <div class="panel-hd"><span class="k-label">CI &amp; tests</span></div>
-        <% if @ci.empty? %>
-          <div class="ci-row"><span class="mono-meta">no CI provider wired yet</span></div>
-        <% end %>
-        <% @ci.each do |suite| %>
-          <div class="ci-row">
-            <div class="ci-hd">
-              <span class="ci-name"><%= suite.name %></span>
-              <span class="ci-pct" style="color:<%= suite.tone %>"><%= suite.pct %>%</span>
+      <% if @setting.live_mode? %>
+        <div class="panel">
+          <div class="panel-hd"><span class="k-label">Recent agent runs</span></div>
+          <% if @recent_runs.empty? %>
+            <div class="ci-row"><span class="mono-meta">no live runs yet — groom a ticket to start</span></div>
+          <% end %>
+          <% @recent_runs.each do |run| %>
+            <% tone = { "done" => "var(--ok)", "failed" => "var(--err)" }.fetch(run.status, "var(--accent)") %>
+            <div class="ci-row" style="flex-direction:row;align-items:baseline;gap:8px">
+              <span class="dot" style="background:<%= tone %>;align-self:center"></span>
+              <%= link_to run.ticket.code, url_for(ticket: run.ticket.code),
+                          class: "mono", style: "font-size:11px;color:var(--tx)" %>
+              <span class="mono-meta"><%= run.phase %></span>
+              <span class="spacer"></span>
+              <span class="mono-meta" style="color:<%= tone %>"><%= run.status == "running" ? "live" : run.status %></span>
+              <span class="mono-meta"><%= run.duration_label %></span>
+              <% if run.cost.to_f.positive? %><span class="mono-meta">$<%= format("%.2f", run.cost) %></span><% end %>
             </div>
-            <div class="meter"><span style="width:<%= suite.pct %>%;background:<%= suite.tone %>"></span></div>
-          </div>
-        <% end %>
-      </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="panel">
+          <div class="panel-hd"><span class="k-label">CI &amp; tests</span></div>
+          <% if @ci.empty? %>
+            <div class="ci-row"><span class="mono-meta">no CI provider wired yet</span></div>
+          <% end %>
+          <% @ci.each do |suite| %>
+            <div class="ci-row">
+              <div class="ci-hd">
+                <span class="ci-name"><%= suite.name %></span>
+                <span class="ci-pct" style="color:<%= suite.tone %>"><%= suite.pct %>%</span>
+              </div>
+              <div class="meter"><span style="width:<%= suite.pct %>%;background:<%= suite.tone %>"></span></div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </div>
   </div>
 

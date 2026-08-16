@@ -73,6 +73,33 @@ class ScreensTest < ActionDispatch::IntegrationTest
     assert_no_enqueued_jobs(only: SpecSyncJob) { post specs_sync_path }
   end
 
+  test "dashboard action center shows gates, failed runs and live telemetry" do
+    Setting.instance.update!(live_mode: true)
+    gated = Ticket.create!(code: "TST-DG", title: "Gated ticket", state: :ready_to_implement)
+    gate = gated.ticket_gates.create!(to_state: Ticket::STATES[:implementation],
+                                      reason: "TST-DG is ready — approve to start implementation.")
+    failed = Ticket.create!(code: "TST-DF", title: "Failed ticket", state: :implementation)
+    failed.phase_runs.create!(phase: "implementation", status: "failed", runner: "claude",
+                              note: "exit 1", started_at: 5.minutes.ago)
+    done_run = Ticket.create!(code: "TST-DR", title: "Telemetry ticket", state: :review)
+    done_run.phase_runs.create!(phase: "implementation", status: "done", runner: "claude",
+                                started_at: 10.minutes.ago, duration_s: 300, cost: 0.42)
+
+    get root_path
+    assert_response :success
+    assert_includes response.body, "approve to start implementation"
+    assert_includes response.body, "✓ Approve"
+    assert_includes response.body, "↻ Retry"
+    assert_includes response.body, "Recent agent runs"
+    assert_includes response.body, "TST-DR"
+    assert_includes response.body, "Agent runs"
+
+    post approve_gate_path(gate)
+    assert_equal "implementation", gated.reload.state
+  ensure
+    Setting.instance.update!(live_mode: false)
+  end
+
   test "wizard workspace_dir accepts relative folders and rejects traversal" do
     post wizard_patch_path(key: "workspace_dir", value: "sub/folder")
     assert_equal "sub/folder", Setting.instance.setup["workspace_dir"]
