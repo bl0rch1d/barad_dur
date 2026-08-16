@@ -26,6 +26,15 @@
     </div>
 
     <div class="drawer-body">
+      <% if (gate = ticket.ticket_gates.detect { |g| g.status == "pending" }) %>
+        <div class="gate-banner" style="border:1px solid var(--warn);border-radius:5px">
+          <span class="gate-word">GATE</span>
+          <span class="gate-text"><%= gate.reason %></span>
+          <%= button_to "Approve", approve_gate_path(gate), form_class: "bt",
+                        class: "btn-outline-warn busy-btn", data: { turbo_submits_with: "Approving…" } %>
+        </div>
+      <% end %>
+
       <div class="phase-list">
         <span class="k-label">Phases</span>
         <% done_runs = ticket.phase_runs.select { |r| r.status == "done" }.index_by(&:phase) %>
@@ -83,14 +92,32 @@
               <div class="diff-line" style="background:<%= d["bg"] %>;color:<%= d["fg"] %>"><%= d["line"] %></div>
             <% end %>
           </div>
-          <div class="diff-foot">
-            <span class="btn-outline-ok" style="cursor:default">Approve &amp; merge</span>
-            <span class="btn-ghost btn-sm" style="cursor:default">Request changes</span>
-            <span class="btn-ghost btn-sm" style="cursor:default">Open in editor</span>
-          </div>
         <% else %>
           <div class="diff-body" style="padding:12px 13px">
             <span class="mono-meta">no diff yet — nothing has reached review for this ticket</span>
+          </div>
+        <% end %>
+        <% reviewable = %w[implementation review testing deployment done].include?(ticket.state) %>
+        <% actionable = reviewable && Workspace.repo_path(ticket.repo).present? %>
+        <% if actionable %>
+          <div class="diff-foot">
+            <%= button_to "Approve & merge", ticket_merge_path(ticket.code), form_class: "bt",
+                          class: "btn-outline-ok busy-btn",
+                          data: { turbo_submits_with: "Merging…",
+                                  turbo_confirm: "Merge pipe/#{ticket.code.downcase} into the base branch#{ticket.done? ? '' : ' and complete this ticket'}?" } %>
+          </div>
+          <%= form_with url: ticket_request_changes_path(ticket.code), method: :post,
+                        style: "display:flex;gap:8px;padding:0 13px 12px" do %>
+            <input name="feedback" autocomplete="off" class="textarea"
+                   placeholder="Request changes — what should be different?"
+                   style="flex:1;min-height:0;padding:6px 10px;font-size:11.5px">
+            <button type="submit" class="btn-ghost btn-sm hv-err busy-btn"
+                    data-turbo-submits-with="Sending…">Request changes</button>
+          <% end %>
+        <% elsif reviewable %>
+          <div class="diff-foot">
+            <span class="btn-outline-ok" style="cursor:default;opacity:.5" title="demo ticket — no workspace repo">Approve &amp; merge</span>
+            <span class="btn-ghost btn-sm" style="cursor:default;opacity:.5">Request changes</span>
           </div>
         <% end %>
       </div>

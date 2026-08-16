@@ -548,6 +548,65 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_includes split.artifacts, "openspec change: add-auth"
   end
 
+  def git!(*args)
+    system("git", "-C", @repo, "-c", "user.email=t@t", "-c", "user.name=t", *args,
+           out: File::NULL, err: File::NULL)
+  end
+
+  test "approve & merge lands the work branch and completes the ticket" do
+    ticket = Ticket.create!(code: "TST-M1", title: "Mergeable work", repo: "demo-repo", state: :review)
+    git!("checkout", "-b", "pipe/tst-m1")
+    File.write(File.join(@repo, "feature.txt"), "new feature\n")
+    git!("add", ".")
+    git!("commit", "-m", "add feature")
+
+    result = BranchMerger.call(ticket)
+    assert result.ok, result.message
+    PipelineEngine.manual_ship!(ticket, result.message)
+
+    out, = Open3.capture2("git", "-C", @repo, "log", "--oneline", "-3")
+    assert_match(/Merge pipe\/tst-m1/, out)
+    assert File.exist?(File.join(@repo, "feature.txt")), "merged file present on base branch"
+    ticket.reload
+    assert_equal "done", ticket.state
+    assert ticket.finished_at.present?
+    assert Event.exists?(["text LIKE ?", "%approved & merged%"])
+  end
+
+  test "merge conflict aborts cleanly and reports failure" do
+    ticket = Ticket.create!(code: "TST-M2", title: "Conflicting work", repo: "demo-repo", state: :review)
+    git!("checkout", "-b", "pipe/tst-m2")
+    File.write(File.join(@repo, "README.md"), "branch version\n")
+    git!("commit", "-am", "branch edit")
+    git!("checkout", "master")
+    File.write(File.join(@repo, "README.md"), "master version\n")
+    git!("commit", "-am", "master edit")
+
+    result = BranchMerger.call(ticket)
+    refute result.ok
+    assert_match(/conflict/, result.message)
+    assert_equal "review", ticket.reload.state, "ticket untouched on failed merge"
+    out, = Open3.capture2("git", "-C", @repo, "status", "--porcelain")
+    assert_equal "", out.strip, "repo left clean after aborted merge"
+  end
+
+  test "request changes sends the ticket back to implementation with feedback" do
+    ticket = Ticket.create!(code: "TST-RC1", title: "Needs rework", repo: "demo-repo", state: :review)
+    ticket.phase_runs.create!(phase: "review", status: "running", runner: "claude", started_at: Time.current)
+
+    PipelineEngine.request_changes!(ticket, "Use arrival price, not mid price")
+
+    ticket.reload
+    assert_equal "implementation", ticket.state
+    assert_equal "Use arrival price, not mid price", ticket.feedback
+    run = ticket.current_phase_run
+    assert_equal "implementation", run.phase
+    assert_equal "claude", run.runner
+    assert_match(/rework/, run.note)
+    assert Event.exists?(["text LIKE ?", "%Changes requested on TST-RC1%"])
+    assert_includes PhasePrompts.build(ticket, "implementation"), "arrival price"
+  end
+
   test "workspace recent commits merges selected repos newest first" do
     File.write(File.join(@repo, "second.txt"), "x")
     system("git", "-C", @repo, "add", ".")

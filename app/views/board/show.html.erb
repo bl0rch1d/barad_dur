@@ -50,7 +50,13 @@
           <% end %>
           <% if blocker %>
             <div class="mono-meta" style="color:var(--warn);overflow-wrap:anywhere"><%= blocker[:label] %></div>
-          <% elsif column[:state] == "blocked" %>
+            <% if blocker[:type] == "gate" && (gate = ticket.ticket_gates.detect { |g| g.status == "pending" }) %>
+              <%= button_to "✓ Approve", approve_gate_path(gate), form_class: "bt",
+                            class: "btn-outline-warn busy-btn", style: "padding:3px 10px;font-size:11px",
+                            data: { turbo_submits_with: "Approving…" } %>
+            <% elsif blocker[:type] == "clarification" %>
+              <div class="mono-meta">answer in Dashboard → Needs you</div>
+            <% end %>
           <% end %>
           <div class="pips">
             <% ticket_pips(ticket).each do |pip| %><span style="background:<%= pip %>"></span><% end %>

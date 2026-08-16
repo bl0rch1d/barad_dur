@@ -95,6 +95,7 @@ module PhasePrompts
       agent for ticket #{ticket.code} ("#{ticket.title}") targeting repository
       #{ticket.repo}#{scope ? " (scope: #{scope} subdirectory)" : ""}.
       #{"Draft description from the user:\n#{ticket.description}\n" if ticket.description.present?}
+      #{"The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n" if ticket.feedback.present? && %w[implementation review].include?(phase)}
       Never ask the user questions interactively — make reasonable choices and note them.
       #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
       Work autonomously until the #{phase} outcome is complete, then summarize
@@ -110,6 +111,9 @@ module PhasePrompts
       If an openspec/ directory exists, treat its specs as the contract.
     TXT
     header += "Draft description from the user:\n#{ticket.description}\n" if ticket.description.present?
+    if ticket.feedback.present? && %w[implementation review].include?(phase)
+      header += "The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n"
+    end
     if (sub = Workspace.subpath(ticket.repo))
       header += "Scope: focus your work on the `#{sub}` subdirectory of this repository (monorepo sub-project).\n"
     end

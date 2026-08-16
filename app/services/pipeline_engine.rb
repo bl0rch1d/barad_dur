@@ -79,6 +79,43 @@ class PipelineEngine
       Rails.logger.debug { "pipeline broadcast skipped: #{e.message}" }
     end
 
+    # The user approved & merged from the drawer — the human takes over from
+    # here, so the ticket completes regardless of remaining phases.
+    def manual_ship!(ticket, message)
+      ticket.with_lock do
+        return if ticket.done?
+
+        ticket.current_phase_run&.then { |r| r.finish! if r.status == "running" }
+        ticket.update!(state: :done, finished_at: Time.current, phase_progress: 0)
+      end
+      ticket.agent&.update!(status: "idle", doing: "Last: shipped #{ticket.code} — approved & merged")
+      Release.staged&.then { |r| r.update!(lines: r.lines | [ticket.title]) }
+      Event.record!(phase_tag: "DEPLOY", ticket: ticket, agent: ticket.agent, meta: "manual",
+                    text: "#{ticket.code} approved & merged — #{message}")
+      broadcast
+    end
+
+    # The user requested changes from the drawer: the ticket goes back to
+    # implementation with the feedback wired into the agent's prompt.
+    def request_changes!(ticket, feedback)
+      live = AgentRunner.live?(ticket)
+      ticket.with_lock do
+        ticket.current_phase_run&.then { |r| r.finish! if r.status == "running" }
+        ticket.update!(state: :implementation, phase_progress: 0, feedback: feedback)
+        ticket.phase_runs.create!(phase: "implementation", status: "running",
+                                  runner: live ? "claude" : "demo",
+                                  note: "rework: #{feedback.truncate(60)}", started_at: Time.current)
+      end
+      agent = ticket.agent || Agent.idle.ordered.first
+      ticket.update!(agent: agent) if agent && ticket.agent.nil?
+      agent&.update!(status: "running", doing: "#{ticket.code} rework: #{feedback.truncate(50)}")
+      Event.record!(phase_tag: "REVIEW", tone: "var(--warn)", ticket: ticket, agent: agent,
+                    meta: "changes requested",
+                    text: "Changes requested on #{ticket.code}: #{feedback.truncate(120)}")
+      AgentRunner.start_phase(ticket) if live
+      broadcast
+    end
+
     # Live phase runs whose process died (restart, crash) never finish and
     # would freeze their ticket forever. A healthy run touches its record
     # continuously while streaming; one silent past the CLI timeout is dead.
@@ -214,7 +251,7 @@ class PipelineEngine
       return unless ticket
 
       if gate_required?(setting, ticket, "implementation")
-        reason = DemoScript.gate_reason(ticket, "implementation", setting.autonomy)
+        reason = "#{ticket.code} is ready#{' (risky)' if ticket.risky?} — approve to start implementation."
         ticket.ticket_gates.create!(to_state: Ticket::STATES[:implementation], reason: reason)
         Event.record!(phase_tag: "GATE", ticket: ticket, meta: setting.autonomy, text: "Gated: #{reason}")
         return

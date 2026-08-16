@@ -22,6 +22,8 @@ Rails.application.routes.draw do
   post "questions/:id/answer" => "questions#answer", as: :answer_question
   post "tickets/:code/phase"  => "tickets#phase",    as: :ticket_phase
   post "tickets/:code/groom"  => "tickets#groom",    as: :ticket_groom
+  post "tickets/:code/merge"  => "tickets#merge",    as: :ticket_merge
+  post "tickets/:code/request_changes" => "tickets#request_changes", as: :ticket_request_changes
 
   post "wizard/patch"  => "wizard#patch",  as: :wizard_patch
   post "wizard/finish" => "wizard#finish", as: :wizard_finish

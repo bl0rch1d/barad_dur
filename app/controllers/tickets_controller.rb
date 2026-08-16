@@ -29,6 +29,27 @@ class TicketsController < ApplicationController
     back
   end
 
+  def merge
+    ticket = Ticket.find_by!(code: params[:code])
+    result = BranchMerger.call(ticket)
+    if result.ok
+      ticket.update!(artifacts: ticket.artifacts | [result.message])
+      PipelineEngine.manual_ship!(ticket, result.message)
+    else
+      Event.record!(phase_tag: "REVIEW", tone: "var(--err)", ticket_code: ticket.code,
+                    agent_name: "you", text: "Merge failed: #{result.message}")
+      PipelineEngine.broadcast
+    end
+    back
+  end
+
+  def request_changes
+    ticket = Ticket.find_by!(code: params[:code])
+    feedback = params[:feedback].to_s.strip
+    PipelineEngine.request_changes!(ticket, feedback) if feedback.present?
+    back
+  end
+
   def phase
     ticket = Ticket.find_by!(code: params[:code])
     case params[:op]
