@@ -43,7 +43,7 @@ class ScreensTest < ActionDispatch::IntegrationTest
     assert_enqueued_with(job: ArchitectReplyJob) do
       post chat_messages_path, params: { body: "Weight fill quality above latency" }
     end
-    assert_redirected_to activity_path
+    assert_redirected_to activity_path(room: "ALG-215")
     assert_equal 1, ChatMessage.where(sender: "you").count
   end
 

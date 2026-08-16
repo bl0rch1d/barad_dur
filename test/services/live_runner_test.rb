@@ -498,10 +498,39 @@ class LiveRunnerTest < ActiveSupport::TestCase
                result: "Done.\n```json\n#{payload_json}\n```" }.to_json
     path = File.join(@dir, "stub_claude")
     File.write(path, "#!/usr/bin/env bash\n" \
+                     "printf '%s\\n' \"$@\" > '#{@dir}/stub_args.txt'\n" \
                      "echo '{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s\",\"model\":\"stub\"}'\n" \
                      "echo '#{result}'\n")
     FileUtils.chmod("+x", path)
     ENV["CLAUDE_BIN"] = path
+  end
+
+  test "chat reply job answers, stores the session and resumes it" do
+    write_stub!("{}")
+    Agent.create!(name: "Architect", abbr: "AR", role: "planning", llm_model: "opus", status: "idle")
+    Setting.instance.update!(live_mode: true)
+
+    first = ChatMessage.create!(room: "workspace", sender: "you",
+                                body: "What is the state of the workspace?", sent_at: Time.current)
+    ChatReplyJob.perform_now(first.id)
+
+    reply = ChatMessage.in_room("workspace").last
+    assert_equal "architect", reply.sender
+    assert_includes reply.body, "Done."
+    assert_equal "s", Setting.instance.reload.setup["chat_session:workspace"]
+    args = File.read(File.join(@dir, "stub_args.txt"))
+    refute_match(/--resume/, args, "first message starts a fresh session")
+    assert_match(/You are the Architect/, args, "opening prompt carries the intro")
+
+    second = ChatMessage.create!(room: "workspace", sender: "you",
+                                 body: "And the tests?", sent_at: Time.current)
+    ChatReplyJob.perform_now(second.id)
+    args = File.read(File.join(@dir, "stub_args.txt"))
+    assert_match(/--resume/, args, "follow-up resumes the stored session")
+    assert_match(/^s$/, args)
+    refute_match(/You are the Architect/, args, "resumed sessions skip the intro")
+  ensure
+    Setting.instance.update!(live_mode: false)
   end
 
   test "grooming investigation with questions parks the ticket and resumes on answers" do

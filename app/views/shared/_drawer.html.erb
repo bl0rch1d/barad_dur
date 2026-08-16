@@ -22,6 +22,9 @@
         <span><%= ticket.agent_label %></span>
         <span><%= ticket.est_label %></span>
         <span>$<%= format("%.2f", ticket.cost) %><%= " · #{ticket.tokens_label}" if ticket.tokens_label %></span>
+        <% if @setting.live_mode? %>
+          <%= link_to "💬 discuss", activity_path(room: ticket.code), style: "color:var(--info)" %>
+        <% end %>
       </div>
     </div>
 
