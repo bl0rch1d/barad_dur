@@ -12,12 +12,12 @@
 **A mission-control tower for a legion of coding agents — they investigate, plan, implement,
 review and ship real work in your repositories, while you sit on the dark throne and approve.**
 
-[![Rails](https://img.shields.io/badge/Rails-8.1-8fd9ad?logo=rubyonrails&logoColor=white&labelColor=0a0705)](https://rubyonrails.org)
-[![Ruby](https://img.shields.io/badge/Ruby-3.4-8fd9ad?logo=ruby&logoColor=white&labelColor=0a0705)](https://www.ruby-lang.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-8fd9ad?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
-[![Docker](https://img.shields.io/badge/Docker-compose%20up-8fd9ad?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
-[![Agents](https://img.shields.io/badge/agents-Claude%20Code-ff5a1a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-65%20passed%20in%20the%20fires-5fa87e?labelColor=0a0705)](#-the-trials)
+[![Rails](https://img.shields.io/badge/Rails-8.1-ff5a1a?logo=rubyonrails&logoColor=white&labelColor=0a0705)](https://rubyonrails.org)
+[![Ruby](https://img.shields.io/badge/Ruby-3.4-ff5a1a?logo=ruby&logoColor=white&labelColor=0a0705)](https://www.ruby-lang.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
+[![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
+[![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
+[![Trials](https://img.shields.io/badge/trials-65%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Words of Command](#-words-of-command) • [The Road Ahead](#%EF%B8%8F-the-road-goes-ever-on)
 
