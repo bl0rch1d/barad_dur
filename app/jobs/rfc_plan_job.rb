@@ -11,8 +11,8 @@ class RfcPlanJob < RfcAgentJob
     return unless rfc && rfc.job_state == "planning"
 
     setting = Setting.instance
-    targets = Workspace.ticket_targets(setting)
-    architect = Agent.find_by(name: "Architect")
+    targets = Workspace.selected_ticket_targets(setting).presence || Workspace.ticket_targets(setting)
+    architect = Agent.for_phase("planning")
     architect&.update!(status: "running", doing: "Planning tickets for the feature request")
 
     invocation = Harness.phase_invocation("planning", setting)
@@ -67,6 +67,8 @@ class RfcPlanJob < RfcAgentJob
         "dep_indexes" => deps, "est" => ticket["estimate"].to_s.presence || "?",
         "tag" => tag, "tone" => TONES.fetch(tag, "var(--accent)"),
         "risky" => ticket["risky"] == true || tag == "risky",
+        "summary" => ticket["summary"].to_s.strip.truncate(1200).presence,
+        "acceptance_criteria" => Array(ticket["acceptance_criteria"]).map { |c| c.to_s.strip.truncate(200) }.reject(&:blank?).first(8),
         "change" => change }.compact
     end
   end

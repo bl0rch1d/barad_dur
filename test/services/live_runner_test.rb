@@ -423,8 +423,9 @@ class LiveRunnerTest < ActiveSupport::TestCase
     end
     FileUtils.mkdir_p(File.join(base, "skills", "review"))
     FileUtils.mkdir_p(File.join(base, "agents"))
-    %w[explorer critic reviewer].each do |agent|
-      File.write(File.join(base, "agents", "#{agent}.md"), "name: #{agent}")
+    %w[explorer planner critic reviewer].each do |agent|
+      File.write(File.join(base, "agents", "#{agent}.md"),
+                 "---\nname: #{agent}\ndescription: #{agent} specialist for tests\n---\n")
     end
     Workspace.refresh!
   end
@@ -634,6 +635,63 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_match(/rework/, run.note)
     assert Event.exists?(["text LIKE ?", "%Changes requested on TST-RC1%"])
     assert_includes PhasePrompts.build(ticket, "implementation"), "arrival price"
+  end
+
+  test "agent roster maps harness agents onto phases with defaults filling gaps" do
+    install_harness!
+    orphan = Agent.create!(name: "Old-Demo", abbr: "OD", role: "misc", llm_model: "sonnet",
+                           status: "idle", position: 9)
+    ticket = Ticket.create!(code: "TST-AR1", title: "Assigned", state: :implementation, agent: orphan)
+    6.times { |i| Agent.create!(name: "Demo-#{i}", abbr: "D#{i}", role: "misc", llm_model: "x", position: i) }
+
+    roster = AgentRoster.rebuild!
+
+    assert_equal %w[explorer planner Builder reviewer Tester Shipper], roster.map(&:name)
+    assert_equal Ticket::PHASES, roster.map(&:role)
+    assert_equal 6, Agent.count, "extras removed"
+    assert_nil ticket.reload.agent_id, "orphaned assignment detached, ticket intact"
+
+    specialists = AgentRoster.specialists
+    assert_includes specialists.map { |s| s[:name] }, "critic", "unmapped harness agents are specialists"
+    refute_includes specialists.map { |s| s[:name] }, "explorer", "roster members are not specialists"
+
+    assert_equal "explorer", Agent.for_phase("investigation").name
+    assert_equal "planner", Agent.for_phase("planning").name
+  end
+
+  test "selected ticket targets honor the wizard repo selection" do
+    assert_equal ["demo-repo"], Workspace.selected_ticket_targets
+
+    Setting.instance.update!(setup: { "repo:demo-repo" => "false" })
+    assert_empty Workspace.selected_ticket_targets
+    assert_equal ["demo-repo"], Workspace.ticket_targets, "unselected repos remain visible to full listing"
+  end
+
+  test "grooming planning stores summary, notes and acceptance criteria" do
+    write_stub!('{"change":"add-auth","summary":"Adds auth.","technical_notes":"Touch lib/auth.rb.","acceptance_criteria":["Login works","Logout works"],"depends_on":[],"additional_tickets":[]}')
+    ticket = Ticket.create!(code: "TST-EN1", title: "Add auth", repo: "demo-repo", state: :planning)
+    ticket.phase_runs.create!(phase: "planning", status: "running", runner: "claude", started_at: Time.current)
+
+    RunPhaseJob.perform_now(ticket.id, "planning")
+
+    ticket.reload
+    assert_equal "Adds auth.", ticket.description
+    assert_equal "Touch lib/auth.rb.", ticket.technical_notes
+    assert_equal ["Login works", "Logout works"], ticket.acceptance_criteria
+  end
+
+  test "enrich job backfills an existing ticket and clears its marker" do
+    write_stub!('{"summary":"Backfilled summary.","technical_notes":"Notes.","acceptance_criteria":["It ships"]}')
+    ticket = Ticket.create!(code: "TST-EN2", title: "Legacy ticket", repo: "demo-repo", state: :ready_to_implement)
+    Setting.instance.update!(setup: { "enrich:TST-EN2" => Time.current.to_i })
+
+    TicketEnrichJob.perform_now(ticket.id)
+
+    ticket.reload
+    assert_equal "Backfilled summary.", ticket.description
+    assert_equal ["It ships"], ticket.acceptance_criteria
+    assert_nil Setting.instance.reload.setup["enrich:TST-EN2"], "marker cleared"
+    assert Event.exists?(["text LIKE ?", "%TST-EN2 enriched%"])
   end
 
   test "workspace recent commits merges selected repos newest first" do

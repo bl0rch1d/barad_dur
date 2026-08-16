@@ -6,8 +6,8 @@ class RfcInvestigateJob < RfcAgentJob
     return unless rfc && rfc.job_state == "investigating"
 
     setting = Setting.instance
-    targets = Workspace.ticket_targets(setting)
-    scout = Agent.find_by(name: "Scout")
+    targets = Workspace.selected_ticket_targets(setting).presence || Workspace.ticket_targets(setting)
+    scout = Agent.for_phase("investigation")
     scout&.update!(status: "running", doing: "Investigating feature request in the workspace")
 
     invocation = Harness.phase_invocation("investigation", setting)

@@ -56,6 +56,8 @@ class Rfc < ApplicationRecord
         code: codes[i], title: p["title"], repo: p["repo"],
         est_label: est.start_with?("~") ? est : "~#{est}",
         risky: p["risky"] == true || p["tag"] == "risky",
+        description: p["summary"].presence,
+        acceptance_criteria: Array(p["acceptance_criteria"]),
         state: :ready_to_implement, dep_codes: deps, artifacts: artifacts
       )
     end

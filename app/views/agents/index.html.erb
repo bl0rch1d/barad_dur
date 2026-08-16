@@ -1,7 +1,10 @@
 <div class="screen">
   <div class="title-row">
     <span class="page-title">Agents</span>
-    <span class="mono-dim">spec-first harness · <%= @agents.size %> roles · $<%= format("%.2f", @total_cost) %> today</span>
+    <span class="mono-dim">
+      <%= @harness ? "roster mapped from #{@harness.repo}/.claude/agents" : "spec-first harness" %>
+      · <%= @agents.size %> roles · $<%= format("%.2f", @total_cost) %> today
+    </span>
   </div>
 
   <div class="agents-grid">
@@ -32,4 +35,25 @@
       </div>
     <% end %>
   </div>
+
+  <% if @specialists.any? %>
+    <div class="title-row" style="padding-top:6px">
+      <span class="k-label">Delegation specialists — spawned inside runs via the Task tool, never assigned tickets</span>
+    </div>
+    <div class="agents-grid">
+      <% @specialists.each do |specialist| %>
+        <div class="agent-card" style="opacity:.85">
+          <div class="agent-hd">
+            <span class="agent-abbr" style="background:var(--info-soft);color:var(--info)"><%= specialist[:name].split(/[-_]/).first(2).map { |p| p[0] }.join.upcase %></span>
+            <div class="agent-id">
+              <span class="agent-name"><%= specialist[:name] %></span>
+              <span class="agent-role"><%= @harness.repo %> · .claude/agents</span>
+            </div>
+            <span class="tag" style="color:var(--info)">delegate</span>
+          </div>
+          <div class="agent-doing"><%= specialist[:description].presence || "no description" %></div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
 </div>

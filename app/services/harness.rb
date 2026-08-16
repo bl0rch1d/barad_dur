@@ -5,7 +5,7 @@
 # of the built-in prompts, executing inside the harness repo with the whole
 # workspace reachable via --add-dir.
 class Harness
-  Info = Struct.new(:repo, :path, :commands, :skills, :agents, keyword_init: true)
+  Info = Struct.new(:repo, :path, :commands, :skills, :agents, :agent_details, keyword_init: true)
 
   # Candidates tried in order per phase; a candidate matches a command or a
   # skill of that name. Phases with no match use the built-in prompts.
@@ -80,11 +80,16 @@ class Harness
       skills = base.join("skills").then do |dir|
         dir.directory? ? dir.children.select(&:directory?).map { |c| c.basename.to_s }.sort : []
       end
-      agents = Dir.glob(base.join("agents", "*.md")).map { |f| File.basename(f, ".md") }.sort
+      agent_details = Dir.glob(base.join("agents", "*.md")).sort.map do |file|
+        head = File.read(file, 2048).to_s
+        { name: File.basename(file, ".md"),
+          description: head[/^description:\s*(.+)$/, 1].to_s.strip.truncate(220) }
+      end
 
       return nil if commands.empty? && skills.empty?
 
-      Info.new(repo: repo[:name], path: repo[:path], commands: commands, skills: skills, agents: agents)
+      Info.new(repo: repo[:name], path: repo[:path], commands: commands, skills: skills,
+               agents: agent_details.map { |a| a[:name] }, agent_details: agent_details)
     end
   end
 end

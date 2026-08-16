@@ -9,6 +9,12 @@ class Agent < ApplicationRecord
   scope :ordered, -> { order(:position) }
   scope :idle, -> { where(status: "idle") }
 
+  # The roster agent staffing a phase — names vary (harness-mapped rosters
+  # use e.g. "explorer"), roles are stable.
+  def self.for_phase(phase)
+    ordered.detect { |a| a.role.to_s.start_with?(phase.to_s) } || ordered.first
+  end
+
   def tone
     case status
     when "running" then "var(--accent)"

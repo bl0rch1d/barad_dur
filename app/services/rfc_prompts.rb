@@ -30,10 +30,9 @@ module RfcPrompts
       "tickets": [
         {"title": "imperative ticket title", "repo": "REPO",
          "estimate": "1h 20m", "risky": false, "tag": "core",
-         "depends_on": []},
-        {"title": "second ticket", "repo": "REPO",
-         "estimate": "40m", "risky": false, "tag": "tests",
-         "depends_on": [1]}
+         "summary": "2-3 sentences on what this ticket delivers",
+         "acceptance_criteria": ["verifiable outcome 1", "verifiable outcome 2"],
+         "depends_on": []}
       ]
     }
     ```

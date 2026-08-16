@@ -157,6 +157,14 @@ class Workspace
       end
     end
 
+    # Same, but honoring the wizard's repo selection — what the pipeline is
+    # actually allowed to own.
+    def selected_ticket_targets(setting = Setting.instance)
+      selected_repos(setting).flat_map do |repo|
+        [repo[:name]] + subprojects(repo).map { |sub| "#{repo[:name]}/#{sub}" }
+      end
+    end
+
     # Resolves a ticket's repo field ("core", "core · api", "mono/apps/web")
     # to the repository checkout path, or nil when not in the workspace.
     def repo_path(repo_field, setting = Setting.instance)

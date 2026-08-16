@@ -5,7 +5,7 @@ class TicketsController < ApplicationController
     if title.present?
       number = Ticket.pluck(:code).filter_map { |c| c[/\d+/]&.to_i }.max.to_i + 1
       code = "ALG-#{number}"
-      repo = params[:repo].presence || Workspace.ticket_targets.first || "algo-core"
+      repo = params[:repo].presence || Workspace.selected_ticket_targets.first || "algo-core"
       Ticket.create!(code: code, title: title, repo: repo, est_label: "—",
                      description: params[:description].to_s.strip.presence,
                      risky: params[:risky] == "1", state: :draft)
@@ -26,6 +26,16 @@ class TicketsController < ApplicationController
       end
     end
     PipelineEngine.broadcast
+    back
+  end
+
+  def enrich
+    ticket = Ticket.find_by!(code: params[:code])
+    marker = @setting.setup["enrich:#{ticket.code}"]
+    unless marker && marker.to_i > 5.minutes.ago.to_i
+      @setting.update!(setup: @setting.setup.merge("enrich:#{ticket.code}" => Time.current.to_i))
+      TicketEnrichJob.perform_later(ticket.id)
+    end
     back
   end
 

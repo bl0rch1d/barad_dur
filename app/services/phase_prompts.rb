@@ -25,10 +25,14 @@ module PhasePrompts
     End your FINAL message with a fenced json block:
     ```json
     {"change": "kebab-case-change-name-or-null",
+     "summary": "2-3 sentence summary of what will be built and why",
+     "technical_notes": "key files, approach, risks — a short paragraph",
+     "acceptance_criteria": ["verifiable outcome 1", "verifiable outcome 2"],
      "depends_on": ["ALG-12"],
      "additional_tickets": [{"title": "...", "estimate": "40m", "risky": false}]}
     ```
     change: the openspec change you created (null if none).
+    acceptance_criteria: 2-6 concrete, verifiable outcomes.
     depends_on: existing board ticket codes this work must wait for (usually []).
     additional_tickets: ONLY when this ticket is too big for one agent
     session — parts split out to run after it (usually []).

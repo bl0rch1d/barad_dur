@@ -63,9 +63,8 @@ class LiveMode
     end
 
     def reset_agents!(progress)
-      agents = Agent.order(:position).to_a
+      agents = AgentRoster.rebuild!
       agents.each_with_index do |agent, index|
-        agent.update!(status: "idle", cost_today: 0, doing: "idle — waiting for work")
         progress&.call("agents", index + 1, agents.size, agent.name)
       end
     end

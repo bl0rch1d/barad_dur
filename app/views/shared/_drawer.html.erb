@@ -7,6 +7,7 @@
       <div class="drawer-hd-row">
         <span class="drawer-id"><%= ticket.code %></span>
         <span class="tag" style="color:<%= meta[:tone] %>"><%= meta[:name] %></span>
+        <% if ticket.risky? %><span class="risk-tag">RISK</span><% end %>
         <span class="spacer"></span>
         <%= link_to "✕", request.path, class: "close-btn" %>
       </div>
@@ -14,14 +15,14 @@
       <% if (blocker = ticket.blocker) %>
         <div class="mono-meta" style="color:var(--warn)">⛔ blocked · <%= blocker[:type] %> — <%= blocker[:label] %></div>
       <% end %>
-      <% if ticket.description.present? %>
-        <div style="font-size:12px;color:var(--tx2);line-height:1.55;white-space:pre-wrap;border-left:2px solid var(--soft);padding-left:10px"><%= ticket.description %></div>
-      <% end %>
       <div class="drawer-meta">
         <span><%= ticket.repo %></span>
         <span><%= ticket.agent_label %></span>
         <span><%= ticket.est_label %></span>
         <span>$<%= format("%.2f", ticket.cost) %><%= " · #{ticket.tokens_label}" if ticket.tokens_label %></span>
+        <% if (change = PhasePrompts.change_ref(ticket)) %>
+          <span style="color:var(--info)">⎇ <%= change %></span>
+        <% end %>
         <% if @setting.live_mode? %>
           <%= link_to "💬 discuss", activity_path(room: ticket.code), style: "color:var(--info)" %>
         <% end %>
@@ -38,8 +39,55 @@
         </div>
       <% end %>
 
+      <!-- ── overview ─────────────────────────────────────── -->
+      <% enriching = @setting.setup["enrich:#{ticket.code}"].to_i > 5.minutes.ago.to_i %>
+      <% has_overview = ticket.description.present? || ticket.technical_notes.present? || ticket.acceptance_criteria.any? %>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="k-label">Overview</span>
+          <span class="spacer"></span>
+          <% if enriching %>
+            <span class="mono-meta" style="color:var(--accent)" data-controller="live-refresh">
+              <span class="dot" style="background:var(--accent);animation:pulse 1.8s infinite"></span> enriching…
+            </span>
+          <% elsif @setting.live_mode? && Workspace.repo_path(ticket.repo).present? %>
+            <%= button_to has_overview ? "↻ re-enrich" : "✦ enrich", ticket_enrich_path(ticket.code),
+                          form_class: "bt", class: "chip hv-acc busy-btn",
+                          style: "padding:1px 8px;font-size:10px",
+                          data: { turbo_submits_with: "starting…" } %>
+          <% end %>
+        </div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:11px">
+          <% if ticket.description.present? %>
+            <div style="font-size:12.5px;color:var(--tx);line-height:1.6;white-space:pre-wrap"><%= ticket.description %></div>
+          <% end %>
+          <% if ticket.technical_notes.present? %>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <span class="k-label" style="font-size:9.5px">Technical notes</span>
+              <div style="font-size:12px;color:var(--tx2);line-height:1.6;white-space:pre-wrap"><%= ticket.technical_notes %></div>
+            </div>
+          <% end %>
+          <% if ticket.acceptance_criteria.any? %>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <span class="k-label" style="font-size:9.5px">Acceptance criteria</span>
+              <% ticket.acceptance_criteria.each do |criterion| %>
+                <div style="display:flex;gap:8px;font-size:12px;color:var(--tx2);line-height:1.5">
+                  <span style="color:<%= ticket.done? ? 'var(--ok)' : 'var(--tx3)' %>;flex:none"><%= ticket.done? ? "✓" : "◇" %></span>
+                  <span style="overflow-wrap:anywhere"><%= criterion %></span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+          <% unless has_overview %>
+            <span class="mono-meta">no brief yet — grooming fills this in<%= ", or click enrich" if @setting.live_mode? %></span>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- ── phases with per-run logs ─────────────────────── -->
       <div class="phase-list">
         <span class="k-label">Phases</span>
+        <% runs_by_phase = ticket.phase_runs.group_by(&:phase) %>
         <% done_runs = ticket.phase_runs.select { |r| r.status == "done" }.index_by(&:phase) %>
         <% Ticket::PHASES.each do |phase| %>
           <% done = done_runs[phase] %>
@@ -66,20 +114,22 @@
                             ticket_phase_path(ticket.code, op: @setting.running? ? "pause" : "resume"),
                             form_class: "bt", class: "phase-btn acc" %>
             <% else %>
-              <span class="phase-btn" style="cursor:default"><%= done ? "redo" : "run" %></span>
+              <span class="phase-btn" style="cursor:default"><%= done ? "done" : "queued" %></span>
             <% end %>
           </div>
+          <% run_with_log = (runs_by_phase[phase] || []).select { |r| r.log.present? }.max_by { |r| r.started_at || Time.at(0) } %>
+          <% if run_with_log %>
+            <details class="phase-log">
+              <summary class="mono-meta" style="cursor:pointer;padding:2px 0 2px 20px">
+                view <%= phase %> log<%= " · exit #{run_with_log.exit_status}" if run_with_log.exit_status %><%= " · $#{format('%.2f', run_with_log.cost)}" if run_with_log.cost.to_f.positive? %>
+              </summary>
+              <pre class="mono" style="font-size:10.5px;line-height:1.6;color:var(--tx2);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;margin:6px 0 4px;background:var(--sunken);border-radius:4px;padding:8px 10px"><%= run_with_log.log.last(4000) %></pre>
+            </details>
+          <% end %>
         <% end %>
       </div>
 
-      <% log_run = ticket.phase_runs.select { |r| r.log.present? }.max_by { |r| r.started_at || Time.at(0) } %>
-      <% if log_run %>
-        <details class="panel" style="padding:10px 13px">
-          <summary class="k-label" style="cursor:pointer">Run log · <%= log_run.phase %><%= " · exit #{log_run.exit_status}" if log_run.exit_status %></summary>
-          <pre class="mono" style="font-size:10.5px;line-height:1.6;color:var(--tx2);white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;margin:8px 0 0"><%= log_run.log.last(4000) %></pre>
-        </details>
-      <% end %>
-
+      <!-- ── diff + review actions ────────────────────────── -->
       <div class="panel">
         <div class="panel-hd" style="padding:10px 13px">
           <span class="k-label">Diff · review</span>
@@ -97,26 +147,34 @@
           </div>
         <% else %>
           <div class="diff-body" style="padding:12px 13px">
-            <span class="mono-meta">no diff yet — nothing has reached review for this ticket</span>
+            <span class="mono-meta">no diff yet — it appears when implementation finishes</span>
           </div>
         <% end %>
-        <% reviewable = %w[implementation review testing deployment done].include?(ticket.state) %>
+        <%# review actions unlock only once implementation is complete %>
+        <% reviewable = %w[review testing deployment done].include?(ticket.state) %>
         <% actionable = reviewable && Workspace.repo_path(ticket.repo).present? %>
         <% if actionable %>
-          <div class="diff-foot">
-            <%= button_to "Approve & merge", ticket_merge_path(ticket.code), form_class: "bt",
-                          class: "btn-outline-ok busy-btn",
-                          data: { turbo_submits_with: "Merging…",
-                                  turbo_confirm: "Merge pipe/#{ticket.code.downcase} into the base branch#{ticket.done? ? '' : ' and complete this ticket'}?" } %>
+          <div class="diff-foot" style="flex-direction:column;align-items:stretch;gap:9px">
+            <span class="k-label" style="font-size:9.5px">Review actions</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <%= button_to "✓ Approve & merge", ticket_merge_path(ticket.code), form_class: "bt",
+                            class: "btn-outline-ok busy-btn",
+                            data: { turbo_submits_with: "Merging…",
+                                    turbo_confirm: "Merge pipe/#{ticket.code.downcase} into the base branch#{ticket.done? ? '' : ' and complete this ticket'}?" } %>
+            </div>
+            <%= form_with url: ticket_request_changes_path(ticket.code), method: :post,
+                          style: "display:flex;gap:8px" do %>
+              <input name="feedback" autocomplete="off" class="textarea"
+                     placeholder="Request changes — what should be different?"
+                     style="flex:1;min-height:0;padding:6px 10px;font-size:11.5px">
+              <button type="submit" class="btn-ghost btn-sm hv-err busy-btn"
+                      data-turbo-submits-with="Sending…">Request changes</button>
+            <% end %>
           </div>
-          <%= form_with url: ticket_request_changes_path(ticket.code), method: :post,
-                        style: "display:flex;gap:8px;padding:0 13px 12px" do %>
-            <input name="feedback" autocomplete="off" class="textarea"
-                   placeholder="Request changes — what should be different?"
-                   style="flex:1;min-height:0;padding:6px 10px;font-size:11.5px">
-            <button type="submit" class="btn-ghost btn-sm hv-err busy-btn"
-                    data-turbo-submits-with="Sending…">Request changes</button>
-          <% end %>
+        <% elsif ticket.state == "implementation" %>
+          <div class="diff-foot">
+            <span class="mono-meta">implementation in progress — review actions unlock when it completes</span>
+          </div>
         <% elsif reviewable %>
           <div class="diff-foot">
             <span class="btn-outline-ok" style="cursor:default;opacity:.5" title="demo ticket — no workspace repo">Approve &amp; merge</span>
@@ -124,6 +182,27 @@
           </div>
         <% end %>
       </div>
+
+      <!-- ── ticket activity ──────────────────────────────── -->
+      <% ticket_events = Event.where(ticket_code: ticket.code).recent.limit(20).to_a %>
+      <% if ticket_events.any? %>
+        <details class="panel" <%= "open".html_safe if ticket_events.size <= 6 %>>
+          <summary class="panel-hd" style="cursor:pointer">
+            <span class="k-label">Activity</span>
+            <span class="spacer"></span>
+            <span class="mono-meta"><%= ticket_events.size %> events</span>
+          </summary>
+          <div class="rfc-log" style="max-height:200px">
+            <% ticket_events.each do |event| %>
+              <div class="rfc-log-row">
+                <span class="mono-meta" style="flex:none;font-variant-numeric:tabular-nums"><%= event_time(event) %></span>
+                <span class="stream-phase" style="flex:none;color:<%= event.tone %>"><%= event.phase_tag %></span>
+                <span style="flex:1;min-width:0;overflow-wrap:anywhere"><%= event.text %></span>
+              </div>
+            <% end %>
+          </div>
+        </details>
+      <% end %>
 
       <div class="drawer-grid">
         <div class="drawer-mini">

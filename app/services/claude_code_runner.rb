@@ -262,11 +262,30 @@ class ClaudeCodeRunner
     change = data["change"].to_s.parameterize.presence
     ticket.update!(artifacts: ticket.artifacts | ["openspec change: #{change}"]) if change
 
+    apply_enrichment(ticket, data)
+
     deps = Array(data["depends_on"]).map(&:to_s) &
            Ticket.where.not(code: ticket.code).pluck(:code)
     ticket.update!(dep_codes: ticket.dep_codes | deps) if deps.any?
 
     create_split_tickets(Array(data["additional_tickets"]), change)
+  end
+
+  # Shared with TicketEnrichJob: summary/notes/criteria out of a JSON payload.
+  def self.apply_enrichment(ticket, data)
+    updates = {}
+    summary = data["summary"].to_s.strip
+    updates[:description] = summary.truncate(1200) if summary.present? && ticket.description.blank?
+    notes = data["technical_notes"].to_s.strip
+    updates[:technical_notes] = notes.truncate(2000) if notes.present?
+    criteria = Array(data["acceptance_criteria"]).map { |c| c.to_s.strip.truncate(200) }
+                                                 .reject(&:blank?).first(8)
+    updates[:acceptance_criteria] = criteria if criteria.any?
+    ticket.update!(updates) if updates.any?
+  end
+
+  def apply_enrichment(ticket, data)
+    self.class.apply_enrichment(ticket, data)
   end
 
   # "Allow split": planning may break an oversized ticket into follow-ups,

@@ -51,7 +51,7 @@ class RfcAgentJob < ApplicationJob
     setting = Setting.instance
     setting.update!(spend_today: (setting.spend_today + cost).round(2))
     SpendSample.accrue!(cost)
-    Agent.find_by(name: agent_name)&.increment!(:cost_today, cost.round(2))
+    Agent.for_phase(agent_name == "Scout" ? "investigation" : "planning")&.increment!(:cost_today, cost.round(2))
   end
 
   def run_meta(result)

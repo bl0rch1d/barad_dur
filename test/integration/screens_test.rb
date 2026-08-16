@@ -100,6 +100,19 @@ class ScreensTest < ActionDispatch::IntegrationTest
     Setting.instance.update!(live_mode: false)
   end
 
+  test "review actions are gated to review and later states" do
+    implementing = Ticket.create!(code: "TST-RG1", title: "Still coding", state: :implementation)
+    get root_path(ticket: implementing.code)
+    assert_response :success
+    refute_includes response.body, "tickets/#{implementing.code}/merge"
+    assert_includes response.body, "review actions unlock"
+
+    reviewing = Ticket.create!(code: "TST-RG2", title: "In review", state: :review)
+    get root_path(ticket: reviewing.code)
+    assert_response :success
+    assert_includes response.body, "Approve &amp; merge"
+  end
+
   test "wizard workspace_dir accepts relative folders and rejects traversal" do
     post wizard_patch_path(key: "workspace_dir", value: "sub/folder")
     assert_equal "sub/folder", Setting.instance.setup["workspace_dir"]

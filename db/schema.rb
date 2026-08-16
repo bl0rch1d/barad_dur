@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_16_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_16_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -205,6 +205,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_16_000002) do
   end
 
   create_table "tickets", force: :cascade do |t|
+    t.jsonb "acceptance_criteria", default: [], null: false
     t.bigint "agent_id"
     t.jsonb "artifacts", default: [], null: false
     t.string "code", null: false
@@ -221,6 +222,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_16_000002) do
     t.boolean "risky", default: false, null: false
     t.datetime "started_at"
     t.integer "state", default: 0, null: false
+    t.text "technical_notes"
     t.string "title", null: false
     t.string "tokens_label"
     t.datetime "updated_at", null: false

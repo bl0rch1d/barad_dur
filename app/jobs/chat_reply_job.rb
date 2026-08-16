@@ -20,7 +20,7 @@ class ChatReplyJob < ApplicationJob
     extra_args += ["--resume", session_id] if session_id.present?
     prompt = session_id.present? ? message.body : opening_prompt(room, message)
 
-    architect = Agent.find_by(name: "Architect")
+    architect = Agent.for_phase("planning")
     architect&.update!(status: "running", doing: "Discussing #{room} with you")
 
     result = HeadlessAgent.call(prompt: prompt, chdir: chdir,
