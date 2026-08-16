@@ -44,11 +44,12 @@ Every dollar of **Tribute burned** is real spend, capped daily — the tower pau
 
 ## 🔮 Gaze into the palantír
 
-| The Watchtower at Night | The Shire Variant ☀️ |
+| Barad-dûr 🔥 | Minas Morgul 🌙 |
 |:---:|:---:|
 | ![Dashboard — dark theme](docs/assets/screenshots/dashboard-dark.png) | ![Dashboard — light theme](docs/assets/screenshots/dashboard-light.png) |
 
-*Left: ember and shadow, as the Dark Lord intended. Right: for those who yet walk in the daylight of the Westlands (your PM).*
+*Left: ember and shadow, as the Dark Lord intended. Right: once Minas Ithil, Tower of the Moon —
+the same watch kept in corpse-pale witchlight. The Witch-king uses light mode. Draw your own conclusions.*
 
 **What you're seeing** — in the Common Tongue:
 
