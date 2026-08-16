@@ -3,11 +3,7 @@
 
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/ember/barad-dur-seal-disc-256.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo/green/barad-dur-seal-disc-256.svg">
-  <img src="docs/assets/logo/ember/barad-dur-seal-disc-256.svg" width="160" alt="The Seal of Barad-dûr">
-</picture>
+<img src="docs/assets/logo/ember/barad-dur-seal-disc-256.svg" width="160" alt="The Seal of Barad-dûr">
 
 # BARAD-DÛR
 
