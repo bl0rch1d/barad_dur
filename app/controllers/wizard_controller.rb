@@ -38,6 +38,8 @@ class WizardController < ApplicationController
       redirect_to root_path(wizard: 6)
     else
       LiveMode.deactivate!(@setting)
+      # roster follows the harness choice immediately, live mode or not
+      AgentRoster.rebuild!(@setting)
       @setting.reload.update!(setup_complete: true, running: true)
       Event.record!(phase_tag: "SYS", agent_name: "you", text: "Setup complete — pipeline started")
       PipelineEngine.broadcast

@@ -9,6 +9,7 @@
       </g>
     </svg>
     <span class="brand-name">BARAD-DÛR</span>
+    <span class="mono-dim" style="font-style:italic;color:var(--seal-mid);opacity:.85">the Eye is open · the watch holds</span>
     <% if @setting.live_mode? %>
       <span class="mono-dim"><%= Workspace.root.basename %> · openspec · <%= Workspace.repos.size %> <%= "repo".pluralize(Workspace.repos.size) %> · live</span>
     <% else %>
