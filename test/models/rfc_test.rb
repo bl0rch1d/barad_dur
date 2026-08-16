@@ -29,7 +29,7 @@ class RfcTest < ActiveSupport::TestCase
 
     risky = Ticket.find_by(code: "ALG-243")
     assert risky.risky?
-    assert_equal "ready", risky.state
+    assert_equal "ready_to_implement", risky.state
     assert_equal ["ALG-242"], risky.dep_codes
 
     # pushing twice does not duplicate

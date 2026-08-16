@@ -98,6 +98,7 @@ class ClaudeCodeRunner
     if result.ok
       accrue_cost(result.raw)
       capture_outputs(repo)
+      handle_structured_output(result)
       Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
                     meta: run_meta(result.raw),
                     text: "#{phase.capitalize} run finished — #{summary(result.raw)}")
@@ -227,6 +228,68 @@ class ClaudeCodeRunner
     return unless path && File.exist?(File.join(path, plan))
 
     ticket.update!(artifacts: ticket.artifacts | [plan])
+  end
+
+  # Grooming contracts (PhasePrompts): investigation may raise clarification
+  # questions; planning reports change ref, board dependencies and splits.
+  def handle_structured_output(result)
+    data = StructuredOutput.json_block(result.result_text)
+    return unless data
+
+    case phase
+    when "investigation" then create_questions(data)
+    when "planning"      then apply_plan_output(data)
+    end
+  end
+
+  def create_questions(data)
+    Array(data["questions"]).first(2).each do |q|
+      body = q["q"].to_s.strip.truncate(400)
+      opts = Array(q["opts"]).first(4).map { |o| o.to_s.truncate(100) }
+      next if body.blank? || opts.size < 2 || Question.pending.exists?(ticket_code: ticket.code, body: body)
+
+      Question.create!(ticket_code: ticket.code, phase: phase, body: body,
+                       options: opts, asked_at: Time.current)
+    end
+    return unless ticket.blocked_by_question?
+
+    Event.record!(phase_tag: tag, tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "clarification",
+                  text: "#{ticket.code} needs your input before it can continue — see Needs you")
+  end
+
+  def apply_plan_output(data)
+    change = data["change"].to_s.parameterize.presence
+    ticket.update!(artifacts: ticket.artifacts | ["openspec change: #{change}"]) if change
+
+    deps = Array(data["depends_on"]).map(&:to_s) &
+           Ticket.where.not(code: ticket.code).pluck(:code)
+    ticket.update!(dep_codes: ticket.dep_codes | deps) if deps.any?
+
+    create_split_tickets(Array(data["additional_tickets"]), change)
+  end
+
+  # "Allow split": planning may break an oversized ticket into follow-ups,
+  # chained sequentially behind this one.
+  def create_split_tickets(extras, change)
+    extras = extras.first(4).select { |t| t["title"].to_s.strip.present? }
+    return if extras.empty?
+
+    number = Ticket.pluck(:code).filter_map { |c| c[/\d+/]&.to_i }.max.to_i
+    previous = ticket.code
+    extras.each do |extra|
+      number += 1
+      created = Ticket.create!(
+        code: "ALG-#{number}", title: extra["title"].to_s.truncate(120), repo: ticket.repo,
+        est_label: extra["estimate"].present? ? "~#{extra['estimate']}" : "—",
+        risky: extra["risky"] == true, state: :ready_to_implement,
+        dep_codes: [previous],
+        artifacts: change ? ["openspec change: #{change}"] : []
+      )
+      previous = created.code
+    end
+    Event.record!(phase_tag: "PLAN", ticket: ticket, agent: ticket.agent,
+                  text: "Plan split — #{extras.size} follow-up ticket(s) chained after #{ticket.code}")
   end
 
   def git(repo, *args)

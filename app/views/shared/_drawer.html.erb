@@ -11,6 +11,12 @@
         <%= link_to "✕", request.path, class: "close-btn" %>
       </div>
       <div class="drawer-title"><%= ticket.title %></div>
+      <% if (blocker = ticket.blocker) %>
+        <div class="mono-meta" style="color:var(--warn)">⛔ blocked · <%= blocker[:type] %> — <%= blocker[:label] %></div>
+      <% end %>
+      <% if ticket.description.present? %>
+        <div style="font-size:12px;color:var(--tx2);line-height:1.55;white-space:pre-wrap;border-left:2px solid var(--soft);padding-left:10px"><%= ticket.description %></div>
+      <% end %>
       <div class="drawer-meta">
         <span><%= ticket.repo %></span>
         <span><%= ticket.agent_label %></span>

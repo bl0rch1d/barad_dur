@@ -58,8 +58,8 @@ else
     ]
 
     tickets = [
-      { code: "ALG-236", title: "Deprecate v1 signal webhook", state: :backlog, repo: "algo-api", est_label: "~1h" },
-      { code: "ALG-231", title: "Backfill historical OHLC gaps for 2019–2021", state: :backlog, repo: "algo-jobs", est_label: "~3h" },
+      { code: "ALG-236", title: "Deprecate v1 signal webhook", state: :draft, repo: "algo-api", est_label: "~1h" },
+      { code: "ALG-231", title: "Backfill historical OHLC gaps for 2019–2021", state: :draft, repo: "algo-jobs", est_label: "~3h" },
       { code: "ALG-229", title: "Position sizing config schema + validation", state: :ready, repo: "algo-core", est_label: "~2h" },
       { code: "ALG-224", title: "Rate-limit /v2/backtest per API key", state: :ready, repo: "algo-api", est_label: "~1h 20m" },
       { code: "ALG-218", title: "Slippage model mismatch between paper and live fills", state: :investigation,

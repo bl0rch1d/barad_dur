@@ -409,7 +409,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert codes.all? { |c| c.match?(/\AALG-\d+\z/) }
     second = Ticket.find_by(code: codes.last)
     assert_equal [codes.first], second.dep_codes
-    assert_equal "ready", second.state
+    assert_equal "ready_to_implement", second.state
     assert_equal "~30m", second.est_label
   ensure
     ENV.delete("FAKE_MODE")
@@ -490,6 +490,62 @@ class LiveRunnerTest < ActiveSupport::TestCase
     rfc.push_to_board!
     ticket = Ticket.order(:id).last
     assert_includes ticket.artifacts, "openspec change: add-farewell"
+  end
+
+  def write_stub!(payload_json)
+    result = { type: "result", subtype: "success", is_error: false,
+               total_cost_usd: 0.01, duration_ms: 500, usage: {},
+               result: "Done.\n```json\n#{payload_json}\n```" }.to_json
+    path = File.join(@dir, "stub_claude")
+    File.write(path, "#!/usr/bin/env bash\n" \
+                     "echo '{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s\",\"model\":\"stub\"}'\n" \
+                     "echo '#{result}'\n")
+    FileUtils.chmod("+x", path)
+    ENV["CLAUDE_BIN"] = path
+  end
+
+  test "grooming investigation with questions parks the ticket and resumes on answers" do
+    write_stub!('{"questions":[{"q":"Which auth flow?","why":"changes scope","opts":["OAuth","API key"]}]}')
+    agent = Agent.create!(name: "Scout-G", abbr: "SG", role: "investigation",
+                          llm_model: "sonnet", status: "running")
+    ticket = Ticket.create!(code: "TST-Q1", title: "Groomed draft", repo: "demo-repo",
+                            state: :investigation, agent: agent)
+    ticket.phase_runs.create!(phase: "investigation", status: "running",
+                              runner: "claude", started_at: Time.current)
+
+    RunPhaseJob.perform_now(ticket.id, "investigation")
+
+    ticket.reload
+    assert_equal "investigation", ticket.state, "parked, not transitioned"
+    assert_equal "clarification", ticket.blocker[:type]
+    assert_equal "done", ticket.current_phase_run.status
+    question = Question.pending.find_by(ticket_code: "TST-Q1")
+    assert_equal ["OAuth", "API key"], question.options
+
+    PipelineEngine.answer_question!(question, "OAuth")
+    assert_equal "planning", ticket.reload.state, "resumes after the answer"
+  end
+
+  test "grooming planning captures change, deps and split tickets" do
+    other = Ticket.create!(code: "TST-DEP", title: "Existing work", repo: "demo-repo", state: :implementation)
+    write_stub!('{"change":"add-auth","depends_on":["TST-DEP"],"additional_tickets":[{"title":"Wire auth into UI","estimate":"30m","risky":false}]}')
+    ticket = Ticket.create!(code: "TST-P1", title: "Add auth", repo: "demo-repo", state: :planning)
+    ticket.phase_runs.create!(phase: "planning", status: "running",
+                              runner: "claude", started_at: Time.current)
+
+    RunPhaseJob.perform_now(ticket.id, "planning")
+
+    ticket.reload
+    assert_equal "ready_to_implement", ticket.state
+    assert_includes ticket.artifacts, "openspec change: add-auth"
+    assert_includes ticket.dep_codes, "TST-DEP"
+    assert_equal "dependency", ticket.blocker[:type], "waits on TST-DEP"
+
+    split = Ticket.order(:id).last
+    assert_equal "Wire auth into UI", split.title
+    assert_equal "ready_to_implement", split.state
+    assert_equal [ticket.code], split.dep_codes
+    assert_includes split.artifacts, "openspec change: add-auth"
   end
 
   test "workspace recent commits merges selected repos newest first" do

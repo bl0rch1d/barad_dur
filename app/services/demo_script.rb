@@ -133,6 +133,6 @@ module DemoScript
     number = Ticket.pluck(:code).filter_map { |c| c[/\d+/]&.to_i }.max.to_i + 1
     template = BACKLOG_TEMPLATES[number % BACKLOG_TEMPLATES.size]
     Ticket.create!(code: "ALG-#{number}", title: template[:title], repo: template[:repo],
-                   est_label: template[:est], risky: template[:risky], state: :backlog)
+                   est_label: template[:est], risky: template[:risky], state: :draft)
   end
 end

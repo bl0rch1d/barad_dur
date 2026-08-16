@@ -103,7 +103,7 @@ class PipelineEngineTest < ActiveSupport::TestCase
   test "engine grooms backlog and fabricates new work when the board runs dry" do
     Agent.create!(name: "Idle-G", abbr: "IG", role: "implementation",
                   llm_model: "sonnet", status: "idle")
-    backlog = Ticket.create!(code: "TST-5", title: "Backlog ticket", state: :backlog)
+    backlog = Ticket.create!(code: "TST-5", title: "Backlog ticket", state: :draft)
 
     PipelineEngine.tick!
     assert_equal "investigation", backlog.reload.state
@@ -125,5 +125,52 @@ class PipelineEngineTest < ActiveSupport::TestCase
     assert_equal "investigation", ticket.state
     assert ticket.agent.present?
     assert_equal "running", ticket.agent.status
+  end
+
+  test "planning parks at ready_to_implement and frees the agent" do
+    ticket = build_in_flight_ticket(state: :planning,
+                                    progress: Ticket::PHASE_THRESHOLDS["planning"] - 1)
+    PipelineEngine.tick!
+    ticket.reload
+    assert_equal "ready_to_implement", ticket.state
+    assert_equal "idle", ticket.agent.reload.status
+    assert Event.exists?(["text LIKE ?", "%groomed — ready to implement%"])
+  end
+
+  test "ready_to_implement tickets are picked up for implementation, dep-gated" do
+    Agent.create!(name: "Impl-T", abbr: "IP", role: "implementation",
+                  llm_model: "sonnet", status: "idle")
+    dep = Ticket.create!(code: "TST-D1", title: "Prerequisite", state: :implementation)
+    blocked = Ticket.create!(code: "TST-A1", title: "Waits on dep", state: :ready_to_implement,
+                             dep_codes: ["TST-D1"])
+    free = Ticket.create!(code: "TST-B1", title: "No deps", state: :ready_to_implement)
+
+    PipelineEngine.tick!
+    assert_equal "ready_to_implement", blocked.reload.state, "dep-blocked ticket must wait"
+    assert_equal "implementation", free.reload.state
+    assert_equal "dependency", blocked.blocker[:type]
+    assert_match(/TST-D1/, blocked.blocker[:label])
+
+    dep.update!(state: :done)
+    Agent.create!(name: "Impl-T2", abbr: "I2", role: "implementation",
+                  llm_model: "sonnet", status: "idle")
+    PipelineEngine.tick!
+    assert_equal "implementation", blocked.reload.state, "unblocks once dep is done"
+  end
+
+  test "gate-all autonomy gates the ready_to_implement pickup" do
+    Setting.instance.update!(autonomy: "every")
+    Agent.create!(name: "Gate-T", abbr: "GT", role: "implementation",
+                  llm_model: "sonnet", status: "idle")
+    ticket = Ticket.create!(code: "TST-G1", title: "Gated pickup", state: :ready_to_implement)
+
+    PipelineEngine.tick!
+    assert_equal "ready_to_implement", ticket.reload.state
+    gate = ticket.ticket_gates.pending.first
+    assert gate.present?
+    assert_equal "gate", ticket.blocker[:type]
+
+    PipelineEngine.approve_gate!(gate)
+    assert_equal "implementation", ticket.reload.state
   end
 end

@@ -50,15 +50,17 @@ class Rfc < ApplicationRecord
              Array(p["dep_indexes"]).map { |di| codes[di.to_i - 1] }.compact
       est = p["est"].to_s
       artifacts = p["change"].present? ? ["openspec change: #{p['change']}"] : []
+      # investigation + planning already happened in the RFC flow — these
+      # tickets land ready to implement, not at the start of the pipeline
       Ticket.create!(
         code: codes[i], title: p["title"], repo: p["repo"],
         est_label: est.start_with?("~") ? est : "~#{est}",
         risky: p["risky"] == true || p["tag"] == "risky",
-        state: :ready, dep_codes: deps, artifacts: artifacts
+        state: :ready_to_implement, dep_codes: deps, artifacts: artifacts
       )
     end
     update!(pushed: true)
-    Event.record!(phase_tag: "PLAN", agent_name: "Architect", meta: "ready to run",
+    Event.record!(phase_tag: "PLAN", agent_name: "Architect", meta: "ready to implement",
                   text: "#{proposals.size} tickets pushed to board")
   end
 end

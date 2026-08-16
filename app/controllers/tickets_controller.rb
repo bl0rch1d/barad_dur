@@ -1,4 +1,5 @@
 class TicketsController < ApplicationController
+  # Manual tickets enter as drafts; "Groom" sends them into the pipeline.
   def create
     title = params[:title].to_s.strip
     if title.present?
@@ -6,12 +7,26 @@ class TicketsController < ApplicationController
       code = "ALG-#{number}"
       repo = params[:repo].presence || Workspace.ticket_targets.first || "algo-core"
       Ticket.create!(code: code, title: title, repo: repo, est_label: "—",
-                     risky: params[:risky] == "1", state: :ready)
+                     description: params[:description].to_s.strip.presence,
+                     risky: params[:risky] == "1", state: :draft)
       Event.record!(phase_tag: "PLAN", agent_name: "you", ticket_code: code,
-                    text: "Filed #{code} — #{title}")
+                    text: "Drafted #{code} — #{title}")
       PipelineEngine.broadcast
     end
     redirect_to board_path
+  end
+
+  def groom
+    ticket = Ticket.find_by!(code: params[:code])
+    ticket.with_lock do
+      if ticket.draft?
+        ticket.update!(state: :ready)
+        Event.record!(phase_tag: "PLAN", agent_name: "you", ticket_code: ticket.code,
+                      text: "#{ticket.code} sent to the pipeline — grooming queued")
+      end
+    end
+    PipelineEngine.broadcast
+    back
   end
 
   def phase

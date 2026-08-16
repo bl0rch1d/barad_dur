@@ -5,22 +5,71 @@
 # harness's own commands/skills inside the harness repo instead of the
 # built-in prompts below.
 module PhasePrompts
+  # Grooming contracts: investigation may surface clarification questions
+  # (parking the ticket as Blocked · clarification); planning reports the
+  # openspec change, dependencies on existing tickets, and optional splits.
+  QUESTIONS_CONTRACT = <<~TXT.freeze
+
+    If (and ONLY if) you hit product decisions you cannot make yourself, end
+    your FINAL message with a fenced json block:
+    ```json
+    {"questions": [{"q": "the decision", "why": "why it matters",
+                    "opts": ["Option A", "Option B"]}]}
+    ```
+    0-2 questions, each with 2-3 short options. Omit the block entirely when
+    nothing needs the user.
+  TXT
+
+  PLANNING_CONTRACT = <<~TXT.freeze
+
+    End your FINAL message with a fenced json block:
+    ```json
+    {"change": "kebab-case-change-name-or-null",
+     "depends_on": ["ALG-12"],
+     "additional_tickets": [{"title": "...", "estimate": "40m", "risky": false}]}
+    ```
+    change: the openspec change you created (null if none).
+    depends_on: existing board ticket codes this work must wait for (usually []).
+    additional_tickets: ONLY when this ticket is too big for one agent
+    session — parts split out to run after it (usually []).
+  TXT
+
   module_function
 
   # Full execution plan for a phase run: prompt, working directory and extra
   # CLI args. Harness-mapped phases run in the harness repo with the whole
   # workspace reachable; everything else uses the built-in prompt in the
-  # ticket's repo.
+  # ticket's repo. Grooming phases carry structured-output contracts.
   def execution(ticket, phase, repo_path, setting = Setting.instance)
     invocation = Harness.phase_invocation(phase, setting)
-    if invocation && (phase != "implementation" || change_ref(ticket).present?)
-      info = Harness.detect(setting)
-      { prompt: harness_prompt(ticket, phase, invocation, setting),
-        chdir: info.path,
-        extra_args: ["--add-dir", Workspace.root(setting).to_s] }
-    else
-      { prompt: build(ticket, phase), chdir: repo_path, extra_args: [] }
+    plan =
+      if invocation && (phase != "implementation" || change_ref(ticket).present?)
+        info = Harness.detect(setting)
+        { prompt: harness_prompt(ticket, phase, invocation, setting),
+          chdir: info.path,
+          extra_args: ["--add-dir", Workspace.root(setting).to_s] }
+      else
+        { prompt: build(ticket, phase), chdir: repo_path, extra_args: [] }
+      end
+    plan[:prompt] += contract_for(ticket, phase)
+    plan
+  end
+
+  def contract_for(ticket, phase)
+    case phase
+    when "investigation" then QUESTIONS_CONTRACT + board_context(ticket)
+    when "planning"      then PLANNING_CONTRACT + board_context(ticket)
+    else ""
     end
+  end
+
+  def board_context(ticket)
+    others = Ticket.on_board.where.not(code: ticket.code).order(:code).limit(20)
+    return "" if others.empty?
+
+    "\nOpen tickets on the board — link genuine dependencies via their codes " \
+    "and do NOT duplicate their work:\n" +
+      others.map { |t| "- #{t.code}: #{t.title} [#{t.state}]" }.join("\n") + "\n"
   end
 
   # The openspec change a ticket belongs to (set when pushed from a
@@ -45,7 +94,8 @@ module PhasePrompts
       Pipeline context: you are running non-interactively as the #{role_for(phase)}
       agent for ticket #{ticket.code} ("#{ticket.title}") targeting repository
       #{ticket.repo}#{scope ? " (scope: #{scope} subdirectory)" : ""}.
-      Never ask the user questions — make reasonable choices and note them.
+      #{"Draft description from the user:\n#{ticket.description}\n" if ticket.description.present?}
+      Never ask the user questions interactively — make reasonable choices and note them.
       #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
       Work autonomously until the #{phase} outcome is complete, then summarize
       what you did.
@@ -56,9 +106,10 @@ module PhasePrompts
     header = <<~TXT
       You are the #{role_for(phase)} agent in an automated SDLC pipeline working on
       ticket #{ticket.code}: "#{ticket.title}".
-      Repository: current working directory. Work autonomously — no questions.
+      Repository: current working directory. Work autonomously.
       If an openspec/ directory exists, treat its specs as the contract.
     TXT
+    header += "Draft description from the user:\n#{ticket.description}\n" if ticket.description.present?
     if (sub = Workspace.subpath(ticket.repo))
       header += "Scope: focus your work on the `#{sub}` subdirectory of this repository (monorepo sub-project).\n"
     end

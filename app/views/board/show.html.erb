@@ -6,17 +6,21 @@
 </div>
 
 <div class="screen-bar" style="border-top:0;padding-top:0">
-  <%= form_with url: tickets_path, method: :post, style: "display:flex;gap:8px;align-items:center;flex:1" do %>
-    <input name="title" placeholder="File a ticket — one line of intent…" autocomplete="off"
-           class="textarea" style="flex:1;min-height:0;padding:6px 10px;font-size:12px">
+  <%= form_with url: tickets_path, method: :post, style: "display:flex;gap:8px;align-items:flex-start;flex:1;flex-wrap:wrap" do %>
+    <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:5px">
+      <input name="title" placeholder="Draft a ticket — one line of intent…" autocomplete="off"
+             class="textarea" style="min-height:0;padding:6px 10px;font-size:12px">
+      <textarea name="description" rows="1" placeholder="Optional free-form description — any format, as much detail as you like…"
+                class="textarea" style="min-height:30px;padding:6px 10px;font-size:11.5px"></textarea>
+    </div>
     <select name="repo" class="textarea" style="min-height:0;padding:6px;font-size:12px;width:150px">
       <% repos = (Workspace.ticket_targets + Ticket.on_board.distinct.pluck(:repo)).compact.uniq %>
       <% repos.each do |repo| %><option value="<%= repo %>"><%= repo %></option><% end %>
     </select>
-    <label style="display:flex;gap:5px;align-items:center;font-size:11px;color:var(--tx2)">
+    <label style="display:flex;gap:5px;align-items:center;font-size:11px;color:var(--tx2);padding-top:8px">
       <input type="checkbox" name="risky" value="1">risky
     </label>
-    <button type="submit" class="btn-ghost btn-sm hv-acc">+ File ticket</button>
+    <button type="submit" class="btn-ghost btn-sm hv-acc busy-btn" data-turbo-submits-with="Filing…">+ File draft</button>
   <% end %>
 </div>
 
@@ -30,27 +34,47 @@
       </div>
 
       <% column[:tickets].each do |ticket| %>
-        <%= link_to url_for(ticket: ticket.code), class: "card hv-bd",
-                    style: "border-left:2px solid #{column[:tone]}" do %>
+        <% blocker = column[:blocked] ? ticket.blocker : nil %>
+        <div class="card hv-bd" style="border-left:2px solid <%= column[:tone] %>">
           <div class="card-hd">
             <span class="card-id"><%= ticket.code %></span>
             <% if ticket.risky? %><span class="risk-tag">RISK</span><% end %>
-            <span class="spacer"></span>
+            <% if blocker %>
+              <span class="risk-tag" style="color:var(--warn);border-color:var(--warn)"><%= blocker[:type].upcase %></span>
+            <% end %>
+            <div class="spacer"></div>
             <span class="card-est"><%= ticket.est_label %></span>
           </div>
-          <div class="card-title"><%= ticket.title %></div>
+          <%= link_to url_for(ticket: ticket.code), class: "card-title", style: "color:var(--tx)" do %>
+            <%= ticket.title %>
+          <% end %>
+          <% if blocker %>
+            <div class="mono-meta" style="color:var(--warn);overflow-wrap:anywhere"><%= blocker[:label] %></div>
+          <% elsif column[:state] == "blocked" %>
+          <% end %>
           <div class="pips">
             <% ticket_pips(ticket).each do |pip| %><span style="background:<%= pip %>"></span><% end %>
           </div>
           <div class="card-foot">
-            <span class="card-agent"><%= ticket.agent_label %></span>
-            <% button = card_button(ticket) %>
-            <span class="card-btn" style="border-color:<%= button[:tone] %>;color:<%= button[:fg] %>"><%= button[:label] %></span>
+            <span class="card-agent"><%= blocker ? state_meta(ticket.state)[:name].downcase : ticket.agent_label %></span>
+            <% if ticket.draft? %>
+              <%= button_to "→ groom", ticket_groom_path(ticket.code), form_class: "bt",
+                            class: "card-btn hv-acc", style: "border-color:var(--accent);color:var(--accent)",
+                            data: { turbo_submits_with: "queuing…" } %>
+            <% else %>
+              <% button = card_button(ticket) %>
+              <%= link_to button[:label], url_for(ticket: ticket.code), class: "card-btn",
+                          style: "border-color:#{button[:tone]};color:#{button[:fg]};text-decoration:none" %>
+            <% end %>
           </div>
-        <% end %>
+        </div>
       <% end %>
 
-      <%= link_to "+ add", rfc_path, class: "add-btn hv-soft" %>
+      <% if column[:state] == "draft" %>
+        <span class="add-btn" style="cursor:default">↑ file drafts above</span>
+      <% elsif column[:state] == "ready_to_implement" %>
+        <%= link_to "+ via feature request", rfc_path, class: "add-btn hv-soft" %>
+      <% end %>
     </div>
   <% end %>
 </div>

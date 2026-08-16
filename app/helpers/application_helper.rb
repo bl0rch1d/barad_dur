@@ -1,18 +1,19 @@
 module ApplicationHelper
   STATE_META = {
-    "backlog"        => { name: "Not ready",      tone: "var(--tx3)" },
-    "ready"          => { name: "Ready",          tone: "var(--tx2)" },
-    "investigation"  => { name: "Investigation",  tone: "var(--info)" },
-    "planning"       => { name: "Planning",       tone: "var(--info)" },
-    "implementation" => { name: "Implementation", tone: "var(--accent)" },
-    "review"         => { name: "Review",         tone: "var(--warn)" },
-    "testing"        => { name: "Testing",        tone: "var(--warn)" },
-    "deployment"     => { name: "Deployment",     tone: "var(--ok)" },
-    "done"           => { name: "Done",           tone: "var(--ok)" }
+    "draft"              => { name: "Draft",              tone: "var(--tx3)" },
+    "ready"              => { name: "Ready",              tone: "var(--tx2)" },
+    "investigation"      => { name: "Investigation",      tone: "var(--info)" },
+    "planning"           => { name: "Planning",           tone: "var(--info)" },
+    "ready_to_implement" => { name: "Ready to implement", tone: "var(--ok)" },
+    "implementation"     => { name: "Implementation",     tone: "var(--accent)" },
+    "review"             => { name: "Review",             tone: "var(--warn)" },
+    "testing"            => { name: "Testing",            tone: "var(--warn)" },
+    "deployment"         => { name: "Deployment",         tone: "var(--ok)" },
+    "done"               => { name: "Done",               tone: "var(--ok)" }
   }.freeze
 
   def state_meta(state)
-    STATE_META.fetch(state.to_s, STATE_META["backlog"])
+    STATE_META.fetch(state.to_s, STATE_META["draft"])
   end
 
   def short_duration(secs)
@@ -37,25 +38,25 @@ module ApplicationHelper
     event.happened_at.strftime("%H:%M:%S")
   end
 
-  # Six per-phase progress pips for a board card, as CSS color values.
+  # Six per-phase progress pips for a board card, from real phase runs.
   def ticket_pips(ticket)
-    cur = ticket.phase_index
-    Ticket::PHASES.each_index.map do |k|
-      if cur.nil? then "var(--soft)"
-      elsif k < cur then "var(--ok)"
-      elsif k == cur then "var(--accent)"
+    done = ticket.phase_runs.select { |r| r.status == "done" }.map(&:phase)
+    Ticket::PHASES.map do |phase|
+      if done.include?(phase) then "var(--ok)"
+      elsif phase == ticket.state then "var(--accent)"
+      elsif ticket.state == "ready_to_implement" && %w[investigation planning].include?(phase) then "var(--ok)"
       else "var(--soft)"
       end
     end
   end
 
   def card_button(ticket)
-    if %w[backlog ready].include?(ticket.state)
-      { label: "start", tone: "var(--line)", fg: "var(--tx2)" }
-    elsif ticket.state == "deployment"
-      { label: "ship", tone: "var(--accent)", fg: "var(--accent)" }
-    else
-      { label: "open", tone: "var(--accent)", fg: "var(--accent)" }
+    case ticket.state
+    when "draft"              then { label: "draft", tone: "var(--line)", fg: "var(--tx3)" }
+    when "ready"              then { label: "queued", tone: "var(--line)", fg: "var(--tx2)" }
+    when "ready_to_implement" then { label: "ready", tone: "var(--ok)", fg: "var(--ok)" }
+    when "deployment"         then { label: "ship", tone: "var(--accent)", fg: "var(--accent)" }
+    else                           { label: "open", tone: "var(--accent)", fg: "var(--accent)" }
     end
   end
 

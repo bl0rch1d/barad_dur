@@ -21,6 +21,7 @@ Rails.application.routes.draw do
   post "gates/:id/approve"    => "gates#approve",    as: :approve_gate
   post "questions/:id/answer" => "questions#answer", as: :answer_question
   post "tickets/:code/phase"  => "tickets#phase",    as: :ticket_phase
+  post "tickets/:code/groom"  => "tickets#groom",    as: :ticket_groom
 
   post "wizard/patch"  => "wizard#patch",  as: :wizard_patch
   post "wizard/finish" => "wizard#finish", as: :wizard_finish

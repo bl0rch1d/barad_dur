@@ -1,11 +1,13 @@
 class Ticket < ApplicationRecord
-  # NOTE: the first state is named :backlog (displayed as "Not ready") because
-  # an enum value literally named :not_ready collides with the `not_ready`
-  # negation scope Rails auto-generates for the :ready value.
+  # draft        — free-form drafts the user files manually
+  # ready        — queued for grooming (investigation → planning)
+  # ready_to_implement — groomed or RFC-planned; awaiting an agent + deps
+  # (an enum value named :not_ready would collide with the auto-generated
+  #  `not_ready` negation scope of :ready — hence :draft)
   STATES = {
-    backlog: 0, ready: 1,
-    investigation: 2, planning: 3, implementation: 4,
-    review: 5, testing: 6, deployment: 7, done: 8
+    draft: 0, ready: 1,
+    investigation: 2, planning: 3, ready_to_implement: 4,
+    implementation: 5, review: 6, testing: 7, deployment: 8, done: 9
   }.freeze
   PHASES = %w[investigation planning implementation review testing deployment].freeze
 
@@ -56,6 +58,28 @@ class Ticket < ApplicationRecord
   # tick-threshold driver must leave it alone.
   def live_run?
     current_phase_run&.runner == "claude"
+  end
+
+  def deps_satisfied?
+    pending_dep_codes.empty?
+  end
+
+  def pending_dep_codes
+    return [] if dep_codes.blank?
+
+    Ticket.where(code: dep_codes).where.not(state: :done).pluck(:code)
+  end
+
+  # First active blocker, or nil. Drives the derived Blocked board column —
+  # the ticket keeps its state and resumes automatically once cleared.
+  def blocker
+    return { type: "clarification", label: "clarification needed" } if blocked_by_question?
+    return { type: "gate", label: "awaiting approval" } if gated?
+    return { type: "failed", label: "run failed — retry" } if current_phase_run&.status == "failed"
+
+    if %w[ready ready_to_implement].include?(state) && !deps_satisfied?
+      { type: "dependency", label: "waiting on #{pending_dep_codes.join(', ')}" }
+    end
   end
 
   def agent_label
