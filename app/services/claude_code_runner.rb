@@ -255,7 +255,7 @@ class ClaudeCodeRunner
 
     Event.record!(phase_tag: tag, tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
                   meta: "clarification",
-                  text: "#{ticket.code} needs your input before it can continue — see Needs you")
+                  text: "#{ticket.code} needs your input before it can continue — see The Eye demands")
   end
 
   def apply_plan_output(data)

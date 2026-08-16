@@ -448,9 +448,9 @@
           </div>
           <div class="parse-card">
             <span class="k-label">Autonomy — changeable any time from the titlebar</span>
-            <% [["auto", "Full auto", "Runs every phase end to end. Stops only on a real block, a failing gate, or the spend cap."],
-                ["risky", "Gate risky phases", "Pauses before anything that touches money, migrations, deploys or files marked risky."],
-                ["every", "Gate every phase", "One approval per phase transition. Slowest, fully auditable — good for a first week."]].each do |value, label, blurb| %>
+            <% [["auto", "Unleashed", "Runs every phase end to end. Stops only on a real block, a failing gate, or the spend cap."],
+                ["risky", "Wary (risky gated)", "Pauses before anything that touches money, migrations, deploys or files marked risky."],
+                ["every", "Chained (all gated)", "One approval per phase transition. Slowest, fully auditable — good for a first week."]].each do |value, label, blurb| %>
               <% on = @setting.autonomy == value %>
               <%= button_to settings_autonomy_path(value: value, wizard: step), form_class: "bt",
                             class: "radio-card#{' on' if on}", style: "padding:10px 12px" do %>

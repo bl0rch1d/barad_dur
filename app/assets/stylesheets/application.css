@@ -1,28 +1,30 @@
 /* algo · SDLC pipeline — design tokens + components (ported from SDLC Pipeline.dc.html) */
 
 :root {
-  --bg:#0c0d0c; --panel:#141715; --raised:#1b1f1c; --sunken:#090a09;
-  --line:#282d29; --soft:#1f2321;
-  --tx:#ecebe5; --tx2:#969b93; --tx3:#666b64;
-  --accent:#ff6a2b; --accent-soft:rgba(255,106,43,.13);
-  --ok:#4fa97a; --ok-soft:rgba(79,169,122,.14);
-  --warn:#e0ae3c; --warn-soft:rgba(224,174,60,.14);
-  --err:#d9564f; --err-soft:rgba(217,86,79,.14);
-  --info:#5c9ec4; --info-soft:rgba(92,158,196,.14);
-  --shadow:0 18px 40px rgba(0,0,0,.55);
+  --bg:#0a0705; --panel:#120c07; --raised:#1a120a; --sunken:#060402;
+  --line:#2e2114; --soft:#241a10;
+  --tx:#e8d9bd; --tx2:#9a8b70; --tx3:#6b5a44;
+  --accent:#8fd9ad; --accent-soft:rgba(143,217,173,.1);
+  --ok:#5fa87e; --ok-soft:rgba(95,168,126,.14);
+  --warn:#ff6a2b; --warn-soft:rgba(255,106,43,.12);
+  --err:#d94a2a; --err-soft:rgba(217,74,42,.14);
+  --info:#7ab4be; --info-soft:rgba(122,180,190,.12);
+  --shadow:0 18px 40px rgba(0,0,0,.6);
+  --seal-mid:#ff5a1a; --seal-glow:rgba(255,90,26,.45);
   --sans:'IBM Plex Sans',system-ui,sans-serif;
   --mono:'IBM Plex Mono',monospace;
 }
 [data-theme="light"] {
-  --bg:#f2f0e9; --panel:#fbfaf6; --raised:#ffffff; --sunken:#eae7de;
-  --line:#dbd6c9; --soft:#e8e4da;
-  --tx:#191b18; --tx2:#5c605a; --tx3:#8a8e85;
-  --accent:#d9531b; --accent-soft:rgba(217,83,27,.10);
-  --ok:#2e7d55; --ok-soft:rgba(46,125,85,.11);
-  --warn:#9d7411; --warn-soft:rgba(157,116,17,.12);
-  --err:#b53c36; --err-soft:rgba(181,60,54,.11);
-  --info:#2d6c92; --info-soft:rgba(45,108,146,.11);
-  --shadow:0 18px 40px rgba(60,50,30,.16);
+  --bg:#dde4de; --panel:#e9efe8; --raised:#f2f6f0; --sunken:#cfdad2;
+  --line:#b4c2b6; --soft:#c8d4ca;
+  --tx:#16241c; --tx2:#4a5c50; --tx3:#6e8278;
+  --accent:#2e6b4d; --accent-soft:rgba(46,107,77,.1);
+  --ok:#3f7a58; --ok-soft:rgba(63,122,88,.12);
+  --warn:#c2410c; --warn-soft:rgba(194,65,12,.1);
+  --err:#b03226; --err-soft:rgba(176,50,38,.11);
+  --info:#2e6b78; --info-soft:rgba(46,107,120,.1);
+  --shadow:0 18px 40px rgba(20,40,30,.18);
+  --seal-mid:#2e6b4d; --seal-glow:rgba(46,107,77,.3);
 }
 
 * { box-sizing:border-box }
@@ -40,7 +42,7 @@ input, textarea, select { font:inherit; color:inherit }
 ::-webkit-scrollbar-thumb { background:var(--line); border-radius:9px }
 ::-webkit-scrollbar-thumb:hover { background:var(--tx3) }
 
-@keyframes pulse { 0%{box-shadow:0 0 0 0 var(--accent-soft)} 70%{box-shadow:0 0 0 7px rgba(255,106,43,0)} 100%{box-shadow:0 0 0 0 rgba(255,106,43,0)} }
+@keyframes pulse { 0%{box-shadow:0 0 0 0 var(--accent-soft)} 70%{box-shadow:0 0 0 7px rgba(143,217,173,0)} 100%{box-shadow:0 0 0 0 rgba(143,217,173,0)} }
 @keyframes spin { to { transform:rotate(360deg) } }
 @keyframes sweep { 0%{transform:translateX(-100%)} 100%{transform:translateX(320%)} }
 @keyframes blink { 0%,45%{opacity:1} 50%,95%{opacity:.25} 100%{opacity:1} }
@@ -66,7 +68,7 @@ input, textarea, select { font:inherit; color:inherit }
 .meter { height:3px; background:var(--sunken); border-radius:2px; overflow:hidden }
 .meter > span { display:block; height:100% }
 
-.btn-accent { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--accent); background:var(--accent); color:#fff; padding:6px 13px; border-radius:5px; font-size:12px; font-weight:600 }
+.btn-accent { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--accent); background:var(--accent); color:var(--bg); padding:6px 13px; border-radius:5px; font-size:12px; font-weight:600 }
 .btn-ghost { border:1px solid var(--line); background:var(--raised); color:var(--tx2); padding:6px 11px; border-radius:5px; font-size:12px }
 .btn-sm { padding:5px 12px; border-radius:4px; font-size:11.5px }
 .btn-outline-warn { border:1px solid var(--warn); background:transparent; color:var(--warn); padding:4px 11px; border-radius:4px; font-size:11.5px; font-weight:600 }
@@ -108,12 +110,13 @@ input, textarea, select { font:inherit; color:inherit }
 .tl-dots { display:flex; gap:8px; align-items:center; padding-right:6px }
 .tl-dots span { width:11px; height:11px; border-radius:50%; display:block }
 .d-red { background:#e0564f } .d-yellow { background:#e0b23c } .d-green { background:#4fa97a }
-.brand { display:flex; align-items:baseline; gap:9px; min-width:0 }
-.brand-name { font-family:var(--mono); font-weight:600; font-size:12.5px; letter-spacing:-.01em }
+.brand { display:flex; align-items:center; gap:9px; min-width:0 }
+.brand-name { font-family:var(--mono); font-weight:600; font-size:12.5px; letter-spacing:.08em; white-space:nowrap }
+.brand-seal { flex:none; filter:drop-shadow(0 0 6px var(--seal-glow)) }
 .seg { display:flex; align-items:center; gap:6px; padding:3px; background:var(--sunken); border:1px solid var(--line); border-radius:5px }
 .seg-btn { border:0; background:transparent; color:var(--tx2); padding:4px 9px; border-radius:3px; font-size:11px; font-weight:500; white-space:nowrap }
 .seg-btn.mono { padding:4px 10px }
-.seg-btn.on { background:var(--accent); color:#fff }
+.seg-btn.on { background:var(--accent); color:var(--bg) }
 .vdiv { width:1px; height:22px; background:var(--line) }
 .run-group { display:flex; align-items:center; gap:8px }
 .run-label { display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; color:var(--tx2); padding-right:2px }
@@ -129,7 +132,7 @@ input, textarea, select { font:inherit; color:inherit }
 .rail-item.on .rail-icon { color:var(--accent) }
 .rail-label { flex:1 }
 .rail-badge { font-family:var(--mono); font-size:10px; background:var(--sunken); color:var(--tx3); padding:1px 5px; border-radius:9px }
-.rail-item.on .rail-badge { background:var(--accent); color:#fff }
+.rail-item.on .rail-badge { background:var(--accent); color:var(--bg) }
 .rail-fill { flex:1; min-height:14px }
 .spend-card { border:1px solid var(--line); border-radius:6px; padding:10px; background:var(--sunken); display:flex; flex-direction:column; gap:7px }
 .spend-amount { font-family:var(--mono); font-size:19px; font-weight:600; font-variant-numeric:tabular-nums }
@@ -386,7 +389,7 @@ input, textarea, select { font:inherit; color:inherit }
 .path-row .path { font-family:var(--mono); font-size:11.5px; flex:1; color:var(--tx2) }
 .check-row { display:flex; align-items:center; gap:11px; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:11px 13px; width:100%; text-align:left }
 .check-row.on { border-color:var(--accent) }
-.checkbox { width:15px; height:15px; border-radius:3px; border:1px solid var(--line); background:transparent; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; flex:none }
+.checkbox { width:15px; height:15px; border-radius:3px; border:1px solid var(--line); background:transparent; color:var(--bg); display:flex; align-items:center; justify-content:center; font-size:10px; flex:none }
 .check-row.on .checkbox { border-color:var(--accent); background:var(--accent) }
 .check-name { font-family:var(--mono); font-size:12px; font-weight:500; width:110px }
 .check-meta { font-family:var(--mono); font-size:10.5px; color:var(--tx3); flex:1; min-width:0 }

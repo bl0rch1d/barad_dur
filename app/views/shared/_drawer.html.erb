@@ -32,7 +32,7 @@
     <div class="drawer-body">
       <% if (gate = ticket.ticket_gates.detect { |g| g.status == "pending" }) %>
         <div class="gate-banner" style="border:1px solid var(--warn);border-radius:5px">
-          <span class="gate-word">GATE</span>
+          <span class="gate-word">SUMMONS</span>
           <span class="gate-text"><%= gate.reason %></span>
           <%= button_to "Approve", approve_gate_path(gate), form_class: "bt",
                         class: "btn-outline-warn busy-btn", data: { turbo_submits_with: "Approving…" } %>

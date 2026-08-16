@@ -14,14 +14,14 @@
 
     <div class="panel">
       <div class="panel-hd">
-        <span class="k-label">Live pipeline</span>
+        <span class="k-label">The Cold Watch</span>
         <span class="spacer"></span>
         <span class="mono-dim"><%= Event.count %> events · 24h</span>
       </div>
 
       <% if @gate %>
         <div class="gate-banner">
-          <span class="gate-word">GATE</span>
+          <span class="gate-word">SUMMONS</span>
           <span class="gate-text"><%= @gate.reason %><%= " · +#{@gates.size - 1} more waiting" if @gates.size > 1 %></span>
           <%= button_to "Approve", approve_gate_path(@gate), form_class: "bt",
                         class: "btn-outline-warn busy-btn", data: { turbo_submits_with: "Approving…" } %>
@@ -89,7 +89,7 @@
 
       <div class="panel">
         <div class="panel-hd">
-          <span class="k-label">Needs you</span>
+          <span class="k-label">The Eye demands</span>
           <span class="spacer"></span>
           <span class="count-badge"><%= @questions.size + @gates.size + @failed_tickets.size %></span>
         </div>
@@ -140,7 +140,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-hd"><span class="k-label">Agents</span></div>
+        <div class="panel-hd"><span class="k-label">The Legion</span></div>
         <% @agents.first(5).each do |agent| %>
           <div class="agent-row">
             <span class="dot" style="background:<%= agent.tone %>"></span>

@@ -56,7 +56,7 @@ class DashboardController < ApplicationController
         sub: blocked_parts.presence&.join(" · ") || "all clear",
         tone: blocked_total.positive? ? "var(--warn)" : "var(--tx)" },
       { label: "Cycle time", value: @median, sub: "median, groom → ship", tone: "var(--tx)" },
-      { label: "Spend today", value: "$#{format('%.2f', @setting.spend_today)}",
+      { label: "Tribute burned", value: "$#{format('%.2f', @setting.spend_today)}",
         sub: "#{@setting.spend_pct}% of $#{@setting.spend_cap.to_i} cap", tone: "var(--tx)" }
     ]
 

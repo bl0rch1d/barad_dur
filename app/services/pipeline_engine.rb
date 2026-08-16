@@ -43,7 +43,7 @@ class PipelineEngine
       ticket = ticket.reload
       if ticket.blocked_by_question?
         ticket.current_phase_run&.then { |r| r.finish! if r.status == "running" }
-        ticket.agent&.update!(status: "waiting", doing: "#{ticket.code} needs your call — see Needs you")
+        ticket.agent&.update!(status: "waiting", doing: "#{ticket.code} needs your call — see The Eye demands")
       else
         request_transition(Setting.instance, ticket)
       end
