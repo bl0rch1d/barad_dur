@@ -51,7 +51,21 @@ class Ticket < ApplicationRecord
   end
 
   def current_phase_run
-    phase_runs.where(phase: state).order(:started_at).last
+    if phase_runs.loaded?
+      phase_runs.select { |r| r.phase == state }.max_by { |r| r.started_at || Time.at(0) }
+    else
+      phase_runs.where(phase: state).order(:started_at).last
+    end
+  end
+
+  # Editing is for parked tickets only — changing one mid-run races the agent.
+  def editable?
+    %w[draft ready ready_to_implement].include?(state)
+  end
+
+  # Anything can be deleted except a ticket whose run is actively executing.
+  def deletable?
+    !(Ticket::PHASES.include?(state) && current_phase_run&.status == "running")
   end
 
   # A live (claude code) run owns this ticket's progression — the demo

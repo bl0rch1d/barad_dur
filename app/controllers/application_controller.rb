@@ -10,6 +10,7 @@ class ApplicationController < ActionController::Base
     @board_count = Ticket.on_board.count
     @agents_running = Agent.where(status: "running").count
     @spend_bars = SpendSample.bars
+    @attention_count = attention_count
 
     if params[:ticket].present?
       @drawer_ticket = Ticket.includes(:agent, :phase_runs).find_by(code: params[:ticket])
@@ -24,5 +25,12 @@ class ApplicationController < ActionController::Base
 
   def back
     redirect_back(fallback_location: root_path)
+  end
+
+  # Everything currently waiting on the operator — drives the tab-title and
+  # favicon attention badge.
+  def attention_count
+    failed = Ticket.on_board.includes(:phase_runs).count { |t| t.current_phase_run&.status == "failed" }
+    Question.pending.count + Gate.pending.count + failed
   end
 end

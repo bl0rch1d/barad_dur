@@ -2,8 +2,33 @@
   <span class="screen-title">Board</span>
   <span class="mono-dim"><%= @board_count %> tickets · <%= @running_count %> running</span>
   <span class="spacer"></span>
+  <% if @shipped_count.positive? || @shipped_view %>
+    <%= link_to @shipped_view ? "⏶ back to board" : "⏷ shipped #{@shipped_count}",
+                board_path(@shipped_view ? {} : { shipped: 1 }),
+                class: "btn-ghost btn-sm hv-soft" %>
+  <% end %>
   <%= link_to "✦ Feature request", rfc_path, class: "btn-ghost btn-sm hv-acc" %>
 </div>
+
+<% if @shipped_view %>
+  <div class="screen" style="padding-top:12px">
+    <div class="panel" style="max-width:860px">
+      <div class="panel-hd"><span class="k-label">Shipped</span><span class="spacer"></span><span class="mono-meta"><%= @shipped_count %> tickets</span></div>
+      <% if @shipped.empty? %>
+        <div class="commit-row"><span class="mono-meta">nothing shipped yet</span></div>
+      <% end %>
+      <% @shipped.each do |ticket| %>
+        <div class="commit-row">
+          <%= link_to ticket.code, url_for(ticket: ticket.code), class: "commit-sha" %>
+          <span class="commit-msg"><%= ticket.title %></span>
+          <span class="mono-meta"><%= ticket.repo %></span>
+          <% if ticket.cost.to_f.positive? %><span class="mono-meta">$<%= format("%.2f", ticket.cost) %></span><% end %>
+          <span class="mono-meta"><%= ticket.finished_at ? ago_label(ticket.finished_at) : "—" %></span>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% else %>
 
 <div class="screen-bar" style="border-top:0;padding-top:0;align-items:flex-start">
   <%= form_with url: tickets_path, method: :post, style: "display:flex;gap:8px;align-items:flex-start;flex:1;flex-wrap:wrap" do %>
@@ -102,3 +127,4 @@
     </div>
   <% end %>
 </div>
+<% end %>

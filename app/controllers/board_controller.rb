@@ -6,6 +6,10 @@ class BoardController < ApplicationController
                implementation review testing deployment].freeze
 
   def show
+    @shipped_view = params[:shipped] == "1"
+    @shipped = @shipped_view ? Ticket.done.order(finished_at: :desc, id: :desc).limit(50).to_a : []
+    @shipped_count = Ticket.done.count
+
     tickets = Ticket.on_board.includes(:agent, :phase_runs, :ticket_gates).order(:code).to_a
 
     @repo_options = tickets.map { |t| t.repo.to_s.split("·").first.to_s.strip }.uniq.sort

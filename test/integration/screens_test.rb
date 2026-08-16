@@ -100,6 +100,49 @@ class ScreensTest < ActionDispatch::IntegrationTest
     Setting.instance.update!(live_mode: false)
   end
 
+  test "tickets can be edited while parked and deleted unless running" do
+    ticket = Ticket.create!(code: "TST-ED1", title: "Old title", repo: "algo-core",
+                            state: :ready_to_implement)
+    other = Ticket.create!(code: "TST-ED2", title: "Dep target", state: :draft)
+
+    patch ticket_path("TST-ED1"), params: { title: "New title", description: "Details",
+                                            risky: "1", dep_codes: "TST-ED2, GHOST-1" }
+    ticket.reload
+    assert_equal "New title", ticket.title
+    assert_equal "Details", ticket.description
+    assert ticket.risky?
+    assert_equal ["TST-ED2"], ticket.dep_codes, "unknown dep codes dropped"
+
+    running = Ticket.create!(code: "TST-ED3", title: "Running", state: :implementation)
+    running.phase_runs.create!(phase: "implementation", status: "running", started_at: Time.current)
+    patch ticket_path("TST-ED3"), params: { title: "Nope" }
+    assert_equal "Running", running.reload.title, "in-flight tickets are not editable"
+
+    delete ticket_path("TST-ED3")
+    assert Ticket.exists?(code: "TST-ED3"), "running ticket cannot be deleted"
+
+    Question.create!(ticket_code: "TST-ED1", body: "?", options: %w[A B], asked_at: Time.current)
+    delete ticket_path("TST-ED1")
+    refute Ticket.exists?(code: "TST-ED1")
+    assert_equal 0, Question.where(ticket_code: "TST-ED1").count
+    assert_redirected_to board_path
+  end
+
+  test "shipped view lists done tickets and attention badge counts blockers" do
+    done = Ticket.create!(code: "TST-SH1", title: "Shipped work", repo: "algo-core",
+                          state: :done, finished_at: 1.hour.ago, cost: 1.5)
+    get board_path(shipped: 1)
+    assert_response :success
+    assert_includes response.body, "Shipped work"
+
+    Question.create!(ticket_code: done.code, body: "?", options: %w[A B], asked_at: Time.current)
+    gated = Ticket.create!(code: "TST-SH2", title: "Gated", state: :ready_to_implement)
+    gated.ticket_gates.create!(to_state: Ticket::STATES[:implementation], reason: "gate")
+
+    get root_path
+    assert_match(/data-attention-count-value="2"/, response.body)
+  end
+
   test "review actions are gated to review and later states" do
     implementing = Ticket.create!(code: "TST-RG1", title: "Still coding", state: :implementation)
     get root_path(ticket: implementing.code)

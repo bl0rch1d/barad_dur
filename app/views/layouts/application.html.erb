@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="data:," id="favicon" data-turbo-permanent>
     <%= turbo_refreshes_with method: :morph, scroll: :preserve %>
     <%= yield :head %>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,7 +14,8 @@
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body data-theme="<%= current_theme %>">
+  <body data-theme="<%= current_theme %>"
+        data-controller="attention" data-attention-count-value="<%= @attention_count.to_i %>">
     <%= turbo_stream_from :app %>
     <div class="app">
       <%= render "shared/titlebar" %>

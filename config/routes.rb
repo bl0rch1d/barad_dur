@@ -25,6 +25,8 @@ Rails.application.routes.draw do
   post "tickets/:code/merge"  => "tickets#merge",    as: :ticket_merge
   post "tickets/:code/request_changes" => "tickets#request_changes", as: :ticket_request_changes
   post "tickets/:code/enrich" => "tickets#enrich", as: :ticket_enrich
+  patch  "tickets/:code" => "tickets#update",  as: :ticket
+  delete "tickets/:code" => "tickets#destroy"
 
   post "wizard/patch"  => "wizard#patch",  as: :wizard_patch
   post "wizard/finish" => "wizard#finish", as: :wizard_finish

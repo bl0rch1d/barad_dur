@@ -225,6 +225,57 @@
           <% end %>
         </div>
       </div>
+
+      <!-- ── manage ───────────────────────────────────────── -->
+      <% if ticket.editable? || ticket.deletable? %>
+        <div class="panel">
+          <% if ticket.editable? %>
+            <details>
+              <summary class="panel-hd" style="cursor:pointer">
+                <span class="k-label">✎ Edit ticket</span>
+              </summary>
+              <%= form_with url: ticket_path(ticket.code), method: :patch,
+                            style: "padding:12px 14px;display:flex;flex-direction:column;gap:8px" do %>
+                <input name="title" value="<%= ticket.title %>" class="textarea"
+                       style="min-height:0;padding:6px 10px;font-size:12px">
+                <textarea name="description" rows="3" class="textarea"
+                          placeholder="Description — any format"
+                          style="min-height:0;padding:6px 10px;font-size:11.5px"><%= ticket.description %></textarea>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                  <select name="repo" class="textarea" style="min-height:0;padding:5px;font-size:11.5px;width:160px">
+                    <% ([ticket.repo] + Workspace.selected_ticket_targets).compact.uniq.each do |repo| %>
+                      <option value="<%= repo %>" <%= "selected" if repo == ticket.repo %>><%= repo %></option>
+                    <% end %>
+                  </select>
+                  <input name="est_label" value="<%= ticket.est_label %>" class="textarea"
+                         style="min-height:0;padding:5px 8px;font-size:11.5px;width:70px" title="estimate">
+                  <input type="hidden" name="risky" value="0">
+                  <label style="display:flex;gap:5px;align-items:center;font-size:11px;color:var(--tx2)">
+                    <input type="checkbox" name="risky" value="1" <%= "checked" if ticket.risky? %>>risky
+                  </label>
+                </div>
+                <input name="dep_codes" value="<%= ticket.dep_codes.join(', ') %>" class="textarea"
+                       placeholder="Depends on — ticket codes, comma-separated"
+                       style="min-height:0;padding:6px 10px;font-size:11.5px;font-family:var(--mono)">
+                <div>
+                  <button type="submit" class="btn-ghost btn-sm hv-acc busy-btn"
+                          data-turbo-submits-with="Saving…">Save changes</button>
+                </div>
+              <% end %>
+            </details>
+          <% end %>
+          <% if ticket.deletable? %>
+            <div style="padding:10px 14px;<%= 'border-top:1px solid var(--soft);' if ticket.editable? %>display:flex;align-items:center;gap:10px">
+              <span class="mono-meta">remove this ticket and its history</span>
+              <span class="spacer"></span>
+              <%= button_to "Delete ticket", ticket_path(ticket.code), method: :delete, form_class: "bt",
+                            class: "btn-ghost btn-sm hv-err busy-btn",
+                            data: { turbo_confirm: "Delete #{ticket.code} permanently? This cannot be undone.",
+                                    turbo_submits_with: "Deleting…" } %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>
