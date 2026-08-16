@@ -31,3 +31,14 @@ document.addEventListener("turbo:load", () => {
     setTimeout(() => Turbo.session.refresh(document.baseURI), 300)
   }
 })
+
+// Turbo re-enables the submitter at submit-end — when the response STARTS,
+// not when the new render lands — so busy spinners died seconds before the
+// state visibly changed. Keep the submitter disabled until the incoming
+// render replaces it (safety timeout in case it never does).
+document.addEventListener("turbo:submit-end", (event) => {
+  const submitter = event.detail?.formSubmission?.submitter
+  if (!submitter) return
+  submitter.disabled = true
+  setTimeout(() => { submitter.disabled = false }, 8000)
+})

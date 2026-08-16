@@ -4,6 +4,7 @@ class RfcsController < ApplicationController
   def show
     @rfc = current_rfc
     @rfc_live = live_rfc?
+    @rfc_events = Event.where(ticket_code: "RFC").recent.limit(40).to_a
   end
 
   def advance
@@ -42,7 +43,8 @@ class RfcsController < ApplicationController
     return if rfc.busy?
 
     if rfc.stage < 2
-      rfc.update!(job_state: "investigating", error: nil, progress_note: nil)
+      # stage 1 = "Investigate" shows as the current step while the run lives
+      rfc.update!(stage: 1, job_state: "investigating", error: nil, progress_note: nil)
       RfcInvestigateJob.perform_later(rfc.id)
     else
       rfc.update!(job_state: "planning", error: nil, progress_note: nil)

@@ -16,7 +16,9 @@ class HeadlessAgent
       return Result.new(ok: false, error: "claude CLI not found", log: "") unless bin
 
       flags = (ENV["CLAUDE_FLAGS"].presence || ClaudeCodeRunner::DEFAULT_FLAGS).shellsplit
+      model = ENV["CLAUDE_MODEL"].presence || Setting.instance.orchestrator_model
       command = [bin, "-p", prompt, "--output-format", "stream-json", "--verbose",
+                 "--model", model,
                  "--max-turns", (max_turns || ENV.fetch("CLAUDE_MAX_TURNS", "40")).to_s,
                  *extra_args, *flags]
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) +

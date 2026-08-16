@@ -227,6 +227,17 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal ["late-repo"], Workspace.repo_names
   end
 
+  test "orchestrator model defaults to opus 5 and rejects unknown values" do
+    setting = Setting.instance
+    assert_equal "claude-opus-5", setting.orchestrator_model
+
+    setting.update!(setup: { "orchestrator_model" => "claude-sonnet-5" })
+    assert_equal "claude-sonnet-5", setting.orchestrator_model
+
+    setting.update!(setup: { "orchestrator_model" => "gpt-99" })
+    assert_equal "claude-opus-5", setting.orchestrator_model, "unknown model falls back to default"
+  end
+
   test "boot recovery fails orphaned rfc runs and clears job markers" do
     rfc = Rfc.create!(body: "orphaned", stage: 0, job_state: "investigating")
     setting = Setting.instance

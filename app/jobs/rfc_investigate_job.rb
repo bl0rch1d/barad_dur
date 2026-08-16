@@ -10,6 +10,14 @@ class RfcInvestigateJob < RfcAgentJob
     scout = Agent.find_by(name: "Scout")
     scout&.update!(status: "running", doing: "Investigating feature request in the workspace")
 
+    invocation = Harness.phase_invocation("investigation", setting)
+    agents = Harness.phase_agents("investigation", setting)
+    Event.record!(phase_tag: "INVEST", agent_name: "Scout", ticket_code: "RFC",
+                  meta: invocation ? "harness" : "built-in",
+                  text: "Investigation started via #{invocation || 'built-in Scout prompt'}" \
+                        "#{" · delegable agents: #{agents.join(', ')}" if agents.any?}")
+    PipelineEngine.broadcast
+
     context = execution_context(setting)
     result = HeadlessAgent.call(prompt: RfcPrompts.investigate(rfc, targets, setting),
                                 chdir: context[:chdir], extra_args: context[:extra_args],
@@ -41,23 +49,23 @@ class RfcInvestigateJob < RfcAgentJob
 
       warn = item["mark"].to_s == "!"
       { "mark" => warn ? "!" : "✓", "tone" => warn ? "var(--warn)" : "var(--ok)",
-        "text" => item["text"].to_s.truncate(180) }
+        "text" => item["text"].to_s.truncate(300) }
     end
     return trace if trace.any?
 
     [{ "mark" => "✓", "tone" => "var(--ok)",
-       "text" => result.result_text.to_s.gsub(/\s+/, " ").truncate(180) }]
+       "text" => result.result_text.to_s.gsub(/\s+/, " ").truncate(300) }]
   end
 
   def parse_questions(data)
     Array(data["questions"]).first(3).each_with_index.filter_map do |question, index|
       next if question["q"].blank?
 
-      opts = Array(question["opts"]).first(4).map { |o| o.to_s.truncate(40) }
+      opts = Array(question["opts"]).first(4).map { |o| o.to_s.truncate(100) }
       next if opts.size < 2
 
-      { "key" => "q#{index + 1}", "q" => question["q"].to_s.truncate(200),
-        "why" => question["why"].to_s.truncate(120), "opts" => opts }
+      { "key" => "q#{index + 1}", "q" => question["q"].to_s.truncate(400),
+        "why" => question["why"].to_s.truncate(250), "opts" => opts }
     end
   end
 end

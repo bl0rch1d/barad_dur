@@ -41,6 +41,11 @@ module RfcPrompts
     depends_on lists 1-based indexes of prerequisite tickets in this plan.
     tag is one word (schema/core/api/tests/risky/docs). Mark risky: true
     for anything touching money, migrations or destructive operations.
+
+    Produce 1-6 tickets. PREFER A SINGLE TICKET for the whole change —
+    split only when parts are independently shippable, must land in
+    different repositories, or are individually too large for one agent
+    session. Do not split just to have tests or docs as separate tickets.
   TXT
 
   module_function
@@ -79,8 +84,7 @@ module RfcPrompts
       Valid repo targets (use ONLY these for "repo"):
       #{targets.join(', ')}
 
-      Produce 2-6 tickets in dependency order, each small enough for one
-      agent session.
+      Produce tickets in dependency order (see the sizing rules below).
 
       #{PLAN_CONTRACT.gsub('REPO', targets.first.to_s)}
     TXT
@@ -115,8 +119,8 @@ module RfcPrompts
 
       Valid repo targets for tickets (use ONLY these): #{targets.join(', ')}.
       #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
-      After the artifacts are written, map the change's tasks onto 2-6
-      pipeline tickets.
+      After the artifacts are written, map the change onto pipeline tickets —
+      normally ONE ticket per change, exactly as your harness would.
 
       #{PLAN_CONTRACT.gsub('REPO', targets.first.to_s)}
     TXT

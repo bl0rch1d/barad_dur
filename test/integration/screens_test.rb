@@ -61,6 +61,9 @@ class ScreensTest < ActionDispatch::IntegrationTest
 
     post wizard_patch_path(key: "evil", value: "x")
     assert_nil Setting.instance.setup["evil"]
+
+    post wizard_patch_path(key: "orchestrator_model", value: "claude-haiku-4-5")
+    assert_equal "claude-haiku-4-5", Setting.instance.orchestrator_model
   end
 
   test "specs sync enqueues the parse job once while in flight" do

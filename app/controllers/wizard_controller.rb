@@ -1,5 +1,5 @@
 class WizardController < ApplicationController
-  ALLOWED_KEY = /\A(auth|fw|map[0-5]|add[0-2]|h[12]|p[12]|repo[0-3]|repo:[\w.\-]+|map:(investigation|planning|implementation|review|testing|deployment))\z/
+  ALLOWED_KEY = /\A(auth|fw|orchestrator_model|map[0-5]|add[0-2]|h[12]|p[12]|repo[0-3]|repo:[\w.\-]+|map:(investigation|planning|implementation|review|testing|deployment))\z/
 
   WORKSPACE_DIR_VALUE = %r{\A[\w.\- /]{0,200}\z}
 

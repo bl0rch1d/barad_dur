@@ -150,6 +150,17 @@
             </div>
           </div>
           <div class="cap-row">
+            <span style="font-size:12.5px;flex:1">Orchestrator model</span>
+            <div class="chip-row">
+              <% Setting::ORCHESTRATOR_MODELS.each do |value, label| %>
+                <%= button_to "#{label}#{' · default' if value == Setting::DEFAULT_ORCHESTRATOR_MODEL}",
+                              wizard_patch_path(key: "orchestrator_model", value: value, wizard: step),
+                              form_class: "bt",
+                              class: "chip#{' on' if @setting.orchestrator_model == value}" %>
+              <% end %>
+            </div>
+          </div>
+          <div class="cap-row">
             <span style="font-size:12.5px;flex:1">Live runner</span>
             <% if AgentRunner.live_available? %>
               <span class="mono-meta" style="color:var(--ok)">✓ claude code CLI ready — phases run for real in the workspace</span>
@@ -352,7 +363,6 @@
               <% else %>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                   <%= button_to "Parse workspace specs now", specs_sync_path(wizard: step),
-                                form: { id: "parse-specs-form", data: { turbo_permanent: true } },
                                 form_class: "bt", class: "btn-ghost btn-sm hv-acc busy-btn",
                                 data: { turbo_submits_with: "Starting parse…" } %>
                   <% if (last = setup["last_spec_sync"]).present? %>

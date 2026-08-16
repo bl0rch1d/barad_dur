@@ -47,7 +47,8 @@
           <% else %>
             <span class="mono-dim">
               <%= if @rfc_live
-                    ["Scout will read your repos before proposing anything", "",
+                    ["Scout will read your repos before proposing anything",
+                     "Scout will read your repos before proposing anything",
                      "Answers folded in — Architect plans next",
                      "Push to board to execute the plan"][[@rfc.stage, 3].min]
                   else
@@ -62,7 +63,28 @@
       </div>
     <% end %>
 
-    <% if @rfc.stage >= 1 %>
+    <% if @rfc_events.any? || @rfc.busy? %>
+      <div class="panel" <%= "data-controller=live-refresh".html_safe if @rfc.busy? %>>
+        <div class="panel-hd">
+          <span class="dot" style="background:<%= @rfc.busy? ? 'var(--accent)' : 'var(--tx3)' %>;<%= 'animation:pulse 1.8s infinite' if @rfc.busy? %>"></span>
+          <span class="k-label">Agent log</span>
+          <span class="spacer"></span>
+          <span class="mono-meta"><%= @rfc.busy? ? "streaming…" : "#{@rfc_events.size} entries" %></span>
+        </div>
+        <div class="rfc-log">
+          <% @rfc_events.each do |event| %>
+            <div class="rfc-log-row">
+              <span class="mono-meta" style="flex:none;font-variant-numeric:tabular-nums"><%= event_time(event) %></span>
+              <span class="stream-phase" style="flex:none;color:<%= event.tone %>"><%= event.phase_tag %></span>
+              <span style="flex:1;min-width:0;overflow-wrap:anywhere"><%= event.text %></span>
+              <% if event.meta.present? %><span class="mono-meta" style="flex:none"><%= event.meta %></span><% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @rfc.stage >= 2 && @rfc.trace.any? %>
       <div class="panel">
         <div class="panel-hd">
           <span class="dot" style="background:var(--info)"></span>

@@ -15,6 +15,14 @@ class RfcPlanJob < RfcAgentJob
     architect = Agent.find_by(name: "Architect")
     architect&.update!(status: "running", doing: "Planning tickets for the feature request")
 
+    invocation = Harness.phase_invocation("planning", setting)
+    agents = Harness.phase_agents("planning", setting)
+    Event.record!(phase_tag: "PLAN", agent_name: "Architect", ticket_code: "RFC",
+                  meta: invocation ? "harness" : "built-in",
+                  text: "Planning started via #{invocation || 'built-in Architect prompt'}" \
+                        "#{" · delegable agents: #{agents.join(', ')}" if agents.any?}")
+    PipelineEngine.broadcast
+
     context = execution_context(setting)
     result = HeadlessAgent.call(prompt: RfcPrompts.plan(rfc, targets, setting),
                                 chdir: context[:chdir], extra_args: context[:extra_args],

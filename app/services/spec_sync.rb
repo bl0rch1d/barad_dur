@@ -16,31 +16,38 @@ class SpecSync
 
   class << self
     # Parses all selected repos' specs. The optional progress callback receives
-    # (done, total, label) after each capability — the async SpecSyncJob uses
-    # it to drive the wizard's live progress bar.
+    # (done, total, label) after each capability is parsed AND persisted, so a
+    # progress bar driven by it reflects the full duration of the work.
     def call(setting = Setting.instance, progress: nil)
       targets = spec_targets(setting)
-      total = targets.size
-      parsed = targets.each_with_index.filter_map do |(repo, cap_dir, file), index|
-        result = parse_file(file, cap_dir.basename.to_s, repo[:name])
-        progress&.call(index + 1, total, "#{repo[:name]}/#{cap_dir.basename}")
-        result
-      end
-
-      if parsed.empty?
+      if targets.empty?
         Event.record!(phase_tag: "SPEC", tone: "var(--warn)", agent_name: "Scout",
                       meta: "openspec/specs", text: "Spec parse found no openspec capabilities in the selected repos")
         return 0
       end
 
-      Capability.transaction do
-        Capability.destroy_all
-        parsed.each_with_index { |spec, i| persist(spec, i) }
+      # clear the old index quickly (FK order — destroy_all cascades row by
+      # row and dominated the parse time), then persist incrementally
+      SpecScenario.delete_all
+      SpecRequirement.delete_all
+      Capability.delete_all
+
+      count = 0
+      requirements = 0
+      targets.each_with_index do |(repo, cap_dir, file), index|
+        spec = parse_file(file, cap_dir.basename.to_s, repo[:name])
+        if spec
+          persist(spec, index)
+          count += 1
+          requirements += spec.reqs.size
+        end
+        progress&.call(index + 1, targets.size, "#{repo[:name]}/#{cap_dir.basename}")
       end
+
       Event.record!(phase_tag: "SPEC", agent_name: "Scout",
-                    text: "Parsed #{parsed.size} openspec capabilities from the workspace",
-                    meta: "#{parsed.sum { |s| s.reqs.size }} requirements")
-      parsed.size
+                    text: "Parsed #{count} openspec capabilities from the workspace",
+                    meta: "#{requirements} requirements")
+      count
     end
 
     # Human-readable outcome for the wizard, explaining zero-result parses.

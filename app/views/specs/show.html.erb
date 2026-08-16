@@ -8,7 +8,6 @@
         <span class="mono-meta" style="color:var(--accent)">parsing <%= sync_progress["done"] %>/<%= sync_progress["total"] %>…</span>
       <% elsif Workspace.available? %>
         <%= button_to "⟳ rescan", specs_sync_path,
-                      form: { id: "specs-rescan-form", data: { turbo_permanent: true } },
                       form_class: "bt", class: "chip hv-acc busy-btn",
                       title: "Re-parse openspec specs from the workspace",
                       style: "padding:1px 7px;font-size:10px",
