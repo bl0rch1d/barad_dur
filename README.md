@@ -40,7 +40,7 @@ with you as the Lidless Eye atop it. Describe a feature in plain speech, and the
 Every agent is a real headless [Claude Code](https://claude.com/claude-code) session. Every diff is a real diff.
 Every dollar of **Tribute burned** is real spend, capped daily — the tower pauses itself before it beggars you.
 
-> *"It needs but one Eye to command a legion."* — the Setup Wizard, step 5 of 6, probably
+> *"It needs but one Eye to command a legion."* — the Setup Wizard, step 5 of 5, probably
 
 ## 🔮 Gaze into the palantír
 
