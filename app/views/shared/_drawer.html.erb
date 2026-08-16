@@ -23,9 +23,7 @@
         <% if (change = PhasePrompts.change_ref(ticket)) %>
           <span style="color:var(--info)">⎇ <%= change %></span>
         <% end %>
-        <% if @setting.live_mode? %>
-          <%= link_to "💬 discuss", activity_path(room: ticket.code), style: "color:var(--info)" %>
-        <% end %>
+        <%= link_to "💬 discuss", activity_path(room: ticket.code), style: "color:var(--info)" %>
       </div>
     </div>
 
@@ -50,7 +48,7 @@
             <span class="mono-meta" style="color:var(--accent)" data-controller="live-refresh">
               <span class="dot" style="background:var(--accent);animation:pulse 1.8s infinite"></span> enriching…
             </span>
-          <% elsif @setting.live_mode? && Workspace.repo_path(ticket.repo).present? %>
+          <% elsif Workspace.repo_path(ticket.repo).present? %>
             <%= button_to has_overview ? "↻ re-enrich" : "✦ enrich", ticket_enrich_path(ticket.code),
                           form_class: "bt", class: "chip hv-acc busy-btn",
                           style: "padding:1px 8px;font-size:10px",
@@ -79,7 +77,7 @@
             </div>
           <% end %>
           <% unless has_overview %>
-            <span class="mono-meta">no brief yet — grooming fills this in<%= ", or click enrich" if @setting.live_mode? %></span>
+            <span class="mono-meta">no brief yet — grooming fills this in, or click enrich</span>
           <% end %>
         </div>
       </div>
@@ -102,7 +100,7 @@
           <div class="phase-row<%= ' active' if active %>">
             <span class="dot" style="background:<%= tone %>"></span>
             <span class="phase-name"><%= phase.capitalize %></span>
-            <span class="phase-note"><%= active_run&.note || done&.note || (active ? DemoScript.note_for(phase) : "not started") %></span>
+            <span class="phase-note"><%= active_run&.note || done&.note || (active ? PipelineText.note_for(phase) : "not started") %></span>
             <span class="phase-dur"><%= done ? short_duration(done.duration_s.to_i) : failed ? "failed" : active ? (live ? "live" : "running") : "—" %></span>
             <% if failed %>
               <%= button_to "retry", ticket_phase_path(ticket.code, op: "retry"),
@@ -177,7 +175,7 @@
           </div>
         <% elsif reviewable %>
           <div class="diff-foot">
-            <span class="btn-outline-ok" style="cursor:default;opacity:.5" title="demo ticket — no workspace repo">Approve &amp; merge</span>
+            <span class="btn-outline-ok" style="cursor:default;opacity:.5" title="repo not in the workspace">Approve &amp; merge</span>
             <span class="btn-ghost btn-sm" style="cursor:default;opacity:.5">Request changes</span>
           </div>
         <% end %>

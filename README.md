@@ -72,10 +72,11 @@ git clone git@github.com:bl0rch1d/barad_dur.git && cd barad_dur
 docker compose up
 ```
 
-Then walk into **http://localhost:3000**. You arrive in *demo mode*: a fully simulated trading-platform
-workspace where agents pretend very convincingly. No keys, no cost, no consequences. Poke everything.
+Then walk into **http://localhost:3000**. You arrive at an *unbound realm* — every page stands
+empty but watchful, each with its own counsel (the board notes that *even Sauron cannot
+micromanage an empty land*). One button leads onward: **Bind the realm — Setup wizard**.
 
-### Binding it to your own lands (live mode)
+### Binding it to your own lands
 
 ```bash
 # mount a folder of repos (multi-repo) or a single repo (monorepo)
@@ -86,15 +87,14 @@ Auth is chosen in the wizard — **Claude subscription is the default** (your ho
 login is mounted in automatically; no per-token billing), or set `ANTHROPIC_API_KEY` for metered use.
 The runner passes only the chosen credential to agents, so the two never cross streams.
 
-Walk the Setup Wizard (six steps, one tower):
+Walk the Setup Wizard (five steps, one tower):
 
 1. **Folder** — browse the mount, pick monorepo or multi-repo, check what the pipeline may own
 2. **Auth** — subscription or key, plus the orchestrator model (Opus 5 rules them all by default)
 3. **Framework** — your own agentic harness is auto-detected: commands in `.claude/commands`
    map onto phases (`/opsx:explore` → investigation, `/opsx:propose` → planning, `/opsx:apply` → implementation, `/review` → review)
 4. **Parse** — your `openspec/` specs are indexed with a progress bar that does not lie
-5. **Autonomy** — pick your leash: *Unleashed*, *Wary*, or *Chained*
-6. **Go live** — the demo world is unmade before your eyes; your real one takes its place
+5. **Autonomy** — pick your leash (*Unleashed*, *Wary*, or *Chained*) and **start the watch**
 
 > **One does not simply merge into master.** Work lands via `--no-ff` merge commits from `pipe/*`
 > branches, only after review, only local, and only when you press the button. The tower never pushes.
@@ -149,7 +149,7 @@ No harness? The default seven serve faithfully. They are not evil, merely… *am
 | `WORKSPACE_PATH` | Host folder mounted as the realm | `./workspace` |
 | `ANTHROPIC_API_KEY` | Metered auth (wizard: "API key") | — |
 | `CLAUDE_CONFIG_PATH` | Subscription login mount | `~/.claude` |
-| `PIPELINE_RUNNER` | `auto` · `demo` · `live` | `auto` |
+| `PIPELINE_RUNNER` | `auto` · `off` (kill-switch) | `auto` |
 | `CLAUDE_MODEL` | Override the orchestrator model | wizard choice (Opus 5) |
 | `CLAUDE_FLAGS` | Extra CLI flags for agent runs | `--permission-mode acceptEdits` |
 | `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | Patience of the tower | `40` / `900s` |

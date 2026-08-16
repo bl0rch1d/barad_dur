@@ -39,13 +39,8 @@
                 class="textarea" style="min-height:30px;padding:6px 10px;font-size:11.5px"></textarea>
     </div>
     <select name="repo" class="textarea" style="min-height:0;padding:6px;font-size:12px;width:170px">
-      <%# live mode drafts target your selected workspace repos; demo mode
-          stays inside the demo dataset so the two worlds never mix %>
-      <% repos = if @setting.live_mode?
-           Workspace.selected_ticket_targets.presence || Ticket.on_board.distinct.pluck(:repo).compact.uniq.sort
-         else
-           Ticket.on_board.distinct.pluck(:repo).compact.uniq.sort
-         end %>
+      <% repos = Workspace.selected_ticket_targets.presence ||
+                 Ticket.on_board.distinct.pluck(:repo).compact.uniq.sort %>
       <% repos.each do |repo| %><option value="<%= repo %>"><%= repo %></option><% end %>
     </select>
     <label style="display:flex;gap:5px;align-items:center;font-size:11px;color:var(--tx2);padding-top:8px">

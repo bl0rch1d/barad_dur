@@ -10,10 +10,10 @@
     </svg>
     <span class="brand-name">BARAD-DÛR</span>
     <span class="mono-dim" style="font-style:italic;color:var(--seal-mid);opacity:.85">the Eye is open · the watch holds</span>
-    <% if @setting.live_mode? %>
-      <span class="mono-dim"><%= Workspace.root.basename %> · openspec · <%= Workspace.repos.size %> <%= "repo".pluralize(Workspace.repos.size) %> · live</span>
+    <% if Workspace.repos.any? %>
+      <span class="mono-dim"><%= Workspace.root.basename %> · openspec · <%= Workspace.repos.size %> <%= "repo".pluralize(Workspace.repos.size) %></span>
     <% else %>
-      <span class="mono-dim">algo · openspec · 4 repos</span>
+      <span class="mono-dim">no realm bound</span>
     <% end %>
   </div>
 

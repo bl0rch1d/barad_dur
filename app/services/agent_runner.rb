@@ -1,11 +1,7 @@
-# Chooses how a ticket's phases get executed:
-#   demo — the simulated driver (tick thresholds + DemoScript narrative)
-#   live — a real headless Claude Code process per phase (ClaudeCodeRunner)
-#
-# PIPELINE_RUNNER=auto (default) uses live execution per-ticket whenever the
-# CLI, auth and the ticket's repo are all present; "demo" forces simulation;
-# "live" refuses to fall back silently (tickets without a repo stay demo, but
-# availability problems surface as events).
+# Gate for real agent execution. PIPELINE_RUNNER=off is the kill-switch
+# (used by the test harness); otherwise a ticket is executable when the CLI,
+# auth and its repo are all present. Tickets that aren't executable simply
+# wait in place — the engine never simulates work.
 module AgentRunner
   module_function
 
@@ -14,7 +10,7 @@ module AgentRunner
   end
 
   def live_available?
-    mode != "demo" && ClaudeCodeRunner.available?
+    !%w[demo off].include?(mode) && ClaudeCodeRunner.available?
   end
 
   # Can THIS ticket run live right now?
@@ -22,8 +18,8 @@ module AgentRunner
     live_available? && Workspace.repo_path(ticket.repo).present?
   end
 
-  # Kick off real execution of the ticket's current phase. Returns true when
-  # a live run was started, false when the demo driver should handle it.
+  # Kick off real execution of the ticket's current phase. Returns false
+  # when the runner isn't available for this ticket.
   def start_phase(ticket)
     return false unless live?(ticket)
 

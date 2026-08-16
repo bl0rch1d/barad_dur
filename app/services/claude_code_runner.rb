@@ -123,7 +123,7 @@ class ClaudeCodeRunner
   end
 
   def tag
-    DemoScript::TAGS.fetch(phase, "IMPL")
+    PipelineText::TAGS.fetch(phase, "IMPL")
   end
 
   # Implementation happens on a dedicated work branch; later phases keep

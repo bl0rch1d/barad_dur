@@ -70,6 +70,28 @@ module ApplicationHelper
     @setting.setup.fetch(key.to_s, default).to_s
   end
 
+  # Per-page flavor for the unbound-realm empty state (setup not finished).
+  UNBOUND_FLAVOR = {
+    "dashboard" => { quote: "“The palantír shows nothing… because you have not plugged it in.”",
+                     sub: "Bind a workspace and the Cold Watch will have something to watch." },
+    "board"     => { quote: "“One does not simply manage tickets that do not exist.”",
+                     sub: "Even Sauron cannot micromanage an empty land. The board fills once a realm is bound." },
+    "rfcs"      => { quote: "“Speak, friend, and enter — but first, tell the tower where your code lives.”",
+                     sub: "Feature requests are investigated against a real workspace. There is none yet." },
+    "specs"     => { quote: "“The archives are empty. Denethor would like a word.”",
+                     sub: "Bind a workspace with openspec/ folders and the scrolls shall be indexed." },
+    "agents"    => { quote: "“The Legion musters when there is a banner to march under.”",
+                     sub: "Finish the setup and your harness agents take their posts." },
+    "activity"  => { quote: "“You cannot pass… a message. The palantír is dark.”",
+                     sub: "Chat threads open once the realm is bound and the runner is lit." }
+  }.freeze
+
+  def unbound_flavor
+    UNBOUND_FLAVOR.fetch(controller_name,
+                         { quote: "“Not all those who wander are lost — but this page is.”",
+                           sub: "Run the setup wizard to bind a workspace." })
+  end
+
   def screen?(name)
     controller_name == name || (name == "dashboard" && controller_name == "dashboard")
   end

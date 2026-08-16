@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_16_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_16_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -48,14 +48,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_16_000003) do
     t.string "room", default: "ALG-215", null: false
     t.string "sender", null: false
     t.datetime "sent_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
-  create_table "ci_suites", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "name", null: false
-    t.integer "pct", default: 100, null: false
-    t.integer "position", default: 0, null: false
     t.datetime "updated_at", null: false
   end
 
@@ -152,13 +144,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_16_000003) do
   create_table "settings", force: :cascade do |t|
     t.string "autonomy", default: "auto", null: false
     t.datetime "created_at", null: false
-    t.boolean "live_mode", default: false, null: false
     t.boolean "running", default: true, null: false
     t.jsonb "setup", default: {}, null: false
     t.boolean "setup_complete", default: false, null: false
     t.decimal "spend_cap", precision: 8, scale: 2, default: "80.0", null: false
     t.decimal "spend_today", precision: 8, scale: 2, default: "0.0", null: false
-    t.integer "tick_count", default: 0, null: false
     t.datetime "updated_at", null: false
   end
 
@@ -217,7 +207,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_16_000003) do
     t.string "est_label"
     t.text "feedback"
     t.datetime "finished_at"
-    t.integer "phase_progress", default: 0, null: false
     t.string "repo"
     t.boolean "risky", default: false, null: false
     t.datetime "started_at"

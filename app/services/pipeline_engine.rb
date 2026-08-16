@@ -1,11 +1,9 @@
-# The pipeline engine. Each tick advances in-flight tickets through their
-# phases, consults the autonomy setting to decide whether a transition needs a
-# human gate, emits events, accrues spend, frees agents and pulls ready work.
-#
-# The mechanics here are real — DemoScript only supplies the narrative text
-# that actual agent runs would produce.
+# The pipeline engine. Each tick sweeps dead runs and pulls waiting tickets
+# into execution — grooming (ready → investigation) and building
+# (ready_to_implement → implementation) — honoring dependencies, gates,
+# clarification questions and the daily spend cap. Phase progression itself
+# is event-driven: ClaudeCodeRunner calls back on completion.
 class PipelineEngine
-  TICK_BASE_COST = 0.09
   MAX_IN_FLIGHT = 5
 
   class << self
@@ -19,20 +17,9 @@ class PipelineEngine
         return
       end
 
-      setting.increment!(:tick_count)
-      in_flight = Ticket.in_flight.includes(:agent).order(:code).to_a
-      workable = in_flight.reject { |t| t.gated? || t.blocked_by_question? }
-      # live tickets progress when their agent process finishes, not by ticks;
-      # in live mode there is no simulated work at all
-      demo_workable = setting.live_mode? ? [] : workable.reject(&:live_run?)
-
-      # pulls run before progress so a ticket parked this tick rests visibly
-      # in its column until the next tick picks it up
-      pull_implementation_work(in_flight.size, setting)
-      pull_ready_work(in_flight.size, setting)
-      emit_activity(setting, demo_workable)
-      demo_workable.each { |ticket| progress(setting, ticket) }
-      accrue_spend(setting) if demo_workable.any?
+      in_flight = Ticket.in_flight.count
+      pull_implementation_work(in_flight, setting)
+      pull_ready_work(in_flight, setting)
       broadcast
     end
 
@@ -64,7 +51,7 @@ class PipelineEngine
                     meta: question.phase, text: "Decision recorded: #{option} — agent unblocked")
       Agent.where(status: "waiting").update_all(status: "running")
 
-      # a live ticket parked on clarification resumes once fully answered
+      # a ticket parked on clarification resumes once fully answered
       ticket = Ticket.find_by(code: question.ticket_code)
       if ticket && !ticket.blocked_by_question? &&
          Ticket::PHASES.include?(ticket.state) && ticket.current_phase_run&.status == "done"
@@ -86,7 +73,7 @@ class PipelineEngine
         return if ticket.done?
 
         ticket.current_phase_run&.then { |r| r.finish! if r.status == "running" }
-        ticket.update!(state: :done, finished_at: Time.current, phase_progress: 0)
+        ticket.update!(state: :done, finished_at: Time.current)
       end
       ticket.agent&.update!(status: "idle", doing: "Last: shipped #{ticket.code} — approved & merged")
       Release.staged&.then { |r| r.update!(lines: r.lines | [ticket.title]) }
@@ -98,12 +85,10 @@ class PipelineEngine
     # The user requested changes from the drawer: the ticket goes back to
     # implementation with the feedback wired into the agent's prompt.
     def request_changes!(ticket, feedback)
-      live = AgentRunner.live?(ticket)
       ticket.with_lock do
         ticket.current_phase_run&.then { |r| r.finish! if r.status == "running" }
-        ticket.update!(state: :implementation, phase_progress: 0, feedback: feedback)
-        ticket.phase_runs.create!(phase: "implementation", status: "running",
-                                  runner: live ? "claude" : "demo",
+        ticket.update!(state: :implementation, feedback: feedback)
+        ticket.phase_runs.create!(phase: "implementation", status: "running", runner: "claude",
                                   note: "rework: #{feedback.truncate(60)}", started_at: Time.current)
       end
       agent = ticket.agent || Agent.idle.ordered.first
@@ -112,7 +97,7 @@ class PipelineEngine
       Event.record!(phase_tag: "REVIEW", tone: "var(--warn)", ticket: ticket, agent: agent,
                     meta: "changes requested",
                     text: "Changes requested on #{ticket.code}: #{feedback.truncate(120)}")
-      AgentRunner.start_phase(ticket) if live
+      AgentRunner.start_phase(ticket)
       broadcast
     end
 
@@ -132,19 +117,12 @@ class PipelineEngine
 
     private
 
-    def progress(setting, ticket)
-      ticket.increment!(:phase_progress)
-      ticket.increment!(:cost, 0.03)
-      threshold = Ticket::PHASE_THRESHOLDS.fetch(ticket.state, 5)
-      request_transition(setting, ticket) if ticket.phase_progress >= threshold
-    end
-
     def request_transition(setting, ticket)
       next_state = ticket.next_state
       return unless next_state
 
       if gate_required?(setting, ticket, next_state)
-        reason = DemoScript.gate_reason(ticket, next_state, setting.autonomy)
+        reason = PipelineText.gate_reason(ticket, next_state, setting.autonomy)
         ticket.ticket_gates.create!(to_state: Ticket::STATES[next_state.to_sym], reason: reason)
         Event.record!(phase_tag: "GATE", ticket: ticket, agent: ticket.agent,
                       meta: setting.autonomy, text: "Gated: #{reason}")
@@ -179,31 +157,26 @@ class PipelineEngine
       elsif next_state == "ready_to_implement"
         # grooming complete — park the ticket and free its agent; the engine
         # picks it up for implementation once its dependencies are done
-        ticket.update!(state: :ready_to_implement, phase_progress: 0)
+        ticket.update!(state: :ready_to_implement)
         ticket.agent&.update!(status: "idle", doing: "Last: groomed #{ticket.code} — #{ticket.title.truncate(40)}")
         Event.record!(phase_tag: "PLAN", ticket: ticket, agent: ticket.agent,
                       meta: ticket.dep_codes.any? ? "deps: #{ticket.dep_codes.join(', ')}" : nil,
                       text: "#{ticket.code} groomed — ready to implement")
       else
-        live = AgentRunner.live?(ticket)
-        # atomic so a concurrent tick never sees the new state without its run
         ticket.transaction do
-          ticket.update!(state: next_state, phase_progress: 0)
-          ticket.phase_runs.create!(phase: next_state, status: "running",
-                                    runner: live ? "claude" : "demo",
-                                    note: live ? "starting claude code run…" : DemoScript.note_for(next_state),
-                                    started_at: Time.current)
+          ticket.update!(state: next_state)
+          ticket.phase_runs.create!(phase: next_state, status: "running", runner: "claude",
+                                    note: "starting claude code run…", started_at: Time.current)
         end
-        ticket.agent&.update!(status: "running", doing: DemoScript.doing_text(ticket))
-        Event.record!(phase_tag: DemoScript::TAGS[next_state], ticket: ticket, agent: ticket.agent,
-                      text: DemoScript.transition_text(ticket, from, next_state))
-        create_commit(ticket) if next_state == "review" && !live
-        AgentRunner.start_phase(ticket) if live
+        ticket.agent&.update!(status: "running", doing: PipelineText.doing_text(ticket))
+        Event.record!(phase_tag: PipelineText::TAGS[next_state], ticket: ticket, agent: ticket.agent,
+                      text: PipelineText.transition_text(ticket, from, next_state))
+        AgentRunner.start_phase(ticket)
       end
     end
 
     def complete_ticket(ticket)
-      ticket.update!(state: :done, finished_at: Time.current, phase_progress: 0)
+      ticket.update!(state: :done, finished_at: Time.current)
 
       if (agent = ticket.agent)
         agent.update!(status: "idle", doing: "Last: shipped #{ticket.code} — #{ticket.title.downcase.truncate(42)}")
@@ -211,33 +184,20 @@ class PipelineEngine
 
       Release.staged&.then { |r| r.update!(lines: r.lines | [ticket.title]) }
       Event.record!(phase_tag: "DEPLOY", ticket: ticket, agent: ticket.agent,
-                    meta: "no regressions", text: "#{ticket.code} shipped — staged rollout complete, metrics nominal")
+                    text: "#{ticket.code} finished the pipeline — ready to merge from the drawer")
     end
 
-    def create_commit(ticket)
-      CommitRecord.create!(
-        sha: SecureRandom.hex(4)[0, 7],
-        message: DemoScript.commit_message(CommitRecord.count),
-        author: ticket.agent&.name || "pipeline",
-        committed_at: Time.current
-      )
-    end
-
-    # ready → investigation (grooming). In demo mode drafts auto-promote;
-    # in live mode only user-groomed tickets enter, and only executable ones.
+    # ready → investigation (grooming): only tickets an agent can execute.
     def pull_ready_work(in_flight_count, setting = Setting.instance)
       return if in_flight_count >= MAX_IN_FLIGHT
 
-      candidates = Ticket.ready.order(:code).to_a
-      candidates = [groom_backlog].compact if candidates.empty? && !setting.live_mode?
-      ticket = candidates.detect do |t|
-        t.deps_satisfied? && !t.gated? && !t.blocked_by_question? &&
-          (!setting.live_mode? || AgentRunner.live?(t))
+      ticket = Ticket.ready.order(:code).to_a.detect do |t|
+        t.deps_satisfied? && !t.gated? && !t.blocked_by_question? && AgentRunner.live?(t)
       end
       agent = Agent.idle.ordered.first
       return unless ticket && agent
 
-      start_phase_for(ticket, agent, "investigation", "INVEST", DemoScript.start_text(ticket))
+      start_phase_for(ticket, agent, "investigation", "INVEST", PipelineText.start_text(ticket))
     end
 
     # ready_to_implement → implementation, dependency- and gate-aware.
@@ -245,8 +205,7 @@ class PipelineEngine
       return if in_flight_count >= MAX_IN_FLIGHT
 
       ticket = Ticket.ready_to_implement.order(:code).to_a.detect do |t|
-        t.deps_satisfied? && !t.gated? && !t.blocked_by_question? &&
-          (!setting.live_mode? || AgentRunner.live?(t))
+        t.deps_satisfied? && !t.gated? && !t.blocked_by_question? && AgentRunner.live?(t)
       end
       return unless ticket
 
@@ -268,59 +227,26 @@ class PipelineEngine
     # race on the same rows — re-check state under the row lock.
     def start_phase_for(ticket, agent, phase, tag, event_text)
       expected_state = phase == "investigation" ? "ready" : "ready_to_implement"
-      live = AgentRunner.live?(ticket)
       started = false
       ticket.with_lock do
         next unless ticket.state == expected_state
 
-        ticket.update!(state: phase, agent: agent, phase_progress: 0,
+        ticket.update!(state: phase, agent: agent,
                        started_at: ticket.started_at || Time.current)
-        ticket.phase_runs.create!(phase: phase, status: "running",
-                                  runner: live ? "claude" : "demo",
-                                  note: live ? "starting claude code run…" : DemoScript.note_for(phase),
-                                  started_at: Time.current)
+        ticket.phase_runs.create!(phase: phase, status: "running", runner: "claude",
+                                  note: "starting claude code run…", started_at: Time.current)
         started = true
       end
       return unless started
 
-      agent.update!(status: "running", doing: DemoScript.doing_text(ticket))
+      agent.update!(status: "running", doing: PipelineText.doing_text(ticket))
       Event.record!(phase_tag: tag, ticket: ticket, agent: agent, text: event_text)
-      AgentRunner.start_phase(ticket) if live
-    end
-
-    # Keeps the pipeline fed: promote a backlog ticket to ready, or have the
-    # demo driver fabricate fresh backlog once the board runs dry.
-    def groom_backlog
-      candidate = Ticket.draft.order(:code).first || DemoScript.fabricate_backlog_ticket
-      return unless candidate
-
-      candidate.update!(state: :ready)
-      Event.record!(phase_tag: "PLAN", ticket: candidate, agent_name: "Architect",
-                    text: "Groomed #{candidate.code} — estimated and marked ready")
-      candidate
-    end
-
-    def emit_activity(setting, tickets)
-      return if tickets.empty?
-
-      ticket = tickets[setting.tick_count % tickets.size]
-      entry = DemoScript.activity_for(ticket, setting.tick_count)
-      Event.record!(phase_tag: entry[:tag], ticket: ticket, agent: ticket.agent,
-                    meta: entry[:meta], text: entry[:text], cost: 0.02)
-    end
-
-    def accrue_spend(setting)
-      amount = (TICK_BASE_COST + (setting.tick_count % 3) * 0.03).round(2)
-      setting.update!(spend_today: (setting.spend_today + amount).round(2))
-      SpendSample.accrue!(amount)
-      running = Agent.where(status: "running").to_a
-      share = running.empty? ? 0 : (amount / running.size).round(2)
-      running.each { |a| a.increment!(:cost_today, share) }
+      AgentRunner.start_phase(ticket)
     end
 
     def pause_for_cap!(setting)
       setting.update!(running: false)
-      Event.record!(phase_tag: "SYS", text: "Daily spend cap reached ($#{setting.spend_cap.to_i}) — pipeline paused")
+      Event.record!(phase_tag: "SYS", text: "Daily spend cap reached ($#{setting.spend_cap.to_i}) — the forge is quenched")
       broadcast
     end
   end

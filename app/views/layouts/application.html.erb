@@ -21,7 +21,13 @@
       <%= render "shared/titlebar" %>
       <div class="app-body">
         <%= render "shared/rail" %>
-        <main class="main"><%= yield %></main>
+        <main class="main">
+          <% if @setting.setup_complete? %>
+            <%= yield %>
+          <% else %>
+            <%= render "shared/unbound" %>
+          <% end %>
+        </main>
       </div>
       <%= render "shared/drawer" if @drawer_ticket %>
       <%= render "shared/wizard" if @wizard_step %>

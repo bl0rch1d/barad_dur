@@ -1,6 +1,10 @@
 require "test_helper"
 
 class ScreensTest < ActionDispatch::IntegrationTest
+  setup do
+    Setting.instance.update!(setup_complete: true)
+  end
+
   test "all screens render" do
     [root_path, board_path, rfc_path, specs_path, agents_path, activity_path].each do |path|
       get path
@@ -16,7 +20,7 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "wizard renders each step" do
-    (1..6).each do |step|
+    (1..5).each do |step|
       get root_path(wizard: step)
       assert_response :success
     end
@@ -40,10 +44,10 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "sending a chat message enqueues the architect reply" do
-    assert_enqueued_with(job: ArchitectReplyJob) do
+    assert_enqueued_with(job: ChatReplyJob) do
       post chat_messages_path, params: { body: "Weight fill quality above latency" }
     end
-    assert_redirected_to activity_path(room: "ALG-215")
+    assert_redirected_to activity_path(room: "workspace")
     assert_equal 1, ChatMessage.where(sender: "you").count
   end
 
@@ -74,7 +78,6 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "dashboard action center shows gates, failed runs and live telemetry" do
-    Setting.instance.update!(live_mode: true)
     gated = Ticket.create!(code: "TST-DG", title: "Gated ticket", state: :ready_to_implement)
     gate = gated.ticket_gates.create!(to_state: Ticket::STATES[:implementation],
                                       reason: "TST-DG is ready — approve to start implementation.")
@@ -96,8 +99,23 @@ class ScreensTest < ActionDispatch::IntegrationTest
 
     post approve_gate_path(gate)
     assert_equal "implementation", gated.reload.state
-  ensure
-    Setting.instance.update!(live_mode: false)
+  end
+
+  test "an unbound realm shows the LOTR empty state with a wizard button" do
+    Setting.instance.update!(setup_complete: false)
+
+    [root_path, board_path, rfc_path, specs_path, agents_path, activity_path].each do |path|
+      get path
+      assert_response :success
+      assert_includes response.body, "Bind the realm — Setup wizard", "expected empty state on #{path}"
+    end
+    get board_path
+    assert_includes response.body, "Even Sauron cannot micromanage an empty land"
+    refute_includes response.body, "board-wrap", "board content hidden until setup"
+
+    # the wizard itself still opens over the empty state
+    get root_path(wizard: 1)
+    assert_includes response.body, "Choose the workspace"
   end
 
   test "tickets can be edited while parked and deleted unless running" do

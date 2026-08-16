@@ -11,12 +11,6 @@ class Ticket < ApplicationRecord
   }.freeze
   PHASES = %w[investigation planning implementation review testing deployment].freeze
 
-  # Ticks a ticket spends in each phase before the engine attempts a transition.
-  PHASE_THRESHOLDS = {
-    "investigation" => 4, "planning" => 3, "implementation" => 7,
-    "review" => 3, "testing" => 4, "deployment" => 2
-  }.freeze
-
   enum :state, STATES
 
   belongs_to :agent, optional: true

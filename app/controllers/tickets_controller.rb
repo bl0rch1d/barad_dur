@@ -112,7 +112,9 @@ class TicketsController < ApplicationController
 
     run.update!(status: "running", started_at: Time.current, finished_at: nil, exit_status: nil)
     unless AgentRunner.start_phase(ticket)
-      run.update!(runner: "demo", note: DemoScript.note_for(run.phase))
+      # runner unavailable (CLI/auth/repo missing) — surface it, stay failed
+      run.update!(status: "failed", finished_at: Time.current,
+                  note: "runner unavailable — check auth and workspace")
     end
     PipelineEngine.broadcast
   end

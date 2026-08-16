@@ -4,7 +4,7 @@
       <span class="dot" style="background:var(--accent)"></span>
       <span class="chat-title"><%= @room == ActivityController::WORKSPACE_ROOM ? "Workspace" : @room %> · Architect</span>
       <span class="mono-dim">
-        <%= @setting.live_mode? ? "real agent session — context carries across messages" : "planning ALG-215 · thread scoped to ticket" %>
+        real agent session — context carries across messages
       </span>
       <span class="spacer"></span>
       <% if @rooms.size > 1 %>
@@ -22,7 +22,7 @@
     <div class="chat-log">
       <% if @messages.empty? && !@awaiting_reply %>
         <span class="mono-meta">
-          <%= @setting.live_mode? ? "no messages yet — ask the Architect about #{@room == ActivityController::WORKSPACE_ROOM ? 'the workspace' : @room}" : "no messages yet — steer the agents below" %>
+          no messages yet — ask the Architect about <%= @room == ActivityController::WORKSPACE_ROOM ? "the workspace" : @room %>
         </span>
       <% end %>
       <% @messages.each do |message| %>
@@ -57,7 +57,7 @@
   </div>
 
   <div class="events-side">
-    <div class="events-side-hd"><%= @room == ActivityController::WORKSPACE_ROOM || @room == ActivityController::DEMO_ROOM ? "Event stream" : "#{@room} events" %></div>
+    <div class="events-side-hd"><%= @room == ActivityController::WORKSPACE_ROOM ? "Event stream" : "#{@room} events" %></div>
     <% if @events.empty? %>
       <div class="side-event"><span class="mono-meta">no events yet</span></div>
     <% end %>

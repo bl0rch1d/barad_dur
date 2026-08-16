@@ -1,0 +1,16 @@
+<% flavor = unbound_flavor %>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px;text-align:center">
+  <svg width="84" height="84" viewBox="0 0 150 150" style="filter:drop-shadow(0 0 14px var(--seal-glow));opacity:.9">
+    <circle cx="75" cy="75" r="68" fill="none" style="stroke:var(--seal-mid)" stroke-width="6"></circle>
+    <g transform="translate(24 9) scale(0.85)">
+      <path fill-rule="evenodd" d="M43 26 C51 14 69 14 77 26 C69 38 51 38 43 26 Z M60 17 C57.5 22 57.5 30 60 35 C62.5 30 62.5 22 60 17 Z" style="fill:var(--seal-mid)"></path>
+      <path d="M54 52 L44 16 L50 13 L57 46 Z M66 52 L76 16 L70 13 L63 46 Z M54 52 H66 L69 72 H51 Z M49 76 H71 L75 98 H45 Z M42 102 H78 L83 126 H37 Z M33 130 H87 L90 142 H30 Z" style="fill:var(--seal-mid)"></path>
+    </g>
+  </svg>
+  <div style="font-size:16px;font-weight:600;font-style:italic;max-width:520px;line-height:1.5"><%= flavor[:quote] %></div>
+  <div class="mono-meta" style="max-width:460px;line-height:1.6"><%= flavor[:sub] %></div>
+  <%= link_to url_for(wizard: 1), class: "btn-accent", style: "padding:9px 18px;font-size:13px;text-decoration:none" do %>
+    ⚙ Bind the realm — Setup wizard
+  <% end %>
+  <div class="mono-meta" style="opacity:.6">the Eye is open · it merely has nothing to gaze upon</div>
+</div>

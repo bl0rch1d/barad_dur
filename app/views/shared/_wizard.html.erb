@@ -2,32 +2,25 @@
 <% setup = @setting.setup %>
 <% copy = [
   ["Choose the workspace", "Point at a single project or a folder of repos. The pipeline only touches what you check here — everything else is read-only context."],
-  ["Authentication", "Use your subscription or a raw API key. Keys never leave the machine; they sit in the OS keychain and are injected per agent process."],
-  ["Development framework", "This decides what a phase actually runs. Detected openspec in algo/ — recommended."],
-  ["Parsing the workspace", "Indexing code, commit history and specs to build the dashboard. Anything ambiguous becomes a question rather than a guess."],
-  ["Ready — pick your leash", "Autonomy is a feature flag, not a one-way door. Switch it from the titlebar mid-run; in-flight phases finish, the next one respects the new setting."],
-  ["Going live", "Retiring the demo workspace and switching the engine to live execution. This is a one-time transition — your workspace tickets and parsed specs are kept."]
+  ["Authentication", "Use your subscription or a raw API key. Keys never leave the machine; they are injected per agent process."],
+  ["Development framework", "This decides what a phase actually runs. A harness in your workspace is auto-detected and mapped."],
+  ["Parsing the workspace", "Indexing code and specs to build the dashboard. Anything ambiguous becomes a question rather than a guess."],
+  ["Ready — pick your leash", "Autonomy is a feature flag, not a one-way door. Switch it from the titlebar mid-run; in-flight phases finish, the next one respects the new setting."]
 ][step - 1] %>
-<% repo_defaults = %w[true true true false] %>
 <% ws_repos = Workspace.repos %>
-<% repos_selected = if ws_repos.any?
-     ws_repos.count { |r| wizard_setup("repo:#{r[:name]}", "true") == "true" }
-   else
-     (0..3).count { |i| wizard_setup("repo#{i}", repo_defaults[i]) == "true" }
-   end %>
-<% repos_total = ws_repos.any? ? ws_repos.size : 4 %>
+<% repos_selected = ws_repos.count { |r| wizard_setup("repo:#{r[:name]}", "true") == "true" } %>
 
 <div class="overlay-center">
   <div class="wizard">
     <div class="wizard-hd">
       <span class="screen-title">Setup</span>
-      <span class="mono-dim">step <%= step %> of 6</span>
+      <span class="mono-dim">step <%= step %> of 5</span>
       <span class="spacer"></span>
       <%= link_to "✕", request.path, class: "close-btn" %>
     </div>
 
     <div class="wsteps">
-      <% %w[Folder Auth Framework Parse Autonomy Go\ live].each_with_index do |label, i| %>
+      <% %w[Folder Auth Framework Parse Autonomy].each_with_index do |label, i| %>
         <div class="wstep<%= ' reached' if step >= i + 1 %><%= ' current' if step == i + 1 %>">
           <span class="bar"></span>
           <span class="lbl"><%= label %></span>
@@ -46,13 +39,11 @@
           <% ws_mounted = Workspace.mount_root.directory? %>
           <% ws_layout = ws_mounted ? Workspace.layout : :empty %>
           <div class="path-row">
-            <span class="path"><%= ws_mounted ? Workspace.root : "~/dev/algo" %></span>
+            <span class="path"><%= ws_mounted ? Workspace.root : "no workspace mounted" %></span>
             <% if ws_mounted %>
               <span class="tag" style="color:<%= ws_layout == :empty ? 'var(--tx3)' : 'var(--info)' %>">
                 <%= { monorepo: "monorepo", multi_repo: "#{ws_repos.size} repos", empty: "no repos here" }[ws_layout] %>
               </span>
-            <% else %>
-              <span class="btn-ghost btn-sm" style="cursor:default">Browse…</span>
             <% end %>
           </div>
           <% if ws_mounted %>
@@ -103,20 +94,7 @@
               <span class="mono-meta">the mount is empty — put repositories under ./workspace or start with WORKSPACE_PATH=~/dev/yourproject</span>
             <% end %>
           <% else %>
-          <div class="k-label" style="letter-spacing:.1em">Detected 4 repos — pick what the pipeline owns</div>
-          <% [["algo-core", "python · 1.2k files · 4.1k commits", "82k LOC"],
-              ["algo-api", "python · 340 files · 1.9k commits", "21k LOC"],
-              ["algo-jobs", "python · 180 files · 900 commits", "9k LOC"],
-              ["algo-web", "typescript · 620 files · 2.2k commits", "38k LOC"]].each_with_index do |(name, meta, loc), i| %>
-            <% on = wizard_setup("repo#{i}", repo_defaults[i]) == "true" %>
-            <%= button_to wizard_patch_path(key: "repo#{i}", value: (!on).to_s, wizard: step), form_class: "bt",
-                          class: "check-row#{' on' if on}" do %>
-              <span class="checkbox"><%= "✓" if on %></span>
-              <span class="check-name"><%= name %></span>
-              <span class="check-meta"><%= meta %></span>
-              <span class="mono-meta"><%= loc %></span>
-            <% end %>
-          <% end %>
+            <span class="mono-meta">no workspace mounted — start the stack with WORKSPACE_PATH pointing at your code</span>
           <% end %>
         </div>
       <% end %>
@@ -161,11 +139,11 @@
             </div>
           </div>
           <div class="cap-row">
-            <span style="font-size:12.5px;flex:1">Live runner</span>
+            <span style="font-size:12.5px;flex:1">Agent runner</span>
             <% if AgentRunner.live_available? %>
               <span class="mono-meta" style="color:var(--ok)">✓ claude code CLI ready — phases run for real in the workspace</span>
             <% else %>
-              <span class="mono-meta">demo driver active (claude CLI or auth missing)</span>
+              <span class="mono-meta" style="color:var(--warn)">unavailable — claude CLI or auth missing; nothing will execute until fixed</span>
             <% end %>
           </div>
           <div class="cap-row">
@@ -179,9 +157,9 @@
       <% if step == 3 %>
         <% fw = wizard_setup("fw", "0") %>
         <div class="wizard-stack">
-          <% [["openspec", "Specs are the contract: each phase reads and writes openspec files, so plans and code stay attached to requirements.", "detected", "var(--ok)"],
-              ["Custom agentic harness", "Point at your own harness. The app drives it through phase hooks and reads its artifacts back into the board.", "folder", "var(--info)"],
-              ["Vanilla — let the model decide", "No framework in the repo. The app runs its built-in spec-first loop: spec → plan → tasks → diff, with every phase producing a written artifact you can review.", "fallback", "var(--tx3)"]].each_with_index do |(label, blurb, tag, tag_tone), i| %>
+          <% [["openspec", "Specs are the contract: each phase reads and writes openspec files, so plans and code stay attached to requirements.", "recommended", "var(--ok)"],
+              ["Custom agentic harness", "Your repo's own .claude commands, skills and agents drive the phases; the app reads their artifacts back into the board.", "auto-detected", "var(--info)"],
+              ["Vanilla — built-in prompts", "No framework. Every phase runs the app's built-in spec-first prompts, each producing a written artifact you can review.", "fallback", "var(--tx3)"]].each_with_index do |(label, blurb, tag, tag_tone), i| %>
             <% on = fw == i.to_s %>
             <%= button_to wizard_patch_path(key: "fw", value: i, wizard: step), form_class: "bt",
                           class: "radio-card#{' on' if on}" do %>
@@ -189,9 +167,6 @@
               <div class="radio-body">
                 <span class="radio-label"><%= label %></span>
                 <span class="radio-blurb"><%= blurb %></span>
-                <% if i == 1 && on %>
-                  <span class="mono-meta" style="padding-top:4px">~/dev/algo/.harness</span>
-                <% end %>
               </div>
               <span class="tag" style="color:<%= tag_tone %>"><%= tag %></span>
             <% end %>
@@ -232,7 +207,7 @@
                 <% end %>
                 <% if detected_harness.agents.any? %>
                   <div style="padding-top:9px;border-top:1px solid var(--soft);margin-top:3px;display:flex;flex-direction:column;gap:5px">
-                    <span class="k-label" style="letter-spacing:.08em">Project agents — auto-loaded, offered to phases for delegation</span>
+                    <span class="k-label" style="letter-spacing:.08em">Project agents — mapped onto the roster, offered to phases for delegation</span>
                     <span class="mono-meta"><%= detected_harness.agents.first(10).join(" · ") %><%= " · +#{detected_harness.agents.size - 10} more" if detected_harness.agents.size > 10 %></span>
                   </div>
                 <% end %>
@@ -241,77 +216,21 @@
                 <% end %>
               </div>
             </div>
-          <% elsif fw == "1" %>
-            <div class="panel harness-panel">
-              <div class="panel-hd">
-                <span class="k-label" style="color:var(--info)">Parsed harness · ~/dev/quant_development</span>
-                <span class="spacer"></span>
-                <span class="mono-meta">openspec integration · 9 commands · 4 skills</span>
-              </div>
-              <div style="padding:12px 13px;display:flex;flex-direction:column;gap:7px">
-                <div class="k-label" style="letter-spacing:.08em;padding-bottom:2px">Phase → command · click a row to switch source</div>
-                <% [["Investigation", "opsx:explore", "harness"],
-                    ["Planning", "opsx:propose", "harness"],
-                    ["Implementation", "opsx:apply", "harness"],
-                    ["Review", "/review (skill)", "harness"],
-                    ["Testing", "built-in: tox -e py311", "built-in"],
-                    ["Deployment", "built-in: tag + changelog", "built-in"]].each_with_index do |(phase, cmd, src), i| %>
-                  <% own = wizard_setup("map#{i}", "") == "built-in" ? "built-in" : src %>
-                  <% harness = own == "harness" %>
-                  <% shown_cmd = harness ? cmd : (src == "built-in" ? cmd : "built-in: default runner") %>
-                  <%= button_to wizard_patch_path(key: "map#{i}", value: harness ? "built-in" : "harness", wizard: step),
-                                form_class: "bt", class: "map-row#{' on' if harness}" do %>
-                    <span class="dot" style="background:<%= harness ? 'var(--info)' : 'var(--tx3)' %>"></span>
-                    <span class="map-phase"><%= phase %></span>
-                    <span class="mono-meta" style="flex:none">→</span>
-                    <span class="map-cmd" style="color:<%= harness ? 'var(--info)' : 'var(--tx3)' %>"><%= shown_cmd %></span>
-                    <span class="tag" style="color:<%= harness ? 'var(--info)' : 'var(--tx3)' %>"><%= own %></span>
-                  <% end %>
-                <% end %>
-                <div style="display:flex;flex-direction:column;gap:7px;padding-top:9px;border-top:1px solid var(--soft);margin-top:3px">
-                  <span class="k-label" style="letter-spacing:.08em">Also found — add as phases?</span>
-                  <% [["opsx:validate", "checks a proposal against existing specs before code is written", "before implementation"],
-                      ["opsx:archive", "moves the applied spec delta into the permanent spec tree", "after deployment"],
-                      ["/commit", "harness commit convention with spec + ticket trailers", "inside implementation"]].each_with_index do |(cmd, blurb, slot), i| %>
-                    <% on = wizard_setup("add#{i}", "yes") != "no" %>
-                    <%= button_to wizard_patch_path(key: "add#{i}", value: on ? "no" : "yes", wizard: step),
-                                  form_class: "bt", class: "check-row#{' on' if on}",
-                                  style: on ? "border-color:var(--info);background:var(--info-soft)" : "" do %>
-                      <span class="checkbox" style="<%= 'border-color:var(--info);background:var(--info)' if on %>"><%= "✓" if on %></span>
-                      <span class="check-name" style="width:118px"><%= cmd %></span>
-                      <span style="font-size:11.5px;color:var(--tx2);flex:1;min-width:0"><%= blurb %></span>
-                      <span class="mono-meta" style="flex:none"><%= slot %></span>
-                    <% end %>
-                  <% end %>
-                </div>
-              </div>
-              <div class="harness-qs">
-                <span class="k-label" style="color:var(--warn)">Harness left this ambiguous · 2 questions</span>
-                <% [["h1", "opsx:explore writes to openspec/changes/ but never reads the board. Should investigation results land as ticket comments too?", ["Yes, mirror to ticket", "Files only"]],
-                    ["h2", "No testing command found in the harness. Use the built-in runner, or treat testing as part of opsx:apply?", ["Built-in runner", "Fold into apply", "Skip phase"]]].each do |key, q, opts| %>
-                  <div style="display:flex;flex-direction:column;gap:7px">
-                    <span style="font-size:12.5px;line-height:1.5"><%= q %></span>
-                    <div class="chip-row">
-                      <% opts.each do |option| %>
-                        <%= button_to option, wizard_patch_path(key: key, value: option, wizard: step), form_class: "bt",
-                                      class: "chip#{' on' if wizard_setup(key, '') == option}" %>
-                      <% end %>
-                    </div>
-                  </div>
-                <% end %>
-              </div>
+          <% elsif fw != "2" %>
+            <div class="parse-card">
+              <span class="mono-meta">no .claude/commands found in the workspace — phases will use the built-in prompts</span>
             </div>
           <% end %>
 
           <% if fw == "2" %>
             <div class="panel">
               <div class="panel-hd"><span class="k-label">Built-in spec-first loop · what each phase runs</span></div>
-              <% [["Investigation", "explore", "evidence file: call sites, history, root-cause candidates"],
-                  ["Planning", "spec → plan", "spec delta + task list with dependency order"],
-                  ["Implementation", "apply", "one branch per ticket, commit per task"],
-                  ["Review", "critique", "diff review against the spec delta, not vibes"],
-                  ["Testing", "verify", "inferred test command + property tests on changed logic"],
-                  ["Deployment", "ship", "tag, changelog entry, staged rollout"]].each do |phase, step_name, out| %>
+              <% [["Investigation", "explore", "read-only: call sites, history, clarifying questions"],
+                  ["Planning", "plan", "summary, technical notes, acceptance criteria, dependencies"],
+                  ["Implementation", "apply", "one pipe/* branch per ticket, real commits"],
+                  ["Review", "critique", "diff review against the plan, fixes committed"],
+                  ["Testing", "verify", "repo's own test command, failures fixed"],
+                  ["Deployment", "ship", "changelog entry; merge stays in your hands"]].each do |phase, step_name, out| %>
                 <div class="vanilla-row">
                   <span class="vanilla-phase"><%= phase %></span>
                   <span class="vanilla-step"><%= step_name %></span>
@@ -330,7 +249,7 @@
             <% unchecked_spec_repos = openspec_names - Workspace.selected_repos(@setting).map { |r| r[:name] } %>
             <% spec_count = Capability.count %>
             <div class="parse-card" style="border-color:var(--info)">
-              <span class="k-label" style="color:var(--info)">Workspace · live</span>
+              <span class="k-label" style="color:var(--info)">Workspace</span>
               <div class="parse-log">
                 <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= ws_repos.size %> <%= "repo".pluralize(ws_repos.size) %> mounted at <%= Workspace.root %></span></div>
                 <% if openspec_names.any? %>
@@ -345,7 +264,7 @@
                   <span style="color:<%= spec_count.positive? ? 'var(--ok)' : 'var(--tx3)' %>"><%= spec_count.positive? ? "✓" : "◦" %></span>
                   <span class="t"><%= spec_count.positive? ? "#{spec_count} capabilities · #{SpecRequirement.count} requirements in the spec index" : "spec index is empty — parse below" %></span>
                 </div>
-                <div class="row"><span style="color:<%= AgentRunner.live_available? ? 'var(--ok)' : 'var(--tx3)' %>"><%= AgentRunner.live_available? ? "✓" : "◦" %></span><span class="t">claude code runner <%= AgentRunner.live_available? ? "ready" : "unavailable — demo driver" %></span></div>
+                <div class="row"><span style="color:<%= AgentRunner.live_available? ? 'var(--ok)' : 'var(--warn)' %>"><%= AgentRunner.live_available? ? "✓" : "!" %></span><span class="t">claude code runner <%= AgentRunner.live_available? ? "ready" : "unavailable — check the Auth step" %></span></div>
               </div>
               <% sync_progress = setup["spec_sync_progress"] %>
               <% sync_progress = nil if sync_progress && sync_progress["at"].to_i < 90.seconds.ago.to_i %>
@@ -371,7 +290,12 @@
                 </div>
               <% end %>
             </div>
+          <% else %>
+            <div class="parse-card">
+              <span class="mono-meta">no repos in the workspace — go back to the Folder step and bind a realm first</span>
+            </div>
           <% end %>
+
           <div class="parse-card" id="indexing-progress-card" data-turbo-permanent
                data-controller="progress" data-progress-cap-value="100"
                data-progress-done-label-value="Workspace indexed ✓">
@@ -381,15 +305,11 @@
             </div>
             <div class="meter"><span data-progress-target="bar" style="width:0%;background:var(--accent);transition:width .2s linear"></span></div>
             <div class="parse-log">
-              <% index_line = if ws_repos.any?
-                   "indexed #{ws_repos.sum { |r| r[:files] }} files · #{ws_repos.sum { |r| r[:commits] }} commits · #{ws_repos.size} #{"repo".pluralize(ws_repos.size)}"
-                 else
-                   "indexed 2,140 files · 9,100 commits · 3 default branches"
-                 end %>
-              <% spec_line = Capability.any? ? "parsed #{Capability.count} openspec capabilities, #{SpecRequirement.count} requirements" : "parsed 11 openspec capabilities, 68 requirements" %>
+              <% index_line = ws_repos.any? ? "indexed #{ws_repos.sum { |r| r[:files] }} files · #{ws_repos.sum { |r| r[:commits] }} commits · #{ws_repos.size} #{"repo".pluralize(ws_repos.size)}" : "no repos to index yet" %>
+              <% spec_line = Capability.any? ? "parsed #{Capability.count} openspec capabilities, #{SpecRequirement.count} requirements" : "spec index pending" %>
               <% [[index_line, 20], [spec_line, 45],
                   ["inferred test commands from the workspace", 65],
-                  ["mapped 7 agent roles onto phases", 78],
+                  ["mapped agent roles onto phases", 78],
                   ["building dependency graph from imports", 88],
                   ["summarising recent commit history", 95]].each do |text, threshold| %>
                 <div class="row" data-progress-target="row" data-threshold="<%= threshold %>">
@@ -398,48 +318,21 @@
               <% end %>
             </div>
           </div>
-          <% unless ws_repos.any? %>
-          <div class="parse-card warn">
-            <span class="k-label" style="color:var(--warn)">2 questions found while parsing</span>
-            <% [["p1", "algo-web has no tests wired to CI. Should the testing phase treat it as pass-through or block on a smoke suite?", ["Pass-through", "Require smoke", "Skip repo"]],
-                ["p2", "Two migration systems found in algo-core (alembic + raw SQL in scripts/). Which is authoritative?", ["alembic", "scripts/", "Ask each time"]]].each do |key, q, opts| %>
-              <div style="display:flex;flex-direction:column;gap:7px;padding-bottom:9px;border-bottom:1px solid var(--soft)">
-                <span style="font-size:12.5px;line-height:1.5"><%= q %></span>
-                <div class="chip-row">
-                  <% opts.each do |option| %>
-                    <%= button_to option, wizard_patch_path(key: key, value: option, wizard: step), form_class: "bt",
-                                  class: "chip#{' on' if wizard_setup(key, '') == option}" %>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-          </div>
-          <% end %>
         </div>
       <% end %>
 
       <% if step == 5 %>
         <div class="wizard-stack">
-          <% if ws_repos.any? && !@setting.live_mode? %>
-            <div class="parse-card warn">
-              <span class="k-label" style="color:var(--warn)">Going live</span>
-              <span style="font-size:12px;color:var(--tx2);line-height:1.55">
-                Starting switches the app to live mode: the demo board and history are cleared,
-                and the pipeline will only work tickets that target your workspace repos.
-                Tickets already pointing at the workspace and your parsed specs are kept.
-              </span>
-            </div>
-          <% end %>
           <div class="summary-grid">
-            <% fw_label = ["openspec (detected)", "custom harness", "vanilla loop"][wizard_setup("fw", "0").to_i] || "openspec (detected)" %>
+            <% fw_label = ["openspec", "custom harness", "vanilla prompts"][wizard_setup("fw", "0").to_i] || "openspec" %>
             <% auth_label = wizard_setup("auth", "0") == "1" ? "API key" : "subscription" %>
-            <% workspace_label = ws_repos.any? ? "#{Workspace.root} · #{repos_selected} repos" : "~/dev/algo · #{repos_selected} repos" %>
-            <% [["Workspace", workspace_label],
-                ["Framework", fw_label],
+            <% harness = Harness.detect %>
+            <% [["Workspace", ws_repos.any? ? "#{Workspace.root.basename} · #{repos_selected} of #{ws_repos.size} repos" : "not bound"],
+                ["Framework", harness && fw_label != "vanilla prompts" ? "#{fw_label} · #{harness.repo}" : fw_label],
                 ["Auth", auth_label],
-                ["Agents", "7 roles mapped"],
+                ["Model", Setting::ORCHESTRATOR_MODELS[@setting.orchestrator_model]],
                 ["Spend cap", "$#{@setting.spend_cap.to_i} / day"],
-                ["Indexed", "2,140 files · 68 reqs"]].each do |key, value| %>
+                ["Spec index", Capability.any? ? "#{Capability.count} capabilities · #{SpecRequirement.count} reqs" : "empty"]].each do |key, value| %>
               <div class="summary-card">
                 <div class="k-label" style="letter-spacing:.08em"><%= key %></div>
                 <div class="summary-v"><%= value %></div>
@@ -464,72 +357,17 @@
           </div>
         </div>
       <% end %>
-
-      <% if step == 6 %>
-        <% lm_progress = setup["live_mode_progress"] %>
-        <% lm_progress = nil if lm_progress && lm_progress["at"].to_i < 90.seconds.ago.to_i %>
-        <% lm_stages = [["tickets", "Purge demo tickets"], ["history", "Clear demo history"],
-                        ["agents", "Reset agent roles"], ["engine", "Switch engine to live"]] %>
-        <div class="wizard-stack">
-          <% if lm_progress %>
-            <% current = lm_stages.index { |key, _| key == lm_progress["stage"] } || 0 %>
-            <% fraction = lm_progress["total"].to_i.positive? ? lm_progress["done"].to_f / lm_progress["total"].to_i : 0.0 %>
-            <% overall = (((current + fraction) / lm_stages.size) * 100).round %>
-            <div class="parse-card" style="border-color:var(--accent)" data-controller="live-refresh">
-              <div style="display:flex;align-items:center;gap:10px">
-                <span class="mono" style="font-size:11px;color:var(--accent);flex:1">Going live…</span>
-                <span class="mono-dim"><%= overall %>%</span>
-              </div>
-              <div class="meter"><span style="width:<%= overall %>%;background:var(--accent);transition:width .4s ease"></span></div>
-              <div class="parse-log">
-                <% lm_stages.each_with_index do |(key, label), i| %>
-                  <div class="row" style="align-items:center">
-                    <% if i < current %>
-                      <span style="color:var(--ok)">✓</span>
-                    <% elsif i == current %>
-                      <span class="dot" style="background:var(--accent);animation:pulse 1.8s infinite"></span>
-                    <% else %>
-                      <span style="color:var(--tx3)">◦</span>
-                    <% end %>
-                    <span class="t" style="<%= 'color:var(--tx)' if i == current %>">
-                      <%= label %><%= " — #{lm_progress['label']} (#{lm_progress['done']}/#{lm_progress['total']})" if i == current && lm_progress['total'].to_i.positive? %>
-                    </span>
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          <% elsif @setting.live_mode? %>
-            <div class="parse-card" style="border-color:var(--ok)">
-              <span class="k-label" style="color:var(--ok)">Workspace is live ✓</span>
-              <div class="parse-log">
-                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= setup["live_mode_result"] || "demo data cleared" %></span></div>
-                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= ws_repos.size %> <%= "repo".pluralize(ws_repos.size) %> · <%= Capability.count %> capabilities · agents ready</span></div>
-                <div class="row"><span style="color:var(--ok)">✓</span><span class="t">the board now only works tickets that target your workspace</span></div>
-              </div>
-              <div><%= link_to "Enter mission control", root_path, class: "btn-accent", style: "padding:8px 16px;display:inline-block" %></div>
-            </div>
-          <% else %>
-            <% result = setup["live_mode_result"] %>
-            <div class="parse-card <%= 'warn' if result&.start_with?('activation failed') %>">
-              <span class="k-label" style="<%= 'color:var(--warn)' if result&.start_with?('activation failed') %>">
-                <%= result&.start_with?("activation failed") ? result : "Nothing to activate — configure a workspace in the Folder step first" %>
-              </span>
-            </div>
-          <% end %>
-        </div>
-      <% end %>
     </div>
 
     <div class="wizard-foot">
       <%= link_to "Back", step > 1 ? url_for(wizard: step - 1) : request.path, class: "btn-ghost" %>
       <span class="spacer"></span>
       <span class="mono-meta">
-        <%= ["#{repos_selected} of #{repos_total} repos selected",
-             AgentRunner.live_available? ? "live runner ready · #{@setting.auth_mode.tr('_', ' ')}" : "auth not detected — demo driver",
-             "openspec detected",
-             ws_repos.any? ? (Capability.any? ? "#{Capability.count} capabilities in the spec index" : "no specs parsed yet") : "2 questions waiting",
-             "you can change this later",
-             @setting.live_mode? ? "workspace is live" : "one-time transition"][step - 1] %>
+        <%= ["#{repos_selected} of #{ws_repos.size} repos selected",
+             AgentRunner.live_available? ? "runner ready · #{@setting.auth_mode.tr('_', ' ')}" : "auth not detected — nothing will run",
+             Harness.detect ? "harness detected" : "built-in prompts",
+             ws_repos.any? ? (Capability.any? ? "#{Capability.count} capabilities in the spec index" : "no specs parsed yet") : "bind a realm first",
+             "the watch begins when you start"][step - 1] %>
       </span>
       <% if step < 5 %>
         <% gate_on_indexing = step == 4 %>
@@ -537,16 +375,10 @@
                     id: gate_on_indexing ? "wizard-continue" : nil,
                     data: gate_on_indexing ? { progress_unlock: true, turbo_permanent: true } : {},
                     class: "btn-accent#{' locked' if gate_on_indexing}", style: "padding:7px 15px" %>
-      <% elsif step == 5 %>
-        <%# morph-permanent: a broadcast refresh mid-submission must not replace
-            the submitting form, or Turbo drops the redirect follow-through %>
-        <%= button_to ws_repos.any? && !@setting.live_mode? ? "Start live pipeline" : "Start pipeline",
-                      wizard_finish_path,
-                      form: { id: "wizard-finish-form", data: { turbo_permanent: true } },
-                      form_class: "bt", class: "btn-accent busy-btn", style: "padding:7px 15px",
-                      data: { turbo_submits_with: "Starting…" } %>
-      <% elsif @setting.live_mode? && setup["live_mode_progress"].nil? %>
-        <%= link_to "Enter mission control", root_path, class: "btn-accent", style: "padding:7px 15px" %>
+      <% else %>
+        <%= button_to "Start the watch", wizard_finish_path, form_class: "bt",
+                      class: "btn-accent busy-btn", style: "padding:7px 15px",
+                      data: { turbo_submits_with: "Kindling…" } %>
       <% end %>
     </div>
   </div>

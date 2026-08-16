@@ -153,66 +153,6 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal 1, Capability.count
   end
 
-  test "live mode activation purges demo data but keeps workspace tickets" do
-    demo_ticket = Ticket.create!(code: "TST-D1", title: "Demo ticket", repo: "algo-core", state: :ready)
-    real_ticket = Ticket.create!(code: "TST-R1", title: "Real ticket", repo: "demo-repo", state: :ready)
-    CommitRecord.create!(sha: "abc1234", message: "demo commit", committed_at: Time.current)
-    Question.create!(ticket_code: demo_ticket.code, body: "?", options: ["A"], asked_at: Time.current)
-    Event.record!(phase_tag: "SYS", text: "demo event")
-    agent = Agent.create!(name: "A1", abbr: "A1", role: "review", llm_model: "opus",
-                          status: "running", cost_today: 5.0, doing: "busy with demo work")
-    Setting.instance.update!(spend_today: 41.28)
-
-    stages = []
-    assert LiveMode.activate!(Setting.instance, progress: ->(stage, *_) { stages << stage })
-    assert_equal %w[tickets history agents engine], stages.uniq, "staged progress in order"
-
-    setting = Setting.instance.reload
-    assert setting.live_mode?
-    assert_match(/1 demo tickets purged · 1 workspace tickets kept/, setting.setup["live_mode_result"])
-    assert_nil setting.setup["live_mode_progress"]
-    assert_nil Ticket.find_by(code: "TST-D1"), "demo ticket must be purged"
-    assert Ticket.exists?(code: "TST-R1"), "workspace ticket must survive"
-    assert_equal 0, CommitRecord.count
-    assert_equal 0, Question.count
-    assert_equal 1, Event.count, "only the live-mode transition event remains"
-    assert_equal 0, setting.spend_today
-    assert_equal "idle", agent.reload.status
-
-    # idempotent — a second activation must not purge again
-    Event.record!(phase_tag: "SYS", text: "user event")
-    assert LiveMode.activate!(setting)
-    assert_equal 2, Event.count
-  end
-
-  test "live mode job clears its progress marker when done" do
-    Ticket.create!(code: "TST-D9", title: "Demo leftover", repo: "algo-x", state: :ready)
-
-    LiveModeJob.perform_now
-
-    setting = Setting.instance.reload
-    assert setting.live_mode?
-    assert_nil setting.setup["live_mode_progress"]
-    assert_match(/demo tickets purged/, setting.setup["live_mode_result"])
-  end
-
-  test "live mode engine never fabricates work and only pulls executable tickets" do
-    Setting.instance.update!(live_mode: true)
-    Agent.create!(name: "L1", abbr: "L1", role: "implementation", llm_model: "sonnet", status: "idle")
-    stuck = Ticket.create!(code: "TST-X1", title: "Unresolvable", repo: "ghost-repo", state: :ready)
-    live = Ticket.create!(code: "TST-Y1", title: "Executable", repo: "demo-repo", state: :ready)
-    spend_before = Setting.instance.spend_today
-
-    assert_no_difference -> { Ticket.count } do
-      PipelineEngine.tick!
-    end
-
-    assert_equal "investigation", live.reload.state, "live-capable ticket gets picked up"
-    assert_equal "claude", live.current_phase_run.runner
-    assert_equal "ready", stuck.reload.state, "unresolvable ticket stays put"
-    assert_equal spend_before, Setting.instance.reload.spend_today, "no simulated spend in live mode"
-  end
-
   test "empty scan results are never cached" do
     empty_zone = File.join(@dir, "empty-zone")
     FileUtils.mkdir_p(empty_zone)
@@ -242,8 +182,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     rfc = Rfc.create!(body: "orphaned", stage: 0, job_state: "investigating")
     setting = Setting.instance
     setting.update!(setup: setting.setup.merge(
-      "spec_sync_progress" => { "done" => 1, "total" => 5, "at" => Time.current.to_i },
-      "live_mode_progress" => { "stage" => "tickets", "at" => Time.current.to_i }
+      "spec_sync_progress" => { "done" => 1, "total" => 5, "at" => Time.current.to_i }
     ))
 
     BootRecovery.run!
@@ -254,9 +193,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
     setting.reload
     assert_nil setting.setup["spec_sync_progress"]
-    assert_nil setting.setup["live_mode_progress"]
     assert_match(/interrupted/, setting.setup["last_spec_sync"])
-    assert_match(/interrupted/, setting.setup["live_mode_result"])
     assert Event.exists?(["text LIKE ?", "%interrupted by a restart%"])
   end
 
@@ -350,16 +287,6 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal "2k tok", ticket.tokens_label
   end
 
-  test "live tickets are not advanced by demo tick thresholds" do
-    ticket = Ticket.create!(code: "TST-78", title: "Live ticket", repo: "demo-repo",
-                            state: :investigation,
-                            phase_progress: Ticket::PHASE_THRESHOLDS["investigation"] + 5)
-    ticket.phase_runs.create!(phase: "investigation", status: "running",
-                              runner: "claude", started_at: Time.current)
-
-    PipelineEngine.tick!
-    assert_equal "investigation", ticket.reload.state
-  end
 
   test "headless agent returns a structured result from the stub CLI" do
     result = HeadlessAgent.call(prompt: "hello", chdir: @repo)
@@ -509,7 +436,6 @@ class LiveRunnerTest < ActiveSupport::TestCase
   test "chat reply job answers, stores the session and resumes it" do
     write_stub!("{}")
     Agent.create!(name: "Architect", abbr: "AR", role: "planning", llm_model: "opus", status: "idle")
-    Setting.instance.update!(live_mode: true)
 
     first = ChatMessage.create!(room: "workspace", sender: "you",
                                 body: "What is the state of the workspace?", sent_at: Time.current)
@@ -531,7 +457,6 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_match(/^s$/, args)
     refute_match(/You are the Architect/, args, "resumed sessions skip the intro")
   ensure
-    Setting.instance.update!(live_mode: false)
   end
 
   test "grooming investigation with questions parks the ticket and resumes on answers" do

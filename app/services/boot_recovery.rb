@@ -34,17 +34,10 @@ class BootRecovery
       setting = Setting.first
       return unless setting
 
-      stale = setting.setup.slice("spec_sync_progress", "live_mode_progress")
-      return if stale.empty?
+      return unless setting.setup.key?("spec_sync_progress")
 
-      cleaned = setting.setup.except("spec_sync_progress", "live_mode_progress")
-      if stale.key?("spec_sync_progress")
-        cleaned = cleaned.merge("last_spec_sync" => "parse interrupted by a restart — run it again")
-      end
-      if stale.key?("live_mode_progress") && !setting.live_mode?
-        cleaned = cleaned.merge("live_mode_result" => "activation interrupted by a restart — start again")
-      end
-      setting.update!(setup: cleaned)
+      setting.update!(setup: setting.setup.except("spec_sync_progress")
+                                   .merge("last_spec_sync" => "parse interrupted by a restart — run it again"))
     end
   end
 end

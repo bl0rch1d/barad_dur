@@ -81,7 +81,8 @@ class Harness
         dir.directory? ? dir.children.select(&:directory?).map { |c| c.basename.to_s }.sort : []
       end
       agent_details = Dir.glob(base.join("agents", "*.md")).sort.map do |file|
-        head = File.read(file, 2048).to_s
+        # byte-limited File.read returns BINARY — force UTF-8 or ERB blows up
+        head = File.read(file, 2048).to_s.force_encoding(Encoding::UTF_8).scrub
         { name: File.basename(file, ".md"),
           description: head[/^description:\s*(.+)$/, 1].to_s.strip.truncate(220) }
       end

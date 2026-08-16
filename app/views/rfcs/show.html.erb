@@ -4,8 +4,8 @@
       <span class="page-title">Feature request</span>
       <span class="mono-dim">describe intent → system investigates, clarifies, plans, files tickets</span>
     </div>
-    <% if @setting.live_mode? && !@rfc_live %>
-      <span class="mono-meta" style="color:var(--warn)">agent runner unavailable — this flow falls back to the simulated driver</span>
+    <% unless AgentRunner.live_available? %>
+      <span class="mono-meta" style="color:var(--warn)">agent runner unavailable — check auth in the wizard before investigating</span>
     <% end %>
 
     <div class="steps-strip">
@@ -35,10 +35,8 @@
           <button type="submit" class="btn-accent" style="padding:7px 14px;font-size:12.5px">
             <%= if @rfc.job_state == "failed"
                   "Retry"
-                elsif @rfc_live
-                  @rfc.stage < 2 ? "Investigate workspace" : (@rfc.stage >= 3 ? "Re-plan" : "Plan it")
                 else
-                  ["Investigate", "Ask for clarifications", "Plan it", "Re-plan"][@rfc.stage]
+                  @rfc.stage < 2 ? "Investigate workspace" : (@rfc.stage >= 3 ? "Re-plan" : "Plan it")
                 end %>
           </button>
           <%= button_to "Reset", rfc_reset_path, form_class: "bt", class: "btn-ghost", style: "padding:7px 12px;font-size:12.5px" %>
@@ -46,17 +44,10 @@
             <span class="mono-meta" style="color:var(--err)"><%= @rfc.error %></span>
           <% else %>
             <span class="mono-dim">
-              <%= if @rfc_live
-                    ["Scout will read your repos before proposing anything",
-                     "Scout will read your repos before proposing anything",
-                     "Answers folded in — Architect plans next",
-                     "Push to board to execute the plan"][[@rfc.stage, 3].min]
-                  else
-                    ["Scout reads code + history before proposing anything",
-                     "It found 3 things it will not guess at",
-                     "Answers folded in — planning next",
-                     "Too big for one ticket — split into 5 by dependency depth"][@rfc.stage]
-                  end %>
+              <%= ["Scout will read your repos before proposing anything",
+                   "Scout will read your repos before proposing anything",
+                   "Answers folded in — Architect plans next",
+                   "Push to board to execute the plan"][[@rfc.stage, 3].min] %>
             </span>
           <% end %>
         <% end %>
@@ -90,7 +81,7 @@
           <span class="dot" style="background:var(--info)"></span>
           <span class="k-label">Investigation trace</span>
           <span class="spacer"></span>
-          <span class="mono-meta"><%= @rfc_live ? "Scout · live workspace run" : "Scout · 38s · 24k tok" %></span>
+          <span class="mono-meta">Scout · live workspace run</span>
         </div>
         <div class="trace-body">
           <% @rfc.trace.each do |line| %>
@@ -128,11 +119,7 @@
           <span class="spacer"></span>
           <% change_name = @rfc.proposals.first&.dig("change") %>
           <span class="mono-meta">
-            <%= if @rfc_live
-                  [change_name && "openspec change: #{change_name}", "#{@rfc.proposals.size} tickets · codes assigned on push"].compact.join(" · ")
-                else
-                  "est 5h 40m · ~$9.20"
-                end %>
+            <%= [change_name && "openspec change: #{change_name}", "#{@rfc.proposals.size} tickets · codes assigned on push"].compact.join(" · ") %>
           </span>
         </div>
         <% @rfc.proposals.each do |proposal| %>
@@ -157,10 +144,6 @@
           <% else %>
             <%= button_to "Push #{@rfc.proposals.size} tickets to board", rfc_push_path, form_class: "bt",
                           class: "btn-accent", style: "padding:6px 13px" %>
-          <% end %>
-          <% unless @rfc_live %>
-            <span class="btn-ghost btn-sm" style="cursor:default">Edit plan</span>
-            <span class="mono-meta">also writes spec: risk/venue-exposure-cap</span>
           <% end %>
         </div>
       </div>

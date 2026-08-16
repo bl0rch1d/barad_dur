@@ -151,43 +151,25 @@
         <% end %>
       </div>
 
-      <% if @setting.live_mode? %>
-        <div class="panel">
-          <div class="panel-hd"><span class="k-label">Recent agent runs</span></div>
-          <% if @recent_runs.empty? %>
-            <div class="ci-row"><span class="mono-meta">no live runs yet — groom a ticket to start</span></div>
-          <% end %>
-          <% @recent_runs.each do |run| %>
-            <% tone = { "done" => "var(--ok)", "failed" => "var(--err)" }.fetch(run.status, "var(--accent)") %>
-            <div class="ci-row" style="flex-direction:row;align-items:baseline;gap:8px">
-              <span class="dot" style="background:<%= tone %>;align-self:center"></span>
-              <%= link_to run.ticket.code, url_for(ticket: run.ticket.code),
-                          class: "mono", style: "font-size:11px;color:var(--tx)" %>
-              <span class="mono-meta"><%= run.phase %></span>
-              <span class="spacer"></span>
-              <span class="mono-meta" style="color:<%= tone %>"><%= run.status == "running" ? "live" : run.status %></span>
-              <span class="mono-meta"><%= run.duration_label %></span>
-              <% if run.cost.to_f.positive? %><span class="mono-meta">$<%= format("%.2f", run.cost) %></span><% end %>
-            </div>
-          <% end %>
-        </div>
-      <% else %>
-        <div class="panel">
-          <div class="panel-hd"><span class="k-label">CI &amp; tests</span></div>
-          <% if @ci.empty? %>
-            <div class="ci-row"><span class="mono-meta">no CI provider wired yet</span></div>
-          <% end %>
-          <% @ci.each do |suite| %>
-            <div class="ci-row">
-              <div class="ci-hd">
-                <span class="ci-name"><%= suite.name %></span>
-                <span class="ci-pct" style="color:<%= suite.tone %>"><%= suite.pct %>%</span>
-              </div>
-              <div class="meter"><span style="width:<%= suite.pct %>%;background:<%= suite.tone %>"></span></div>
-            </div>
-          <% end %>
-        </div>
-      <% end %>
+      <div class="panel">
+        <div class="panel-hd"><span class="k-label">Recent agent runs</span></div>
+        <% if @recent_runs.empty? %>
+          <div class="ci-row"><span class="mono-meta">no runs yet — groom a ticket to start</span></div>
+        <% end %>
+        <% @recent_runs.each do |run| %>
+          <% tone = { "done" => "var(--ok)", "failed" => "var(--err)" }.fetch(run.status, "var(--accent)") %>
+          <div class="ci-row" style="flex-direction:row;align-items:baseline;gap:8px">
+            <span class="dot" style="background:<%= tone %>;align-self:center"></span>
+            <%= link_to run.ticket.code, url_for(ticket: run.ticket.code),
+                        class: "mono", style: "font-size:11px;color:var(--tx)" %>
+            <span class="mono-meta"><%= run.phase %></span>
+            <span class="spacer"></span>
+            <span class="mono-meta" style="color:<%= tone %>"><%= run.status == "running" ? "live" : run.status %></span>
+            <span class="mono-meta"><%= run.duration_label %></span>
+            <% if run.cost.to_f.positive? %><span class="mono-meta">$<%= format("%.2f", run.cost) %></span><% end %>
+          </div>
+        <% end %>
+      </div>
     </div>
   </div>
 
