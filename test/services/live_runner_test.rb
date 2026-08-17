@@ -77,6 +77,25 @@ class LiveRunnerTest < ActiveSupport::TestCase
     end
   end
 
+  test "unchecking a repo removes it from targets, harness detection and ticket clamps" do
+    second = File.join(@dir, "aaa-other")
+    FileUtils.mkdir_p(File.join(second, ".claude", "commands", "opsx"))
+    File.write(File.join(second, ".claude", "commands", "opsx", "explore.md"), "# explore")
+    system("git", "init", "-q", second)
+    system("git", "-C", second, "add", ".")
+    system("git", "-C", second, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
+    Workspace.refresh!
+
+    setting = Setting.instance
+    assert_equal %w[aaa-other demo-repo], Workspace.repo_names
+    assert_equal "aaa-other", Harness.detect(setting).repo
+
+    setting.update!(setup: setting.setup.merge("repo:aaa-other" => "false"))
+    assert_equal %w[demo-repo], Workspace.selected_repos(setting).map { |r| r[:name] }
+    assert_equal %w[demo-repo], Workspace.selected_ticket_targets(setting)
+    assert_nil Harness.detect(setting), "harness must not come from an unchecked repo"
+  end
+
   test "monorepo folder choice: root repo with sub-projects" do
     mono = File.join(@dir, "mono")
     FileUtils.mkdir_p(File.join(mono, "apps", "web"))

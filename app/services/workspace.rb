@@ -184,7 +184,7 @@ class Workspace
     end
 
     # Repos ticked in the setup wizard (all by default).
-    def selected_repos(setting)
+    def selected_repos(setting = Setting.instance)
       repos(setting).select { |r| setting.setup.fetch("repo:#{r[:name]}", "true") == "true" }
     end
 

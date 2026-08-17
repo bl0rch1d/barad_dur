@@ -11,7 +11,8 @@
     <span class="brand-name">BARAD-DÛR</span>
     <span class="mono-dim" style="font-style:italic;color:var(--seal-mid);opacity:.85">the Eye is open · the watch holds</span>
     <% if Workspace.repos.any? %>
-      <span class="mono-dim"><%= Workspace.root.basename %> · openspec · <%= Workspace.repos.size %> <%= "repo".pluralize(Workspace.repos.size) %></span>
+      <% tb_total = Workspace.repos.size; tb_sel = Workspace.selected_repos.size %>
+      <span class="mono-dim"><%= Workspace.root.basename %> · openspec · <%= tb_sel < tb_total ? "#{tb_sel} of #{tb_total}" : tb_total %> <%= "repo".pluralize(tb_total) %></span>
     <% else %>
       <span class="mono-dim">no realm bound</span>
     <% end %>

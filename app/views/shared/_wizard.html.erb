@@ -8,7 +8,8 @@
   ["Ready — pick your leash", "Autonomy is a feature flag, not a one-way door. Switch it from the titlebar mid-run; in-flight phases finish, the next one respects the new setting."]
 ][step - 1] %>
 <% ws_repos = Workspace.repos %>
-<% repos_selected = ws_repos.count { |r| wizard_setup("repo:#{r[:name]}", "true") == "true" } %>
+<% ws_selected = ws_repos.select { |r| wizard_setup("repo:#{r[:name]}", "true") == "true" } %>
+<% repos_selected = ws_selected.size %>
 
 <div class="overlay-center">
   <div class="wizard">
@@ -251,7 +252,7 @@
             <div class="parse-card" style="border-color:var(--info)">
               <span class="k-label" style="color:var(--info)">Workspace</span>
               <div class="parse-log">
-                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= ws_repos.size %> <%= "repo".pluralize(ws_repos.size) %> mounted at <%= Workspace.root %></span></div>
+                <div class="row"><span style="color:var(--ok)">✓</span><span class="t"><%= repos_selected < ws_repos.size ? "#{repos_selected} of #{ws_repos.size}" : ws_repos.size %> <%= "repo".pluralize(ws_repos.size) %> selected at <%= Workspace.root %></span></div>
                 <% if openspec_names.any? %>
                   <div class="row"><span style="color:var(--ok)">✓</span><span class="t">openspec found in: <%= openspec_names.join(", ") %></span></div>
                 <% else %>
@@ -305,7 +306,7 @@
             </div>
             <div class="meter"><span data-progress-target="bar" style="width:0%;background:var(--accent);transition:width .2s linear"></span></div>
             <div class="parse-log">
-              <% index_line = ws_repos.any? ? "indexed #{ws_repos.sum { |r| r[:files] }} files · #{ws_repos.sum { |r| r[:commits] }} commits · #{ws_repos.size} #{"repo".pluralize(ws_repos.size)}" : "no repos to index yet" %>
+              <% index_line = ws_selected.any? ? "indexed #{ws_selected.sum { |r| r[:files] }} files · #{ws_selected.sum { |r| r[:commits] }} commits · #{repos_selected} selected #{"repo".pluralize(repos_selected)}" : "no repos selected to index yet" %>
               <% spec_line = Capability.any? ? "parsed #{Capability.count} openspec capabilities, #{SpecRequirement.count} requirements" : "spec index pending" %>
               <% [[index_line, 20], [spec_line, 45],
                   ["inferred test commands from the workspace", 65],

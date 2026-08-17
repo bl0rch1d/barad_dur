@@ -5,7 +5,10 @@ class TicketsController < ApplicationController
     if title.present?
       number = Ticket.pluck(:code).filter_map { |c| c[/\d+/]&.to_i }.max.to_i + 1
       code = "ALG-#{number}"
-      repo = params[:repo].presence || Workspace.selected_ticket_targets.first || "algo-core"
+      # clamp to what the wizard selected — a stale form must not file work
+      # into a repo the pipeline doesn't own
+      targets = Workspace.selected_ticket_targets
+      repo = targets.include?(params[:repo]) ? params[:repo] : targets.first || "workspace"
       Ticket.create!(code: code, title: title, repo: repo, est_label: "—",
                      description: params[:description].to_s.strip.presence,
                      risky: params[:risky] == "1", state: :draft)
@@ -36,7 +39,9 @@ class TicketsController < ApplicationController
     attrs = {}
     attrs[:title] = params[:title].to_s.strip if params[:title].to_s.strip.present?
     attrs[:description] = params[:description].to_s.strip.presence if params.key?(:description)
-    attrs[:repo] = params[:repo] if params[:repo].present?
+    if params[:repo].present? && ([ticket.repo] + Workspace.selected_ticket_targets).include?(params[:repo])
+      attrs[:repo] = params[:repo]
+    end
     attrs[:est_label] = params[:est_label].to_s.strip.presence || "—" if params.key?(:est_label)
     attrs[:risky] = params[:risky] == "1" if params.key?(:risky)
     if params.key?(:dep_codes)

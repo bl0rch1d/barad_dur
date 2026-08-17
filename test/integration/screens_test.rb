@@ -146,6 +146,21 @@ class ScreensTest < ActionDispatch::IntegrationTest
     assert_redirected_to board_path
   end
 
+  test "ticket repo is clamped to the wizard's selected targets" do
+    post tickets_path, params: { title: "Clamped draft", repo: "not-in-workspace" }
+    ticket = Ticket.order(:id).last
+    assert_equal "Clamped draft", ticket.title
+    refute_equal "not-in-workspace", ticket.repo, "unselected repo must not be filed into"
+
+    existing = Ticket.create!(code: "TST-CL1", title: "Keeper", repo: "legacy-repo", state: :draft)
+    patch ticket_path("TST-CL1"), params: { repo: "sneaky-repo" }
+    assert_equal "legacy-repo", existing.reload.repo, "repo edits outside selected targets are ignored"
+
+    patch ticket_path("TST-CL1"), params: { repo: "legacy-repo", title: "Keeper 2" }
+    assert_equal "legacy-repo", existing.reload.repo, "a ticket's current repo stays assignable"
+    assert_equal "Keeper 2", existing.title
+  end
+
   test "shipped view lists done tickets and attention badge counts blockers" do
     done = Ticket.create!(code: "TST-SH1", title: "Shipped work", repo: "algo-core",
                           state: :done, finished_at: 1.hour.ago, cost: 1.5)

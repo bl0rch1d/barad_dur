@@ -26,9 +26,13 @@ class Harness
   }.freeze
 
   class << self
+    # Only selected repos can provide the harness — an unchecked repo's
+    # commands must not drive the pipeline. Selection is part of the memo key:
+    # toggling a repo in the wizard doesn't refresh! the workspace cache.
     def detect(setting = Setting.instance)
-      Workspace.memo("harness:#{Workspace.root(setting)}") do
-        Workspace.repos(setting).filter_map { |repo| scan(repo) }.first
+      repos = Workspace.selected_repos(setting)
+      Workspace.memo("harness:#{Workspace.root(setting)}:#{repos.map { |r| r[:name] }.join(',')}") do
+        repos.filter_map { |repo| scan(repo) }.first
       end
     end
 
