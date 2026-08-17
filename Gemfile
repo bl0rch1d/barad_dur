@@ -35,6 +35,11 @@ gem "thruster", require: false
 # minitest 6 breaks Rails 8.1's declarative `test` macro — pin to 5.x
 gem "minitest", "~> 5.25"
 
+# Agents answer in GitHub-flavored markdown (tables, fenced code, lists).
+# Both are pure Ruby — no native extension to build in the image.
+gem "kramdown"
+gem "kramdown-parser-gfm"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"

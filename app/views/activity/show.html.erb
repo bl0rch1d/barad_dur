@@ -19,7 +19,7 @@
       <% end %>
     </div>
 
-    <div class="chat-log">
+    <div class="chat-log" data-controller="chat-log">
       <% if @messages.empty? && !@awaiting_reply %>
         <span class="mono-meta">
           no messages yet — ask the Architect about <%= @room == ActivityController::WORKSPACE_ROOM ? "the workspace" : @room %>
@@ -31,7 +31,7 @@
             <span class="msg-who" style="color:<%= message.from_user? ? 'var(--tx2)' : 'var(--accent)' %>"><%= message.sender.upcase %></span>
             <span class="msg-time"><%= message.sent_at.strftime("%H:%M") %></span>
           </div>
-          <div class="msg-body"><%= message.body %></div>
+          <div class="msg-body md"><%= markdown(message.body) %></div>
           <% if message.attach_label.present? %>
             <div class="msg-attach">▤ <%= message.attach_label %></div>
           <% end %>
@@ -49,10 +49,13 @@
 
     <%= form_with url: chat_messages_path(room: @room), method: :post, class: "chat-composer",
                   data: { controller: "composer", action: "turbo:submit-end->composer#clear" } do %>
-      <textarea name="body" id="chat-body" data-turbo-permanent data-composer-target="input"
-                data-action="keydown->composer#submitOnEnter"
-                class="textarea" placeholder="Steer the agent — constraints, corrections, context…"></textarea>
-      <button type="submit" class="btn-accent" style="padding:9px 15px;font-size:12.5px">Send</button>
+      <div class="chat-input">
+        <textarea name="body" id="chat-body" rows="1" data-turbo-permanent data-composer-target="input"
+                  data-action="keydown->composer#submitOnEnter input->composer#autogrow"
+                  class="textarea" placeholder="Steer the agent — constraints, corrections, context…"></textarea>
+        <button type="submit" class="btn-accent busy-btn" data-turbo-submits-with="Sending…">Send</button>
+      </div>
+      <div class="chat-hint">Enter to send · Shift+Enter for a new line</div>
     <% end %>
   </div>
 

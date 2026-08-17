@@ -6,7 +6,16 @@ export default class extends Controller {
   static targets = ["input"]
 
   clear() {
-    if (this.hasInputTarget) this.inputTarget.value = ""
+    if (!this.hasInputTarget) return
+    this.inputTarget.value = ""
+    this.inputTarget.style.height = ""
+  }
+
+  // grow with the text instead of scrolling inside two lines
+  autogrow() {
+    const el = this.inputTarget
+    el.style.height = "auto"
+    el.style.height = Math.min(el.scrollHeight, 170) + "px"
   }
 
   submitOnEnter(event) {
