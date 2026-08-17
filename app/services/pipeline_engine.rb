@@ -7,10 +7,12 @@ class PipelineEngine
   MAX_IN_FLIGHT = 5
 
   class << self
+    # Broadcasts only when something actually changed — an idle tick must not
+    # morph-refresh every open tab.
     def tick!
       setting = Setting.instance
-      sweep_stale_runs!
-      return unless setting.running?
+      changed = sweep_stale_runs!.positive?
+      return broadcast_if(changed) unless setting.running?
 
       if setting.spend_today >= setting.spend_cap
         pause_for_cap!(setting)
@@ -18,9 +20,13 @@ class PipelineEngine
       end
 
       in_flight = Ticket.in_flight.count
-      pull_implementation_work(in_flight, setting)
-      pull_ready_work(in_flight, setting)
-      broadcast
+      changed |= pull_implementation_work(in_flight, setting)
+      changed |= pull_ready_work(in_flight, setting)
+      broadcast_if(changed)
+    end
+
+    def broadcast_if(changed)
+      broadcast if changed
     end
 
     # Called by ClaudeCodeRunner when a live phase run completes successfully.
@@ -106,13 +112,16 @@ class PipelineEngine
     # continuously while streaming; one silent past the CLI timeout is dead.
     def sweep_stale_runs!
       cutoff = (Float(ENV.fetch("CLAUDE_TIMEOUT", 900)) + 120).seconds.ago
+      swept = 0
       PhaseRun.where(runner: "claude", status: "running")
               .where(updated_at: ...cutoff).find_each do |run|
         run.update!(status: "failed", finished_at: Time.current)
         Event.record!(phase_tag: "SYS", tone: "var(--err)", ticket: run.ticket,
                       meta: run.phase,
                       text: "#{run.ticket.code} #{run.phase} run went silent — likely interrupted; retry from the ticket drawer")
+        swept += 1
       end
+      swept
     end
 
     private
@@ -188,36 +197,38 @@ class PipelineEngine
     end
 
     # ready → investigation (grooming): only tickets an agent can execute.
+    # Returns true when a pickup happened.
     def pull_ready_work(in_flight_count, setting = Setting.instance)
-      return if in_flight_count >= MAX_IN_FLIGHT
+      return false if in_flight_count >= MAX_IN_FLIGHT
 
       ticket = Ticket.ready.order(:code).to_a.detect do |t|
         t.deps_satisfied? && !t.gated? && !t.blocked_by_question? && AgentRunner.live?(t)
       end
       agent = Agent.idle.ordered.first
-      return unless ticket && agent
+      return false unless ticket && agent
 
       start_phase_for(ticket, agent, "investigation", "INVEST", PipelineText.start_text(ticket))
     end
 
     # ready_to_implement → implementation, dependency- and gate-aware.
+    # Returns true when a pickup or gating happened.
     def pull_implementation_work(in_flight_count, setting = Setting.instance)
-      return if in_flight_count >= MAX_IN_FLIGHT
+      return false if in_flight_count >= MAX_IN_FLIGHT
 
       ticket = Ticket.ready_to_implement.order(:code).to_a.detect do |t|
         t.deps_satisfied? && !t.gated? && !t.blocked_by_question? && AgentRunner.live?(t)
       end
-      return unless ticket
+      return false unless ticket
 
       if gate_required?(setting, ticket, "implementation")
         reason = "#{ticket.code} is ready#{' (risky)' if ticket.risky?} — approve to start implementation."
         ticket.ticket_gates.create!(to_state: Ticket::STATES[:implementation], reason: reason)
         Event.record!(phase_tag: "GATE", ticket: ticket, meta: setting.autonomy, text: "Gated: #{reason}")
-        return
+        return true
       end
 
       agent = Agent.idle.ordered.first
-      return unless agent
+      return false unless agent
 
       start_phase_for(ticket, agent, "implementation", "IMPL",
                       "#{ticket.code} picked up for implementation")
@@ -237,11 +248,12 @@ class PipelineEngine
                                   note: "starting claude code run…", started_at: Time.current)
         started = true
       end
-      return unless started
+      return false unless started
 
       agent.update!(status: "running", doing: PipelineText.doing_text(ticket))
       Event.record!(phase_tag: tag, ticket: ticket, agent: agent, text: event_text)
       AgentRunner.start_phase(ticket)
+      true
     end
 
     def pause_for_cap!(setting)
