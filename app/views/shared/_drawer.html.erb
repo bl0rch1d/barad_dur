@@ -59,12 +59,12 @@
         </div>
         <div style="padding:12px 14px;display:flex;flex-direction:column;gap:11px">
           <% if ticket.description.present? %>
-            <div style="font-size:12.5px;color:var(--tx);line-height:1.6;white-space:pre-wrap"><%= ticket.description %></div>
+            <div class="md" style="font-size:12.5px;color:var(--tx);line-height:1.6"><%= markdown(ticket.description) %></div>
           <% end %>
           <% if ticket.technical_notes.present? %>
             <div style="display:flex;flex-direction:column;gap:4px">
               <span class="k-label" style="font-size:9.5px">Technical notes</span>
-              <div style="font-size:12px;color:var(--tx2);line-height:1.6;white-space:pre-wrap"><%= ticket.technical_notes %></div>
+              <div class="md" style="font-size:12px;color:var(--tx2);line-height:1.6"><%= markdown(ticket.technical_notes) %></div>
             </div>
           <% end %>
           <% if ticket.acceptance_criteria.any? %>
@@ -73,7 +73,7 @@
               <% ticket.acceptance_criteria.each do |criterion| %>
                 <div style="display:flex;gap:8px;font-size:12px;color:var(--tx2);line-height:1.5">
                   <span style="color:<%= ticket.done? ? 'var(--ok)' : 'var(--tx3)' %>;flex:none"><%= ticket.done? ? "✓" : "◇" %></span>
-                  <span style="overflow-wrap:anywhere"><%= criterion %></span>
+                  <span class="md" style="overflow-wrap:anywhere"><%= markdown_inline(criterion) %></span>
                 </div>
               <% end %>
             </div>

@@ -38,4 +38,14 @@ module MarkdownHelper
     # A malformed document must never take the page down — show the source.
     tag.pre(text.to_s)
   end
+
+  # Same pipeline for one-line strings that sit inside their own layout
+  # (acceptance criteria, list rows): drop the lone block-level wrapper so
+  # they don't gain a paragraph's margins.
+  def markdown_inline(text)
+    html = markdown(text)
+    return html unless html.scan("<p>").size == 1
+
+    html.sub("<p>", "").sub(%r{</p>\s*\z}, "").html_safe
+  end
 end

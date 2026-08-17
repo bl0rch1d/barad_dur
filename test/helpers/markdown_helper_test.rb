@@ -46,6 +46,13 @@ class MarkdownHelperTest < ActionView::TestCase
     assert_includes html, 'rel="noopener noreferrer"'
   end
 
+  test "inline rendering drops the lone paragraph wrapper but keeps real blocks" do
+    html = markdown_inline("`/up` returns 200")
+    assert_includes html, "<code>/up</code>"
+    assert_not_includes html, "<p>"
+    assert_includes markdown_inline("para one\n\npara two"), "<p>", "multi-paragraph text keeps its structure"
+  end
+
   test "blank input renders nothing and bad input never raises" do
     assert_equal "", markdown(nil)
     assert_equal "", markdown("")
