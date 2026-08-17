@@ -13,7 +13,7 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "ticket drawer renders over any screen" do
-    ticket = Ticket.create!(code: "TST-9", title: "Drawer ticket", repo: "algo-core", state: :ready)
+    ticket = Ticket.create!(code: "TST-9", title: "Drawer ticket", repo: "sample-repo", state: :ready)
     get root_path(ticket: ticket.code)
     assert_response :success
     assert_includes response.body, "Drawer ticket"
@@ -119,7 +119,7 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "tickets can be edited while parked and deleted unless running" do
-    ticket = Ticket.create!(code: "TST-ED1", title: "Old title", repo: "algo-core",
+    ticket = Ticket.create!(code: "TST-ED1", title: "Old title", repo: "sample-repo",
                             state: :ready_to_implement)
     other = Ticket.create!(code: "TST-ED2", title: "Dep target", state: :draft)
 
@@ -162,7 +162,7 @@ class ScreensTest < ActionDispatch::IntegrationTest
   end
 
   test "shipped view lists done tickets and attention badge counts blockers" do
-    done = Ticket.create!(code: "TST-SH1", title: "Shipped work", repo: "algo-core",
+    done = Ticket.create!(code: "TST-SH1", title: "Shipped work", repo: "sample-repo",
                           state: :done, finished_at: 1.hour.ago, cost: 1.5)
     get board_path(shipped: 1)
     assert_response :success

@@ -62,8 +62,7 @@ class Ticket < ApplicationRecord
     !(Ticket::PHASES.include?(state) && current_phase_run&.status == "running")
   end
 
-  # A live (claude code) run owns this ticket's progression — the demo
-  # tick-threshold driver must leave it alone.
+  # An agent run owns this ticket's progression while it executes.
   def live_run?
     current_phase_run&.runner == "claude"
   end

@@ -15,8 +15,9 @@ ENV BUNDLE_PATH=/usr/local/bundle \
 COPY Gemfile Gemfile.lock .ruby-version ./
 RUN bundle install --jobs 4
 
-# Claude Code CLI for the live agent runner (AgentRunner/ClaudeCodeRunner).
-# Without it — or without auth — the app falls back to the demo driver.
+# Claude Code CLI for the agent runner (AgentRunner/ClaudeCodeRunner).
+# Without it — or without auth — tickets simply wait on the board; the
+# pipeline never invents work.
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends nodejs npm && \
     rm -rf /var/lib/apt/lists/* && \

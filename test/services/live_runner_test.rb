@@ -23,12 +23,12 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   setup do
     @dir = Dir.mktmpdir
-    @repo = File.join(@dir, "demo-repo")
+    @repo = File.join(@dir, "sample-repo")
     FileUtils.mkdir_p(@repo)
     system("git", "init", "-q", @repo)
     system("git", "-C", @repo, "config", "user.email", "test@test")
     system("git", "-C", @repo, "config", "user.name", "test")
-    File.write(File.join(@repo, "README.md"), "demo\n")
+    File.write(File.join(@repo, "README.md"), "sample\n")
     system("git", "-C", @repo, "add", ".")
     system("git", "-C", @repo, "commit", "-qm", "initial commit")
 
@@ -42,7 +42,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   teardown do
     ENV.delete("WORKSPACE_ROOT")
     ENV.delete("CLAUDE_BIN")
-    ENV["PIPELINE_RUNNER"] = "demo"
+    ENV["PIPELINE_RUNNER"] = "off"
     FileUtils.remove_entry(@dir)
   end
 
@@ -87,12 +87,12 @@ class LiveRunnerTest < ActiveSupport::TestCase
     Workspace.refresh!
 
     setting = Setting.instance
-    assert_equal %w[aaa-other demo-repo], Workspace.repo_names
+    assert_equal %w[aaa-other sample-repo], Workspace.repo_names
     assert_equal "aaa-other", Harness.detect(setting).repo
 
     setting.update!(setup: setting.setup.merge("repo:aaa-other" => "false"))
-    assert_equal %w[demo-repo], Workspace.selected_repos(setting).map { |r| r[:name] }
-    assert_equal %w[demo-repo], Workspace.selected_ticket_targets(setting)
+    assert_equal %w[sample-repo], Workspace.selected_repos(setting).map { |r| r[:name] }
+    assert_equal %w[sample-repo], Workspace.selected_ticket_targets(setting)
     assert_nil Harness.detect(setting), "harness must not come from an unchecked repo"
   end
 
@@ -124,11 +124,11 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "browse annotates folders and layout follows the chosen dir" do
     entries = Workspace.browse
-    assert_equal ["demo-repo"], entries.map { |e| e[:name] }
+    assert_equal ["sample-repo"], entries.map { |e| e[:name] }
     assert_equal :git_repo, entries.first[:kind]
     assert_equal :multi_repo, Workspace.layout
 
-    Setting.instance.update!(setup: { "workspace_dir" => "demo-repo" })
+    Setting.instance.update!(setup: { "workspace_dir" => "sample-repo" })
     assert_equal :monorepo, Workspace.layout
     assert_equal "", Workspace.parent_rel
   end
@@ -141,10 +141,10 @@ class LiveRunnerTest < ActiveSupport::TestCase
     setting = Setting.instance
 
     # openspec repo exists but is unchecked → summary names the culprit
-    setting.update!(setup: { "repo:demo-repo" => "false" })
+    setting.update!(setup: { "repo:sample-repo" => "false" })
     assert_equal 0, SpecSync.call(setting)
     summary = SpecSync.status_summary(setting, 0)
-    assert_match(/demo-repo/, summary)
+    assert_match(/sample-repo/, summary)
     assert_match(/unchecked/, summary)
     assert Event.exists?(["text LIKE ?", "%no openspec capabilities%"])
 
@@ -154,7 +154,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     progress_calls = []
     count = SpecSync.call(setting, progress: ->(*args) { progress_calls << args })
     assert_equal 1, count
-    assert_equal [[1, 1, "demo-repo/kill-switch"]], progress_calls
+    assert_equal [[1, 1, "sample-repo/kill-switch"]], progress_calls
     assert_match(/all 1 spec file parsed/, SpecSync.status_summary(setting, count))
   end
 
@@ -217,12 +217,12 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "engine sweeps silent live phase runs but leaves fresh ones alone" do
-    stuck = Ticket.create!(code: "TST-S1", title: "Stuck run", repo: "demo-repo", state: :implementation)
+    stuck = Ticket.create!(code: "TST-S1", title: "Stuck run", repo: "sample-repo", state: :implementation)
     dead_run = stuck.phase_runs.create!(phase: "implementation", status: "running",
                                         runner: "claude", started_at: 2.hours.ago)
     dead_run.update_columns(updated_at: 2.hours.ago)
 
-    fresh = Ticket.create!(code: "TST-S2", title: "Fresh run", repo: "demo-repo", state: :implementation)
+    fresh = Ticket.create!(code: "TST-S2", title: "Fresh run", repo: "sample-repo", state: :implementation)
     live_run = fresh.phase_runs.create!(phase: "implementation", status: "running",
                                         runner: "claude", started_at: Time.current)
 
@@ -234,15 +234,15 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "workspace scans are cached briefly and refreshable" do
-    assert_equal ["demo-repo"], Workspace.repo_names
+    assert_equal ["sample-repo"], Workspace.repo_names
 
     second = File.join(@dir, "another-repo")
     FileUtils.mkdir_p(second)
     system("git", "init", "-q", second)
 
-    assert_equal ["demo-repo"], Workspace.repo_names, "expected cached scan"
+    assert_equal ["sample-repo"], Workspace.repo_names, "expected cached scan"
     Workspace.refresh!
-    assert_equal ["another-repo", "demo-repo"], Workspace.repo_names
+    assert_equal ["another-repo", "sample-repo"], Workspace.repo_names
   end
 
   test "workspace root never escapes the mount" do
@@ -252,10 +252,10 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "workspace scans mounted git repos" do
     repos = Workspace.repos
-    assert_equal ["demo-repo"], repos.map { |r| r[:name] }
+    assert_equal ["sample-repo"], repos.map { |r| r[:name] }
     assert_equal 1, repos.first[:commits]
     assert_equal 1, repos.first[:files]
-    assert_equal @repo, Workspace.repo_path("demo-repo")
+    assert_equal @repo, Workspace.repo_path("sample-repo")
     assert_nil Workspace.repo_path("missing-repo")
   end
 
@@ -266,7 +266,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
     assert_equal 1, SpecSync.call
 
-    capability = Capability.find_by!(slug: "demo-repo/kill-switch")
+    capability = Capability.find_by!(slug: "sample-repo/kill-switch")
     assert_equal "Kill switch", capability.title
     assert_match(/drawdown breach/, capability.purpose)
 
@@ -282,7 +282,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   test "run phase job executes the stub CLI and advances the phase" do
     agent = Agent.create!(name: "Scout-L", abbr: "SL", role: "investigation",
                           llm_model: "sonnet", status: "running")
-    ticket = Ticket.create!(code: "TST-77", title: "Live ticket", repo: "demo-repo",
+    ticket = Ticket.create!(code: "TST-77", title: "Live ticket", repo: "sample-repo",
                             state: :investigation, agent: agent)
     run = ticket.phase_runs.create!(phase: "investigation", status: "running",
                                     runner: "claude", started_at: Time.current)
@@ -380,7 +380,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     install_harness!
 
     info = Harness.detect
-    assert_equal "demo-repo", info.repo
+    assert_equal "sample-repo", info.repo
     assert_includes info.commands, "opsx:explore"
     assert_includes info.skills, "review"
     assert_includes info.agents, "critic"
@@ -401,7 +401,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "harness-mapped phases execute in the harness repo with workspace access" do
     install_harness!
-    ticket = Ticket.new(code: "TST-H1", title: "Harness ticket", repo: "demo-repo", artifacts: [])
+    ticket = Ticket.new(code: "TST-H1", title: "Harness ticket", repo: "sample-repo", artifacts: [])
 
     plan = PhasePrompts.execution(ticket, "investigation", "/elsewhere")
     assert plan[:prompt].start_with?("/opsx:explore TST-H1"), plan[:prompt].lines.first
@@ -426,7 +426,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     Agent.create!(name: "Architect", abbr: "AR", role: "planning", llm_model: "opus", status: "idle")
     rfc = Rfc.create!(body: "Add a farewell", stage: 2, job_state: "planning")
 
-    assert RfcPrompts.plan(rfc, ["demo-repo"]).start_with?("/opsx:propose"), "harness planning prompt"
+    assert RfcPrompts.plan(rfc, ["sample-repo"]).start_with?("/opsx:propose"), "harness planning prompt"
 
     RfcPlanJob.perform_now(rfc.id)
 
@@ -482,7 +482,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     write_stub!('{"questions":[{"q":"Which auth flow?","why":"changes scope","opts":["OAuth","API key"]}]}')
     agent = Agent.create!(name: "Scout-G", abbr: "SG", role: "investigation",
                           llm_model: "sonnet", status: "running")
-    ticket = Ticket.create!(code: "TST-Q1", title: "Groomed draft", repo: "demo-repo",
+    ticket = Ticket.create!(code: "TST-Q1", title: "Groomed draft", repo: "sample-repo",
                             state: :investigation, agent: agent)
     ticket.phase_runs.create!(phase: "investigation", status: "running",
                               runner: "claude", started_at: Time.current)
@@ -502,7 +502,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "testing runs capture pass/fail counts" do
     write_stub!('{"command":"bin/rails test","passed":42,"failed":1}')
-    ticket = Ticket.create!(code: "TST-TR1", title: "Test capture", repo: "demo-repo", state: :testing)
+    ticket = Ticket.create!(code: "TST-TR1", title: "Test capture", repo: "sample-repo", state: :testing)
     run = ticket.phase_runs.create!(phase: "testing", status: "running",
                                     runner: "claude", started_at: Time.current)
 
@@ -517,9 +517,9 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "grooming planning captures change, deps and split tickets" do
-    other = Ticket.create!(code: "TST-DEP", title: "Existing work", repo: "demo-repo", state: :implementation)
+    other = Ticket.create!(code: "TST-DEP", title: "Existing work", repo: "sample-repo", state: :implementation)
     write_stub!('{"change":"add-auth","depends_on":["TST-DEP"],"additional_tickets":[{"title":"Wire auth into UI","estimate":"30m","risky":false}]}')
-    ticket = Ticket.create!(code: "TST-P1", title: "Add auth", repo: "demo-repo", state: :planning)
+    ticket = Ticket.create!(code: "TST-P1", title: "Add auth", repo: "sample-repo", state: :planning)
     ticket.phase_runs.create!(phase: "planning", status: "running",
                               runner: "claude", started_at: Time.current)
 
@@ -544,7 +544,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "approve & merge lands the work branch and completes the ticket" do
-    ticket = Ticket.create!(code: "TST-M1", title: "Mergeable work", repo: "demo-repo", state: :review)
+    ticket = Ticket.create!(code: "TST-M1", title: "Mergeable work", repo: "sample-repo", state: :review)
     git!("checkout", "-b", "pipe/tst-m1")
     File.write(File.join(@repo, "feature.txt"), "new feature\n")
     git!("add", ".")
@@ -564,7 +564,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "merge conflict aborts cleanly and reports failure" do
-    ticket = Ticket.create!(code: "TST-M2", title: "Conflicting work", repo: "demo-repo", state: :review)
+    ticket = Ticket.create!(code: "TST-M2", title: "Conflicting work", repo: "sample-repo", state: :review)
     git!("checkout", "-b", "pipe/tst-m2")
     File.write(File.join(@repo, "README.md"), "branch version\n")
     git!("commit", "-am", "branch edit")
@@ -581,7 +581,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "request changes sends the ticket back to implementation with feedback" do
-    ticket = Ticket.create!(code: "TST-RC1", title: "Needs rework", repo: "demo-repo", state: :review)
+    ticket = Ticket.create!(code: "TST-RC1", title: "Needs rework", repo: "sample-repo", state: :review)
     ticket.phase_runs.create!(phase: "review", status: "running", runner: "claude", started_at: Time.current)
 
     PipelineEngine.request_changes!(ticket, "Use arrival price, not mid price")
@@ -599,10 +599,10 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "agent roster maps harness agents onto phases with defaults filling gaps" do
     install_harness!
-    orphan = Agent.create!(name: "Old-Demo", abbr: "OD", role: "misc", llm_model: "sonnet",
+    orphan = Agent.create!(name: "Old-Stray", abbr: "OS", role: "misc", llm_model: "sonnet",
                            status: "idle", position: 9)
     ticket = Ticket.create!(code: "TST-AR1", title: "Assigned", state: :implementation, agent: orphan)
-    6.times { |i| Agent.create!(name: "Demo-#{i}", abbr: "D#{i}", role: "misc", llm_model: "x", position: i) }
+    6.times { |i| Agent.create!(name: "Surplus-#{i}", abbr: "S#{i}", role: "misc", llm_model: "x", position: i) }
 
     roster = AgentRoster.rebuild!
 
@@ -620,16 +620,16 @@ class LiveRunnerTest < ActiveSupport::TestCase
   end
 
   test "selected ticket targets honor the wizard repo selection" do
-    assert_equal ["demo-repo"], Workspace.selected_ticket_targets
+    assert_equal ["sample-repo"], Workspace.selected_ticket_targets
 
-    Setting.instance.update!(setup: { "repo:demo-repo" => "false" })
+    Setting.instance.update!(setup: { "repo:sample-repo" => "false" })
     assert_empty Workspace.selected_ticket_targets
-    assert_equal ["demo-repo"], Workspace.ticket_targets, "unselected repos remain visible to full listing"
+    assert_equal ["sample-repo"], Workspace.ticket_targets, "unselected repos remain visible to full listing"
   end
 
   test "grooming planning stores summary, notes and acceptance criteria" do
     write_stub!('{"change":"add-auth","summary":"Adds auth.","technical_notes":"Touch lib/auth.rb.","acceptance_criteria":["Login works","Logout works"],"depends_on":[],"additional_tickets":[]}')
-    ticket = Ticket.create!(code: "TST-EN1", title: "Add auth", repo: "demo-repo", state: :planning)
+    ticket = Ticket.create!(code: "TST-EN1", title: "Add auth", repo: "sample-repo", state: :planning)
     ticket.phase_runs.create!(phase: "planning", status: "running", runner: "claude", started_at: Time.current)
 
     RunPhaseJob.perform_now(ticket.id, "planning")
@@ -642,7 +642,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "enrich job backfills an existing ticket and clears its marker" do
     write_stub!('{"summary":"Backfilled summary.","technical_notes":"Notes.","acceptance_criteria":["It ships"]}')
-    ticket = Ticket.create!(code: "TST-EN2", title: "Legacy ticket", repo: "demo-repo", state: :ready_to_implement)
+    ticket = Ticket.create!(code: "TST-EN2", title: "Legacy ticket", repo: "sample-repo", state: :ready_to_implement)
     Setting.instance.update!(setup: { "enrich:TST-EN2" => Time.current.to_i })
 
     TicketEnrichJob.perform_now(ticket.id)
@@ -657,7 +657,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   test "archive job runs the harness archive command after a merge" do
     install_harness!
     write_stub!("{}")
-    ticket = Ticket.create!(code: "TST-AC1", title: "Merged work", repo: "demo-repo", state: :done,
+    ticket = Ticket.create!(code: "TST-AC1", title: "Merged work", repo: "sample-repo", state: :done,
                             artifacts: ["openspec change: add-auth"])
 
     ArchiveChangeJob.perform_now(ticket.id)
@@ -670,7 +670,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "archive job no-ops without a change ref or archive command" do
     write_stub!("{}")
-    plain = Ticket.create!(code: "TST-AC2", title: "No change", repo: "demo-repo", state: :done)
+    plain = Ticket.create!(code: "TST-AC2", title: "No change", repo: "sample-repo", state: :done)
     assert_no_difference -> { Event.count } do
       ArchiveChangeJob.perform_now(plain.id)
     end
@@ -688,11 +688,11 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
     gh_stub = File.join(@dir, "gh_stub")
     File.write(gh_stub, "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > '#{@dir}/gh_args.txt'\n" \
-                        "echo 'https://github.com/example/demo-repo/pull/7'\n")
+                        "echo 'https://github.com/example/sample-repo/pull/7'\n")
     FileUtils.chmod("+x", gh_stub)
     ENV["GH_BIN"] = gh_stub
 
-    ticket = Ticket.create!(code: "TST-PR1", title: "PR work", repo: "demo-repo", state: :review,
+    ticket = Ticket.create!(code: "TST-PR1", title: "PR work", repo: "sample-repo", state: :review,
                             description: "Adds the thing.", acceptance_criteria: ["Thing works"])
     PushPrJob.perform_now(ticket.id)
 
@@ -702,7 +702,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_match(/pr\ncreate/, gh_args)
     assert_match(/TST-PR1: PR work/, gh_args)
     assert_match(/Thing works/, gh_args)
-    assert_includes ticket.reload.artifacts, "PR: https://github.com/example/demo-repo/pull/7"
+    assert_includes ticket.reload.artifacts, "PR: https://github.com/example/sample-repo/pull/7"
     assert Event.exists?(["text LIKE ?", "%Pull request opened for TST-PR1%"])
   ensure
     ENV.delete("GH_BIN")
@@ -710,7 +710,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "push & PR fails cleanly without an origin remote" do
     git!("checkout", "-b", "pipe/tst-pr2")
-    ticket = Ticket.create!(code: "TST-PR2", title: "No remote", repo: "demo-repo", state: :review)
+    ticket = Ticket.create!(code: "TST-PR2", title: "No remote", repo: "sample-repo", state: :review)
     PushPrJob.perform_now(ticket.id)
     assert Event.exists?(["text LIKE ?", "%no origin remote%"])
   end
@@ -723,7 +723,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
     commits = Workspace.recent_commits(Setting.instance, limit: 5)
     assert_equal ["second commit", "initial commit"], commits.map(&:message)
-    assert_equal "demo-repo", commits.first.author
+    assert_equal "sample-repo", commits.first.author
     assert commits.first.committed_at >= commits.last.committed_at
   end
 

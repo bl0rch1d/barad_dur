@@ -10,7 +10,7 @@ module AgentRunner
   end
 
   def live_available?
-    !%w[demo off].include?(mode) && ClaudeCodeRunner.available?
+    mode != "off" && ClaudeCodeRunner.available?
   end
 
   # Can THIS ticket run live right now?

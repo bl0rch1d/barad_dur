@@ -19,9 +19,8 @@ class Rfc < ApplicationRecord
     update!(answers: answers.merge(key.to_s => value))
   end
 
-  # Creates real tickets from the proposals. Demo proposals carry fixed ids
-  # and dep_codes; live proposals get codes allocated here, with depends_on
-  # indexes resolved to the allocated codes.
+  # Creates tickets from the proposals: codes are allocated here, and each
+  # proposal's depends_on indexes are resolved to the allocated codes.
   def push_to_board!
     return if pushed? || proposals.empty?
 

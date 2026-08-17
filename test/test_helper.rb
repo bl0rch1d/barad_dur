@@ -1,7 +1,7 @@
 ENV["RAILS_ENV"] ||= "test"
 # Never let tests accidentally spawn real agent runs (the dev container may
 # have the CLI and mounted credentials); live-path tests override explicitly.
-ENV["PIPELINE_RUNNER"] = "demo"
+ENV["PIPELINE_RUNNER"] = "off"
 require_relative "../config/environment"
 require "rails/test_help"
 

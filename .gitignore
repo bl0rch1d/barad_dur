@@ -27,7 +27,7 @@
 
 # live-mode workspace mount (user repos, never committed)
 /workspace/*
-!/workspace/.gitkeep
+!/workspace/README.md
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
