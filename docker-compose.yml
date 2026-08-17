@@ -20,7 +20,7 @@ services:
     command: bash -c "rm -f tmp/pids/server.pid && bin/rails db:prepare db:seed && bin/rails server -b 0.0.0.0"
     volumes:
       - .:/app
-      - ${WORKSPACE_PATH:-../algo}:/workspace
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
       - ${CLAUDE_CONFIG_PATH:-~/.claude}:/root/.claude
     ports:
       - "3000:3000"
@@ -46,11 +46,18 @@ services:
   # Separate from the web process; broadcasts reach browsers via Solid Cable.
   # Shares the web image (agent runs execute here — claude CLI included).
   ticker:
+    # Same build as web (identical context and image name, so it is built
+    # once and reused). Without a build section Compose tries to PULL
+    # barad_dur-app from a registry, which fails on any machine that has not
+    # already built it.
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     image: barad_dur-app
     command: bin/rails pipeline:ticker
     volumes:
       - .:/app
-      - ${WORKSPACE_PATH:-../algo}:/workspace
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
       - ${CLAUDE_CONFIG_PATH:-~/.claude}:/root/.claude
     environment:
       DB_HOST: db

@@ -134,11 +134,12 @@ To pause the agents without stopping the app, press **Quench** in the title bar.
 
 ## Settings you might want
 
-All optional — set them in front of `docker compose up`, or in a `.env` file.
+All optional — set them in front of `docker compose up`, or copy `.env.example` to `.env`
+and edit it there (Compose reads `.env` automatically, and it is gitignored).
 
 | Setting | What it does | Default |
 |---|---|---|
-| `WORKSPACE_PATH` | The folder of code the pipeline can see | `../algo` |
+| `WORKSPACE_PATH` | The folder of code the pipeline can see | `./workspace` |
 | `ANTHROPIC_API_KEY` | API key, if not using a subscription | — |
 | `CLAUDE_CONFIG_PATH` | Where your subscription login lives | `~/.claude` |
 | `PIPELINE_RUNNER` | Set to `off` as a kill switch — nothing will run | `auto` |

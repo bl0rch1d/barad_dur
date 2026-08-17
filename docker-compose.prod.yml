@@ -49,6 +49,11 @@ services:
     restart: unless-stopped
 
   ticker:
+    # Must carry the same build as web — a service with only an `image:` is
+    # pulled from a registry, and this image exists nowhere but here.
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: barad_dur-prod
     command: ["./bin/rails", "pipeline:ticker"]
     environment: *app_env

@@ -23,6 +23,7 @@
 
 /node_modules
 .env*
+!.env.example
 
 # live-mode workspace mount (user repos, never committed)
 /workspace/*
