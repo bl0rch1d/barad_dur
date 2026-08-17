@@ -17,9 +17,23 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-65%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-71%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![License](https://img.shields.io/badge/license-MIT-ffb03a?labelColor=0a0705)](LICENSE)
 
-[The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Words of Command](#-words-of-command) • [The Road Ahead](#%EF%B8%8F-the-road-goes-ever-on)
+[The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Inside the Tower](#-inside-the-tower) • [Words of Command](#-words-of-command)
+
+</div>
+
+---
+
+<div align="center">
+
+### 📖 &nbsp;Start here
+
+|  |  |
+|:--|:--|
+| **[▶ &nbsp;How It Works](docs/HOW-IT-WORKS.md)** | **The complete guide, in plain English.** What this is, why it exists, every feature it has, and where to use it — with diagrams and a worked example. No technical knowledge assumed. |
+| **[⚡ &nbsp;Quick Start](docs/QUICKSTART.md)** | **From nothing to a running pipeline in ten minutes.** Everything you need installed, every step, and what to do when it misbehaves. |
 
 </div>
 
@@ -51,6 +65,49 @@ Every dollar of **Tribute burned** is real spend, capped daily — the tower pau
 *Left: ember and shadow, as the Dark Lord intended. Right: once Minas Ithil, Tower of the Moon —
 the same watch kept in corpse-pale witchlight. The Witch-king uses light mode. Draw your own conclusions.*
 
+### The board — where the work marches
+
+![The board](docs/assets/screenshots/board-dark.png)
+
+*Ten columns from Draft to Done. **Blocked** is derived, not a state: `ALG-10` waits on your
+SUMMONS with an inline Approve, `ALG-11` waits on an answer, and both return to their real
+column the moment you clear them. `ALG-9` is being written as you watch.*
+
+### The drawer — everything about one ticket
+
+![The ticket drawer](docs/assets/screenshots/drawer-dark.png)
+
+*Plain-language summary, technical notes, acceptance criteria, every phase with its own log,
+exit code and cost, the real diff, and the three verdicts you may pass:
+**Approve & merge**, **Request changes**, or **Push & PR**.*
+
+### Feature request — one sentence in, a campaign out
+
+![The feature request flow](docs/assets/screenshots/rfc-dark.png)
+
+*Describe → investigate → clarify → plan → push to the board. The agent's narration streams
+live; its questions block until answered.*
+
+<table>
+<tr>
+<td width="50%"><b>Activity — the palantír</b><br><br>
+<img src="docs/assets/screenshots/activity-dark.png" alt="Activity chat"><br>
+<i>A real resumable session per ticket and one for the realm. It remembers the whole thread;
+replies render as proper markdown.</i></td>
+<td width="50%"><b>Specs — what the realm promises</b><br><br>
+<img src="docs/assets/screenshots/specs-dark.png" alt="Specs browser"><br>
+<i>Your written specifications, indexed. Agents are held to them.</i></td>
+</tr>
+<tr>
+<td width="50%"><b>The Legion — your roster</b><br><br>
+<img src="docs/assets/screenshots/agents-dark.png" alt="Agents"><br>
+<i>One agent per phase, taken from your own harness where it matches, built-ins elsewhere.</i></td>
+<td width="50%"><b>The binding — five steps, once</b><br><br>
+<img src="docs/assets/screenshots/wizard-dark.png" alt="Setup wizard"><br>
+<i>Folder, auth, framework, specs, autonomy. Then the watch begins.</i></td>
+</tr>
+</table>
+
 **What you're seeing** — in the Common Tongue:
 
 | In the Black Speech | In Westron (what it actually is) |
@@ -65,7 +122,9 @@ the same watch kept in corpse-pale witchlight. The Witch-king uses light mode. D
 
 ## 🚪 Speak, friend, and enter
 
-The doors of Barad-dûr open considerably easier than the doors of Durin — no Elvish riddle required:
+The doors of Barad-dûr open considerably easier than the doors of Durin — no Elvish riddle required.
+*(For the unhurried version, with prerequisites and troubleshooting, read the
+**[Quick Start](docs/QUICKSTART.md)**.)*
 
 ```bash
 git clone git@github.com:bl0rch1d/barad_dur.git && cd barad_dur
@@ -142,6 +201,111 @@ No harness? The default seven serve faithfully. They are not evil, merely… *am
 - Restart-proof: orphaned runs surface as *failed, retryable*; seeds never trample a live realm;
   the favicon grows a burning badge when the Eye demands your presence in another tab.
 
+## 🏗 Inside the tower
+
+*The plain-English tour lives in [How It Works](docs/HOW-IT-WORKS.md). What follows is the
+machinery beneath it.*
+
+### What runs where
+
+Three containers, one image. The **ticker** exists because a web request must never be the
+thing that advances a pipeline — it enqueues a tick every few seconds and lets the engine
+decide what, if anything, deserves to run.
+
+```mermaid
+flowchart LR
+    Browser["🌐 Browser<br/><i>Turbo morphs<br/>no full reloads</i>"]
+
+    subgraph Compose["docker compose"]
+        direction TB
+        Web["<b>web</b><br/>Rails 8 · Puma<br/><i>screens · engine · jobs</i>"]
+        Ticker["<b>ticker</b><br/><i>one tick every 3.2s</i>"]
+        DB[("<b>db</b> · PostgreSQL 17<br/><i>app · cache · queue · cable</i>")]
+        Web --- DB
+        Ticker --- DB
+    end
+
+    CLI["🤖 <b>Agent CLI</b><br/><i>one headless session<br/>per phase</i>"]
+    Repos[("📁 <b>/workspace</b><br/><i>your repositories</i>")]
+
+    Browser <==> Web
+    Web ==> CLI
+    Ticker ==> CLI
+    CLI <==> Repos
+```
+
+*Solid arrows carry HTTP and WebSocket traffic; the thick ones spawn agents. Both the web
+process and the ticker can start a run — which is why pickups are row-locked.*
+
+No Node, no Redis, no separate job server: importmap ships the JavaScript, and Solid
+Queue/Cache/Cable all live in Postgres.
+
+### One phase, end to end
+
+Every stage of every ticket follows this path. The engine holds a **row lock** while
+claiming a ticket, which is what stops the web process and the ticker from both waking the
+same Nazgûl.
+
+```mermaid
+sequenceDiagram
+    participant T as Ticker
+    participant E as Engine
+    participant R as Phase runner
+    participant A as Agent CLI
+    participant G as Your repo
+    participant U as You
+
+    T->>E: tick
+    E->>E: sweep dead runs · check spend cap
+    E->>E: claim a ticket (row lock, deps + gates checked)
+    E->>R: start phase
+    R->>A: prompt + contract (harness command, or built-in)
+    A->>G: read, edit, commit on pipe/alg-8
+    A-->>R: streamed events, cost, structured output
+    R-->>U: narration into the live feed
+    alt agent asks a question
+        R->>U: park the ticket · SUMMONS on the dashboard
+        U-->>E: answer → resume
+    else phase completes
+        R->>E: advance to the next phase
+    end
+    Note over U,G: Nothing merges until you press Approve
+```
+
+### How your own harness takes over
+
+If a selected repository carries its own command definitions, they replace the built-in
+prompts phase by phase. Anything unmatched quietly falls back — you never have to fill in
+the gaps.
+
+```mermaid
+flowchart LR
+    Scan["Scan selected repos"] --> Found{"Commands<br/>found?"}
+    Found -->|no| Builtin["Built-in prompts<br/><i>works with any repo</i>"]
+    Found -->|yes| Map["Map onto phases"]
+
+    Map --> I["investigation → /opsx:explore"]
+    Map --> P["planning → /opsx:propose"]
+    Map --> M["implementation → /opsx:apply &lt;change&gt;"]
+    Map --> R["review → review skill"]
+    Map --> X["testing · deployment<br/><i>no match → built-in</i>"]
+
+    I & P & M & R & X --> Over["Per-phase override in the wizard<br/><i>harness · built-in · off</i>"]
+```
+
+Detection is cached with the repo selection in the key, so ticking a repository in the
+wizard re-detects immediately — and an **unselected** repo can never supply the harness.
+
+### The shape of it
+
+| Layer | What's there |
+|---|---|
+| **Engine** | `PipelineEngine` — the only thing that moves tickets; sweeps, gates, spend cap, row-locked pickups |
+| **Runners** | `ClaudeCodeRunner` per phase, `HeadlessAgent` as the single one-shot CLI seam, structured output parsed from fenced JSON |
+| **Workspace** | `Workspace` scans and caches the mount; `Harness` detects your commands; `SpecSync` indexes specs |
+| **Jobs** | phase runs, feature-request investigate/plan, chat replies, enrichment, archive, push & PR |
+| **Screens** | six controllers, ERB + Stimulus; live updates by Turbo morph, event feed by targeted stream |
+
 ## 📜 Words of Command
 
 | Rune | Effect | Default |
@@ -175,7 +339,7 @@ via `GH_TOKEN`.
 
 ```bash
 docker compose exec web bin/rails test
-# 65 runs, 408 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 71 runs, 445 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 
@@ -197,7 +361,8 @@ Second breakfast is not provided but is respected.
 Themed in tribute to Professor Tolkien; not affiliated with Middle-earth Enterprises.
 **Sauron provided no code review** — all defects are the maintainer's own.
 
-License: none declared yet. *It's ours, precious.* (Open an issue if you need one.)
+Released under the [MIT License](LICENSE). *It was ours, precious — now it is everyone's.*
+Version history lives in the [CHANGELOG](CHANGELOG.md).
 
 <div align="center">
 <sub>No hobbits were harmed in the making of this pipeline. One (1) Balrog was mildly inconvenienced.</sub><br>
