@@ -194,7 +194,6 @@ Second breakfast is not provided but is respected.
 
 ## 🪶 Acknowledgments & License
 
-Forged with [Claude Code](https://claude.com/claude-code) from a [Claude Design](https://claude.ai/design) prototype.
 Themed in tribute to Professor Tolkien; not affiliated with Middle-earth Enterprises.
 **Sauron provided no code review** — all defects are the maintainer's own.
 
