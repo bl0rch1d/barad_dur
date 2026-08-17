@@ -30,29 +30,28 @@
   </div>
 <% else %>
 
-<div class="screen-bar" style="border-top:0;padding-top:0;align-items:flex-start">
-  <%= form_with url: tickets_path, method: :post, style: "display:flex;gap:8px;align-items:flex-start;flex:1;flex-wrap:wrap" do %>
-    <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:5px">
+<% show_filters = @repo_options.size > 1 || @blocked_only || @repo_filter %>
+<div class="screen-bar" style="padding-top:0<%= ";border-bottom:0" if show_filters %>">
+  <%= form_with url: tickets_path, method: :post, class: "ticket-composer" do %>
+    <div class="tc-row">
       <input name="title" placeholder="Draft a ticket — one line of intent…" autocomplete="off"
-             class="textarea" style="min-height:0;padding:6px 10px;font-size:12px">
-      <textarea name="description" rows="1" placeholder="Optional free-form description — any format, as much detail as you like…"
-                class="textarea" style="min-height:30px;padding:6px 10px;font-size:11.5px"></textarea>
+             class="textarea tc-title">
+      <select name="repo" class="textarea tc-repo">
+        <% repos = Workspace.selected_ticket_targets.presence ||
+                   Ticket.on_board.distinct.pluck(:repo).compact.uniq.sort %>
+        <% repos.each do |repo| %><option value="<%= repo %>"><%= repo %></option><% end %>
+      </select>
+      <label class="tc-risky"><input type="checkbox" name="risky" value="1">risky</label>
+      <button type="submit" class="btn-ghost btn-sm hv-acc busy-btn" data-turbo-submits-with="Filing…">+ File draft</button>
     </div>
-    <select name="repo" class="textarea" style="min-height:0;padding:6px;font-size:12px;width:170px">
-      <% repos = Workspace.selected_ticket_targets.presence ||
-                 Ticket.on_board.distinct.pluck(:repo).compact.uniq.sort %>
-      <% repos.each do |repo| %><option value="<%= repo %>"><%= repo %></option><% end %>
-    </select>
-    <label style="display:flex;gap:5px;align-items:center;font-size:11px;color:var(--tx2);padding-top:8px">
-      <input type="checkbox" name="risky" value="1">risky
-    </label>
-    <button type="submit" class="btn-ghost btn-sm hv-acc busy-btn" data-turbo-submits-with="Filing…">+ File draft</button>
+    <textarea name="description" rows="1" class="textarea tc-desc"
+              placeholder="Optional free-form description — any format, as much detail as you like…"></textarea>
   <% end %>
 </div>
 
-<% if @repo_options.size > 1 || @blocked_only || @repo_filter %>
-  <div class="screen-bar" style="border-top:0;padding-top:0;padding-bottom:8px">
-    <span class="k-label" style="align-self:center">Filter</span>
+<% if show_filters %>
+  <div class="screen-bar" style="padding-top:0;padding-bottom:10px">
+    <span class="k-label">Filter</span>
     <div class="chip-row">
       <%= link_to "all", board_path(blocked: @blocked_only ? "1" : nil),
                   class: "chip#{' on' if @repo_filter.nil?}", style: "text-decoration:none" %>
@@ -61,8 +60,11 @@
                     class: "chip#{' on' if @repo_filter == repo}", style: "text-decoration:none" %>
       <% end %>
       <span class="vdiv" style="height:18px;align-self:center"></span>
-      <%= link_to "⛔ blocked only", board_path(repo: @repo_filter, blocked: @blocked_only ? nil : "1"),
-                  class: "chip#{' on' if @blocked_only}", style: "text-decoration:none" %>
+      <%= link_to board_path(repo: @repo_filter, blocked: @blocked_only ? nil : "1"),
+                  class: "chip#{' on' if @blocked_only}",
+                  style: "text-decoration:none;display:inline-flex;align-items:center;gap:6px" do %>
+        <span class="dot" style="background:var(--err)"></span>blocked only
+      <% end %>
     </div>
   </div>
 <% end %>

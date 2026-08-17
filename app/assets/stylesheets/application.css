@@ -1,6 +1,8 @@
 /* algo · SDLC pipeline — design tokens + components (ported from SDLC Pipeline.dc.html) */
 
 :root {
+  /* native controls (checkboxes, select popups, scrollbars) follow the theme */
+  color-scheme: dark;
   --bg:#0a0705; --panel:#120c07; --raised:#1a120a; --sunken:#060402;
   --line:#2e2114; --soft:#241a10;
   --tx:#e8d9bd; --tx2:#9a8b70; --tx3:#6b5a44;
@@ -15,6 +17,7 @@
   --mono:'IBM Plex Mono',monospace;
 }
 [data-theme="light"] {
+  color-scheme: light;
   --bg:#dde4de; --panel:#e9efe8; --raised:#f2f6f0; --sunken:#cfdad2;
   --line:#b4c2b6; --soft:#c8d4ca;
   --tx:#16241c; --tx2:#4a5c50; --tx3:#6e8278;
@@ -224,6 +227,17 @@ a.btn-accent, a.btn-accent:hover, .btn-accent:hover { color:var(--bg) }
 .cycle-foot .val { font-family:var(--mono); color:var(--tx) }
 
 /* ── board ─────────────────────────────────────────────── */
+/* draft composer: intent line (target + risk + submit share its row), with
+   the optional description beneath it. Must be a class — form_with drops a
+   top-level style: option, so inline styling here silently does nothing. */
+.ticket-composer { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px }
+.ticket-composer .tc-row { display:flex; gap:9px; align-items:center; flex-wrap:wrap }
+.ticket-composer .textarea { min-height:0; padding:6px 10px; font-size:12px; line-height:1.5; resize:none }
+.ticket-composer .tc-title { flex:1; min-width:220px }
+.ticket-composer .tc-repo { width:auto; max-width:210px; flex:none; cursor:pointer; font-family:var(--mono); font-size:11.5px }
+.ticket-composer .tc-risky { display:flex; gap:6px; align-items:center; flex:none; font-size:11px; color:var(--tx2); white-space:nowrap; cursor:pointer }
+.ticket-composer .tc-risky input { accent-color:var(--warn); width:13px; height:13px; margin:0 }
+.ticket-composer .tc-desc { min-height:30px; font-size:11.5px; resize:vertical }
 .board-wrap { flex:1; overflow:auto; padding:16px 20px; display:flex; gap:11px; align-items:flex-start }
 .board-col { width:236px; flex:none; display:flex; flex-direction:column; gap:9px }
 .col-hd { display:flex; align-items:center; gap:8px; padding:0 3px }
