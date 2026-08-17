@@ -27,6 +27,13 @@ class ApplicationController < ActionController::Base
     redirect_back(fallback_location: root_path)
   end
 
+  # Until setup completes, screens render the unbound-realm empty state
+  # INSTEAD of their action — skipping the action's queries and the heavy
+  # template entirely (a layout-level gate would render them and discard).
+  def require_realm!
+    render "shared/unbound" unless @setting.setup_complete?
+  end
+
   # Everything currently waiting on the operator — drives the tab-title and
   # favicon attention badge.
   def attention_count

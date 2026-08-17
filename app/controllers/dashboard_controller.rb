@@ -1,4 +1,5 @@
 class DashboardController < ApplicationController
+  before_action :require_realm!, only: :show
   PHASE_ABBR = {
     "investigation" => "invest", "planning" => "plan", "implementation" => "impl",
     "review" => "review", "testing" => "test", "deployment" => "deploy"

@@ -62,26 +62,11 @@
             <span class="mono-meta">quiet — file a ticket on the board to start the pipeline</span>
           </div>
         <% end %>
-        <% @events.first(7).each do |event| %>
-          <div class="tl-row">
-            <div class="tl-gutter">
-              <span class="dot" style="background:<%= event.tone %>"></span>
-              <span class="line"></span>
-            </div>
-            <div class="stream-body">
-              <div class="stream-hd">
-                <span class="stream-time"><%= event_time(event) %></span>
-                <span class="stream-phase" style="color:<%= event.tone %>"><%= event.phase_tag %></span>
-                <span class="stream-text"><%= event.text %></span>
-              </div>
-              <div class="stream-meta">
-                <span><%= event.ticket_code %></span>
-                <span><%= event.agent_name %></span>
-                <% if event.meta.present? %><span><%= event.meta %></span><% end %>
-              </div>
-            </div>
-          </div>
-        <% end %>
+        <%# new events stream into this container as targeted prepends (no
+            full-page morph); periodic morphs reconcile and re-trim the list %>
+        <div id="event-feed" style="display:contents">
+          <%= render partial: "events/stream_row", collection: @events.first(7), as: :event %>
+        </div>
       </div>
     </div>
 

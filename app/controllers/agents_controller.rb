@@ -1,4 +1,5 @@
 class AgentsController < ApplicationController
+  before_action :require_realm!, only: :index
   def index
     @agents = Agent.ordered.to_a
     @total_cost = @agents.sum(&:cost_today)

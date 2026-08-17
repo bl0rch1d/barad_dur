@@ -1,4 +1,5 @@
 class RfcsController < ApplicationController
+  before_action :require_realm!, only: :show
   ANSWER_KEY = /\Aq\d+\z/
 
   def show

@@ -17,7 +17,7 @@ class Event < ApplicationRecord
 
   def self.record!(phase_tag:, text:, tone: nil, ticket: nil, ticket_code: nil,
                    agent: nil, agent_name: nil, meta: nil, cost: 0)
-    create!(
+    event = create!(
       happened_at: Time.current,
       phase_tag: phase_tag,
       tone: tone || DEFAULT_TONES.fetch(phase_tag, "var(--tx3)"),
@@ -27,5 +27,17 @@ class Event < ApplicationRecord
       meta: meta,
       cost: cost
     )
+    event.broadcast_row
+    event
+  end
+
+  # Targeted stream: the new event prepends into the dashboard feed without a
+  # whole-page morph (pages without #event-feed ignore it).
+  def broadcast_row
+    Turbo::StreamsChannel.broadcast_prepend_to(
+      :app, target: "event-feed", partial: "events/stream_row", locals: { event: self }
+    )
+  rescue => e
+    Rails.logger.debug { "event stream broadcast skipped: #{e.message}" }
   end
 end

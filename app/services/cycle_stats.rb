@@ -11,28 +11,32 @@ class CycleStats
     "deployment"     => "var(--ok)"
   }.freeze
 
+  # Aggregate queries over every phase run — cached briefly; 30s staleness
+  # is invisible on a stats panel and saves seven queries per render.
   def self.rows
-    avgs = Ticket::PHASES.index_with do |phase|
-      PhaseRun.done.where(phase: phase).where.not(duration_s: nil).average(:duration_s)&.to_f
-    end
-    max = avgs.values.compact.max || 1.0
+    Rails.cache.fetch("cycle_stats/rows", expires_in: 30.seconds) do
+      avgs = Ticket::PHASES.index_with do |phase|
+        PhaseRun.done.where(phase: phase).where.not(duration_s: nil).average(:duration_s)&.to_f
+      end
+      max = avgs.values.compact.max || 1.0
 
-    Ticket::PHASES.map do |phase|
-      avg = avgs[phase]
-      Row.new(
-        phase.capitalize,
-        avg ? ApplicationController.helpers.short_duration(avg) : "—",
-        avg ? ((avg / max) * 100).clamp(4, 100).round : 4,
-        TONES[phase]
-      )
+      Ticket::PHASES.map do |phase|
+        avg = avgs[phase]
+        Row.new(
+          phase.capitalize,
+          avg ? ApplicationController.helpers.short_duration(avg) : "—",
+          avg ? ((avg / max) * 100).clamp(4, 100).round : 4,
+          TONES[phase]
+        )
+      end
     end
   end
 
   def self.median_label
-    durations = Ticket.done.where.not(started_at: nil).where.not(finished_at: nil)
-                      .pluck(:started_at, :finished_at).map { |s, f| f - s }.sort
-    return "—" if durations.empty?
-
-    ApplicationController.helpers.short_duration(durations[durations.size / 2])
+    Rails.cache.fetch("cycle_stats/median", expires_in: 30.seconds) do
+      durations = Ticket.done.where.not(started_at: nil).where.not(finished_at: nil)
+                        .pluck(:started_at, :finished_at).map { |s, f| f - s }.sort
+      durations.empty? ? "—" : ApplicationController.helpers.short_duration(durations[durations.size / 2])
+    end
   end
 end

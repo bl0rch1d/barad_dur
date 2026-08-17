@@ -1,4 +1,5 @@
 class BoardController < ApplicationController
+  before_action :require_realm!, only: :show
   # Column order; Blocked is a derived overlay — a blocked ticket appears
   # there (with its subtype) instead of in its phase column, and returns
   # automatically once the blocker clears.

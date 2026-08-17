@@ -125,7 +125,7 @@ class Workspace
     # Sub-projects inside a repository (monorepo packages/apps/services…),
     # detected by common project markers. Relative paths, capped.
     def subprojects(repo_entry)
-      cached("subs:#{repo_entry[:path]}", ttl: 300) do
+      cached("subs:#{repo_entry[:path]}", ttl: 300, allow_empty: true) do
         base = Pathname.new(repo_entry[:path])
         found = []
         base.children.select(&:directory?).sort.each do |child|
@@ -206,7 +206,7 @@ class Workspace
 
     # Names of workspace repos (selected or not) that contain openspec specs.
     def openspec_repos(setting = Setting.instance)
-      cached("openspec:#{root(setting)}") do
+      cached("openspec:#{root(setting)}", allow_empty: true) do
         repos(setting).select { |r| Pathname.new(r[:path]).join("openspec", "specs").directory? }
                       .map { |r| r[:name] }
       end
@@ -214,7 +214,11 @@ class Workspace
 
     private
 
-    def cached(key, ttl: CACHE_TTL)
+    # allow_empty: cache [] as a valid result (e.g. a repo with no
+    # sub-projects — rescanning it every render is exactly the cost we're
+    # avoiding). Without it, empty scans are treated as transient mount
+    # hiccups: never cached, last good value preferred.
+    def cached(key, ttl: CACHE_TTL, allow_empty: false)
       now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       CACHE_MUTEX.synchronize do
         @cache ||= {}
@@ -230,11 +234,9 @@ class Workspace
         end
 
         value = yield
-        if value.present?
+        if value.present? || allow_empty
           CACHE_MUTEX.synchronize { @cache[key] = [now + ttl, value] }
         else
-          # empty scans are often transient mount hiccups under load — never
-          # cache them; fall back to the last good (possibly expired) value
           stale = CACHE_MUTEX.synchronize { @cache[key]&.last }
           return stale if stale.present?
         end

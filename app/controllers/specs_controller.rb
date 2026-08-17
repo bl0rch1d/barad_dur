@@ -1,4 +1,5 @@
 class SpecsController < ApplicationController
+  before_action :require_realm!, only: :show
   # Kicks off the async parse (SpecSyncJob) unless one is already running.
   def sync
     progress = @setting.setup["spec_sync_progress"]

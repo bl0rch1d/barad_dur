@@ -1,4 +1,5 @@
 class ActivityController < ApplicationController
+  before_action :require_realm!, only: :show
   WORKSPACE_ROOM = "workspace".freeze
 
   def show

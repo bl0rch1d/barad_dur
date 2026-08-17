@@ -29,6 +29,9 @@ services:
       DB_USER: barad_dur
       DB_PASSWORD: barad_dur
       RAILS_MAX_THREADS: "5"
+      # "use mode": skip dev-reload checks + verbose logging for much faster
+      # renders. Set to 0 when editing the app's own code.
+      DISABLE_RELOADING: ${DISABLE_RELOADING:-0}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       PIPELINE_RUNNER: ${PIPELINE_RUNNER:-auto}

@@ -1,0 +1,18 @@
+<div class="tl-row">
+  <div class="tl-gutter">
+    <span class="dot" style="background:<%= event.tone %>"></span>
+    <span class="line"></span>
+  </div>
+  <div class="stream-body">
+    <div class="stream-hd">
+      <span class="stream-time"><%= event.happened_at.strftime("%H:%M:%S") %></span>
+      <span class="stream-phase" style="color:<%= event.tone %>"><%= event.phase_tag %></span>
+      <span class="stream-text"><%= event.text %></span>
+    </div>
+    <div class="stream-meta">
+      <span><%= event.ticket_code %></span>
+      <span><%= event.agent_name %></span>
+      <% if event.meta.present? %><span><%= event.meta %></span><% end %>
+    </div>
+  </div>
+</div>

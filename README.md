@@ -154,6 +154,7 @@ No harness? The default seven serve faithfully. They are not evil, merely… *am
 | `CLAUDE_FLAGS` | Extra CLI flags for agent runs | `--permission-mode acceptEdits` |
 | `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | Patience of the tower | `40` / `900s` |
 | `PIPELINE_TICK_INTERVAL` | Heartbeat of the forge | `3.2s` |
+| `DISABLE_RELOADING` | `1` = use mode: much faster renders, restart to pick up code edits | `0` |
 
 ## 🔬 The Trials
 

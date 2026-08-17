@@ -4,12 +4,18 @@ Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
   # Make code changes take effect immediately without server restart.
-  # The ticker service disables this: it serves no requests, and the per-wrap
-  # file-mtime sweep is pathologically slow on network/virtualized mounts.
-  config.enable_reloading = ENV["DISABLE_RELOADING"] != "1"
+  # DISABLE_RELOADING=1 is "use mode": the per-request file-mtime sweep is
+  # pathologically slow on network/virtualized mounts, so skip it (and the
+  # verbose per-query logging to the slow mount) when using the app rather
+  # than developing it. The ticker service always runs this way.
+  use_mode = ENV["DISABLE_RELOADING"] == "1"
+  config.enable_reloading = !use_mode
+  config.eager_load = use_mode
 
-  # Do not eager load code on boot.
-  config.eager_load = false
+  if use_mode
+    config.log_level = :info
+    config.logger = ActiveSupport::TaggedLogging.logger($stdout)
+  end
 
   # Show full error reports.
   config.consider_all_requests_local = true
@@ -17,15 +23,10 @@ Rails.application.configure do
   # Enable server timing.
   config.server_timing = true
 
-  # Enable/disable Action Controller caching. By default Action Controller caching is disabled.
-  # Run rails dev:cache to toggle Action Controller caching.
-  if Rails.root.join("tmp/caching-dev.txt").exist?
-    config.action_controller.perform_caching = true
-    config.action_controller.enable_fragment_cache_logging = true
-    config.public_file_server.headers = { "cache-control" => "public, max-age=#{2.days.to_i}" }
-  else
-    config.action_controller.perform_caching = false
-  end
+  # Fragment/data caching is always on — expensive aggregates (cycle stats)
+  # and workspace scans depend on it between morph refreshes.
+  config.action_controller.perform_caching = true
+  config.public_file_server.headers = { "cache-control" => "public, max-age=#{2.days.to_i}" }
 
   # Change to :null_store to avoid any caching.
   config.cache_store = :memory_store
