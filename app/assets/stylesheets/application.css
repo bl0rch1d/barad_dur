@@ -170,7 +170,10 @@ a.btn-accent, a.btn-accent:hover, .btn-accent:hover { color:var(--bg) }
 .gate-word { font-family:var(--mono); font-size:11px; color:var(--warn); font-weight:600 }
 .gate-text { flex:1; font-size:12.5px }
 
-.timeline { padding:14px 14px 6px; display:flex; flex-direction:column }
+/* the feed grows all day — cap it and scroll inside rather than letting
+   it push the rest of the dashboard off the page */
+.timeline { padding:14px 14px 6px; display:flex; flex-direction:column;
+            max-height:min(56vh, 620px); overflow-y:auto; scrollbar-gutter:stable }
 .tl-row { display:flex; gap:13px }
 .tl-gutter { width:9px; display:flex; flex-direction:column; align-items:center; flex:none; padding-top:5px }
 .tl-gutter .line { width:1px; flex:1; background:var(--line); margin-top:4px }
@@ -253,6 +256,18 @@ a.btn-accent, a.btn-accent:hover, .btn-accent:hover { color:var(--bg) }
 .card-title { font-size:12.5px; line-height:1.4; font-weight:450 }
 .pips { display:flex; gap:3px }
 .pips span { flex:1; height:3px; border-radius:2px; display:block }
+/* the phase actually executing sweeps; one merely reached glows gently */
+.pips span.running { position:relative; overflow:hidden }
+.pips span.running::after {
+  content:""; position:absolute; inset:0; border-radius:2px;
+  background:linear-gradient(90deg, transparent, var(--bg), transparent);
+  opacity:.55; animation:pip-sweep 1.5s ease-in-out infinite;
+}
+.pips span.current { animation:pip-glow 2s ease-in-out infinite }
+.pips span.failed { animation:pip-alarm 1.4s ease-in-out infinite }
+@keyframes pip-sweep { 0% { transform:translateX(-100%) } 100% { transform:translateX(100%) } }
+@keyframes pip-glow { 0%,100% { opacity:.45 } 50% { opacity:1 } }
+@keyframes pip-alarm { 0%,100% { opacity:1 } 50% { opacity:.35 } }
 .card-foot { display:flex; align-items:center; gap:8px }
 .card-agent { font-family:var(--mono); font-size:10px; color:var(--tx3); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 .card-btn { border:1px solid var(--line); background:transparent; padding:2px 8px; border-radius:3px; font-size:10.5px; font-family:var(--mono) }

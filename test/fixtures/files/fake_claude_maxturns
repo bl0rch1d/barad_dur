@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Stands in for a run that exhausts its turn budget mid-work: the CLI reports
+# is_error with num_turns at the limit, having already spent real money.
+echo '{"type":"system","subtype":"init","session_id":"stub-maxturns","model":"stub"}'
+echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Now let me run the critic to verify every claim"}]}}'
+echo '{"type":"system","subtype":"permission_denied","tool_name":"Bash","message":"This command requires approval"}'
+echo '{"type":"result","subtype":"error_max_turns","is_error":true,"num_turns":41,"total_cost_usd":4.3118,"duration_ms":553306,"result":"Now let me run the critic to verify every claim"}'
+exit 1

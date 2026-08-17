@@ -8,7 +8,12 @@ require "shellwords"
 # captures commits/diff, then hands the ticket back to PipelineEngine for the
 # (possibly gated) transition.
 class ClaudeCodeRunner
-  DEFAULT_FLAGS = "--permission-mode acceptEdits".freeze
+  # A pipeline that cannot run a linter or a test suite cannot review its own
+  # work. acceptEdits denies every Bash command, which failed the testing
+  # phase outright and burned turns on retries until runs hit their limit.
+  # The boundary that matters is the mounted workspace and the pipe/* branch,
+  # not the permission prompt. Override with CLAUDE_FLAGS to tighten it.
+  DEFAULT_FLAGS = "--permission-mode bypassPermissions".freeze
   DEFAULT_BIN = "claude".freeze
 
   class << self
@@ -95,8 +100,11 @@ class ClaudeCodeRunner
     run.update!(log: result.log.to_s.last(50_000), exit_status: result.exit_status,
                 cost: result.cost.to_f)
 
+    # A run that failed still burned tokens. Charge it before branching, or
+    # the ledger reports $0 for money that was very much spent.
+    accrue_cost(result.raw) if result.raw
+
     if result.ok
-      accrue_cost(result.raw)
       capture_outputs(repo)
       handle_structured_output(result)
       Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
@@ -331,7 +339,7 @@ class ClaudeCodeRunner
   end
 
   def fail_run(reason)
-    run.update!(status: "failed", finished_at: Time.current)
+    run.update!(status: "failed", finished_at: Time.current, note: reason.to_s.truncate(200))
     ticket.agent&.update!(status: "waiting", doing: "#{ticket.code} #{phase} failed — #{reason.truncate(60)}")
     Event.record!(phase_tag: tag, tone: "var(--err)", ticket: ticket, agent: ticket.agent,
                   meta: "live run failed", text: "#{phase.capitalize} run failed: #{reason.truncate(140)}")

@@ -49,13 +49,22 @@ module ApplicationHelper
   end
 
   # Six per-phase progress pips for a board card, from real phase runs.
+  # [[colour, state], ...] — the current phase is marked so the board can
+  # show it working rather than merely tinting it a brighter colour.
   def ticket_pips(ticket)
     done = ticket.phase_runs.select { |r| r.status == "done" }.map(&:phase)
+    running = ticket.current_phase_run&.status == "running"
+    failed = ticket.current_phase_run&.status == "failed"
+
     Ticket::PHASES.map do |phase|
-      if done.include?(phase) then "var(--ok)"
-      elsif phase == ticket.state then "var(--accent)"
-      elsif ticket.state == "ready_to_implement" && %w[investigation planning].include?(phase) then "var(--ok)"
-      else "var(--soft)"
+      if done.include?(phase) then ["var(--ok)", nil]
+      elsif phase == ticket.state
+        next ["var(--err)", "failed"] if failed
+
+        ["var(--accent)", running ? "running" : "current"]
+      elsif ticket.state == "ready_to_implement" && %w[investigation planning].include?(phase)
+        ["var(--ok)", nil]
+      else ["var(--soft)", nil]
       end
     end
   end

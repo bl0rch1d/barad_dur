@@ -31,10 +31,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Spend broken down by pipeline stage, by model and by source, plus today's burn
   projected to midnight against the cap.
 
+- Runs that failed recorded $0 no matter what they had spent, because cost was
+  only read on the success path. Failures are charged now, and a migration
+  recovers what earlier ones cost from their own captured output.
+- A failed run said what the agent happened to be saying when it stopped
+  ("Now the design.md corrections:") rather than why it stopped. It now
+  reports the real cause — turns exhausted, terminated, or denied commands —
+  with what to change.
+
 ### Changed
 
 - Restarting while over the cap now overrides the cap for the rest of the day
   instead of zeroing the spend counter; the ledger keeps its history.
+- Agent runs allow shell commands in the selected repositories. `acceptEdits`
+  denied every Bash call, so the testing stage could never run a suite and
+  implementation runs burned their turns retrying denied commands.
+- Turn and time limits raised to 120 turns and 45 minutes. At 40 turns every
+  real ticket died mid-task at turn 41, having spent its money for nothing.
+- Clarifying questions can be answered from the ticket drawer, not only the
+  dashboard.
+- The live event feed has a maximum height and scrolls within it instead of
+  pushing the rest of the dashboard down the page.
+- The phase strip on a board card animates: the executing phase sweeps, a
+  reached one glows, a failed one pulses.
 
 ## [1.0.0] — 2026-08-17
 

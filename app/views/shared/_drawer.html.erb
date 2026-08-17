@@ -39,6 +39,35 @@
         </div>
       <% end %>
 
+      <!-- ── clarifications: answerable here, not only on the dashboard ── -->
+      <% questions = Question.pending.where(ticket_code: ticket.code).order(:asked_at).to_a %>
+      <% if questions.any? %>
+        <div class="panel" style="border-color:var(--warn)">
+          <div class="panel-hd">
+            <span class="k-label" style="color:var(--warn)">The agent is waiting on you</span>
+            <span class="spacer"></span>
+            <span class="mono-meta"><%= questions.size %> question<%= "s" if questions.size > 1 %></span>
+          </div>
+          <% questions.each do |question| %>
+            <div class="needs-item">
+              <div class="needs-hd">
+                <span class="mono-meta"><%= question.phase %></span>
+                <span class="spacer"></span>
+                <span class="mono-meta"><%= question.waited_label %></span>
+              </div>
+              <div class="needs-q md"><%= markdown(question.body) %></div>
+              <div class="chip-row">
+                <% question.options.each do |option| %>
+                  <%= button_to option, answer_question_path(question, option: option),
+                                form_class: "bt", class: "chip hv-acc busy-btn",
+                                data: { turbo_submits_with: "…" } %>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
       <!-- ── overview ─────────────────────────────────────── -->
       <% enriching = @setting.setup["enrich:#{ticket.code}"].to_i > 5.minutes.ago.to_i %>
       <% has_overview = ticket.description.present? || ticket.technical_notes.present? || ticket.acceptance_criteria.any? %>

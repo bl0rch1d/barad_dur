@@ -168,7 +168,7 @@ and edit it there (Compose reads `.env` automatically, and it is gitignored).
 | `PIPELINE_RUNNER` | Set to `off` as a kill switch — nothing will run | `auto` |
 | `DISABLE_RELOADING` | Set to `1` for noticeably faster pages when you aren't editing the app's own code | `0` |
 | `CLAUDE_MODEL` | Override the orchestrating model | wizard choice |
-| `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | How long an agent may work on one stage | `40` / `900s` |
+| `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | How long an agent may work on one stage | `120` / `2700s` |
 | `GH_TOKEN` | Needed only for the optional "Push & PR" button | — |
 
 A typical `.env` is short. `.env.example` sets `WORKSPACE_PATH` and leaves the rest
@@ -237,6 +237,10 @@ Worth knowing before you leave it running:
 - Repositories you didn't tick in step 1 are readable but never modified
 - The spend cap stops the pipeline before your bill grows
 
-The honest caveat: agents run with permission to edit files in the repositories you
-selected. Committed work is recoverable through git; uncommitted work in those
-repositories is not. **Commit or stash anything you care about before your first run.**
+The honest caveat: agents edit files **and run shell commands** — linters, test suites,
+build tools — inside the repositories you selected. That is what lets the testing phase
+actually test anything, but it does mean an agent can run arbitrary commands there.
+Committed work is recoverable through git; uncommitted work is not. **Commit or stash
+anything you care about before your first run**, and if you would rather keep commands
+gated, set `CLAUDE_FLAGS=--permission-mode acceptEdits` (the testing phase will then
+fail rather than run your suite).

@@ -17,7 +17,7 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-84%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-89%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 [![License](https://img.shields.io/badge/license-MIT-ffb03a?labelColor=0a0705)](LICENSE)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Inside the Tower](#-inside-the-tower) • [Words of Command](#-words-of-command)
@@ -322,8 +322,8 @@ automatically. It is gitignored, so your paths and keys never leave your machine
 | `CLAUDE_CONFIG_PATH` | Subscription login mount | `~/.claude` |
 | `PIPELINE_RUNNER` | `auto` · `off` (kill-switch) | `auto` |
 | `CLAUDE_MODEL` | Override the orchestrator model | wizard choice (Opus 5) |
-| `CLAUDE_FLAGS` | Extra CLI flags for agent runs | `--permission-mode acceptEdits` |
-| `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | Patience of the tower | `40` / `900s` |
+| `CLAUDE_FLAGS` | Extra CLI flags for agent runs — agents may run shell commands in the selected repos so they can lint and test | `--permission-mode bypassPermissions` |
+| `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | Patience of the tower — real planning work needs both | `120` / `2700s` |
 | `PIPELINE_TICK_INTERVAL` | Heartbeat of the forge | `3.2s` |
 | `DISABLE_RELOADING` | `1` = use mode: much faster renders, restart to pick up code edits | `0` |
 
@@ -346,7 +346,7 @@ via `GH_TOKEN`.
 
 ```bash
 docker compose exec web bin/rails test
-# 84 runs, 489 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 89 runs, 506 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 

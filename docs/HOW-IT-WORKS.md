@@ -253,6 +253,8 @@ Switch at any time, even mid-run:
 ### Your main code is protected
 
 - All work happens on a **separate copy** (a branch named `pipe/…`)
+- Agents run commands — linters, tests, build tools — inside the repositories you
+  ticked, which is how the testing stage tests anything
 - Nothing merges into your main code without you clicking **Approve & merge**
 - Nothing is published anywhere unless you explicitly ask for a pull request
 - **Nothing is ever deleted or force-overwritten** on your behalf
