@@ -22,6 +22,14 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g @anthropic-ai/claude-code
 
+# gh CLI for the opt-in push & PR flow (auth via GH_TOKEN)
+RUN apt-get update -qq && apt-get install -y --no-install-recommends wget && \
+    wget -qO /usr/share/keyrings/githubcli.gpg https://cli.github.com/packages/githubcli-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list && \
+    apt-get update -qq && apt-get install -y --no-install-recommends gh && \
+    rm -rf /var/lib/apt/lists/*
+
 # Mounted workspace repos are owned by the host user; without this git refuses
 # to operate on them ("dubious ownership") and live runs can't branch/commit.
 RUN git config --global --add safe.directory '*' && \

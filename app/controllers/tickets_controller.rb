@@ -73,12 +73,23 @@ class TicketsController < ApplicationController
     back
   end
 
+  def push_pr
+    ticket = Ticket.find_by!(code: params[:code])
+    PushPrJob.perform_later(ticket.id)
+    Event.record!(phase_tag: "DEPLOY", ticket_code: ticket.code, agent_name: "you",
+                  text: "Pushing #{ticket.code} to origin and opening a PR…")
+    PipelineEngine.broadcast
+    back
+  end
+
   def merge
     ticket = Ticket.find_by!(code: params[:code])
     result = BranchMerger.call(ticket)
     if result.ok
       ticket.update!(artifacts: ticket.artifacts | [result.message])
       PipelineEngine.manual_ship!(ticket, result.message)
+      # complete the openspec lifecycle: archive the applied change delta
+      ArchiveChangeJob.perform_later(ticket.id)
     else
       Event.record!(phase_tag: "REVIEW", tone: "var(--err)", ticket_code: ticket.code,
                     agent_name: "you", text: "Merge failed: #{result.message}")

@@ -239,7 +239,22 @@ class ClaudeCodeRunner
     case phase
     when "investigation" then create_questions(data)
     when "planning"      then apply_plan_output(data)
+    when "testing"       then capture_test_results(data)
     end
+  end
+
+  def capture_test_results(data)
+    return unless data.key?("passed") || data.key?("failed")
+
+    passed = data["passed"].to_i
+    failed = data["failed"].to_i
+    run.update!(tests_command: data["command"].to_s.truncate(120).presence,
+                tests_passed: passed, tests_failed: failed,
+                note: "#{passed} passed · #{failed} failed")
+    Event.record!(phase_tag: "TEST", tone: failed.positive? ? "var(--warn)" : "var(--ok)",
+                  ticket: ticket, agent: ticket.agent,
+                  meta: data["command"].to_s.truncate(40).presence,
+                  text: "Tests: #{passed} passed, #{failed} failed on #{ticket.code}")
   end
 
   def create_questions(data)

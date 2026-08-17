@@ -38,6 +38,15 @@ module PhasePrompts
     session — parts split out to run after it (usually []).
   TXT
 
+  TESTING_CONTRACT = <<~TXT.freeze
+
+    End your FINAL message with a fenced json block reporting the results:
+    ```json
+    {"command": "the test command you ran", "passed": 12, "failed": 0}
+    ```
+    Report the FINAL counts (after any fixes you committed).
+  TXT
+
   module_function
 
   # Full execution plan for a phase run: prompt, working directory and extra
@@ -63,6 +72,7 @@ module PhasePrompts
     case phase
     when "investigation" then QUESTIONS_CONTRACT + board_context(ticket)
     when "planning"      then PLANNING_CONTRACT + board_context(ticket)
+    when "testing"       then TESTING_CONTRACT
     else ""
     end
   end

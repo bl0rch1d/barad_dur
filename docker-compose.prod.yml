@@ -1,0 +1,66 @@
+# Production deployment:
+#   export RAILS_MASTER_KEY=$(cat config/master.key)
+#   WORKSPACE_PATH=~/dev docker compose -f docker-compose.prod.yml up -d --build
+#
+# Serves on ${PORT:-3000}. FORCE_SSL defaults off for homelab/http use —
+# set FORCE_SSL=1 behind a TLS-terminating proxy. Jobs run inside Puma
+# (SOLID_QUEUE_IN_PUMA); the ticker is its own service.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: barad_dur
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-barad_dur}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U barad_dur"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: barad_dur-prod
+    ports:
+      - "${PORT:-3000}:80"
+    environment: &app_env
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?export RAILS_MASTER_KEY=$$(cat config/master.key)}
+      DB_HOST: db
+      DB_USER: barad_dur
+      DB_PASSWORD: ${DB_PASSWORD:-barad_dur}
+      FORCE_SSL: ${FORCE_SSL:-0}
+      SOLID_QUEUE_IN_PUMA: "1"
+      CLAUDE_CONFIG_DIR: /home/rails/.claude
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      PIPELINE_RUNNER: ${PIPELINE_RUNNER:-auto}
+      CLAUDE_FLAGS: ${CLAUDE_FLAGS:-}
+      GH_TOKEN: ${GH_TOKEN:-}
+    volumes:
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
+      - ${CLAUDE_CONFIG_PATH:-~/.claude}:/home/rails/.claude
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ticker:
+    image: barad_dur-prod
+    command: ["./bin/rails", "pipeline:ticker"]
+    environment: *app_env
+    volumes:
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
+      - ${CLAUDE_CONFIG_PATH:-~/.claude}:/home/rails/.claude
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata_prod:

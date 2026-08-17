@@ -345,7 +345,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
   def install_harness!
     base = File.join(@repo, ".claude")
     FileUtils.mkdir_p(File.join(base, "commands", "opsx"))
-    %w[explore propose apply].each do |cmd|
+    %w[explore propose apply archive].each do |cmd|
       File.write(File.join(base, "commands", "opsx", "#{cmd}.md"), "# opsx #{cmd}")
     end
     FileUtils.mkdir_p(File.join(base, "skills", "review"))
@@ -479,6 +479,22 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
     PipelineEngine.answer_question!(question, "OAuth")
     assert_equal "planning", ticket.reload.state, "resumes after the answer"
+  end
+
+  test "testing runs capture pass/fail counts" do
+    write_stub!('{"command":"bin/rails test","passed":42,"failed":1}')
+    ticket = Ticket.create!(code: "TST-TR1", title: "Test capture", repo: "demo-repo", state: :testing)
+    run = ticket.phase_runs.create!(phase: "testing", status: "running",
+                                    runner: "claude", started_at: Time.current)
+
+    RunPhaseJob.perform_now(ticket.id, "testing")
+
+    run.reload
+    assert_equal "bin/rails test", run.tests_command
+    assert_equal 42, run.tests_passed
+    assert_equal 1, run.tests_failed
+    assert_match(/42 passed · 1 failed/, run.note)
+    assert Event.exists?(["text LIKE ?", "%Tests: 42 passed, 1 failed%"])
   end
 
   test "grooming planning captures change, deps and split tickets" do
@@ -617,6 +633,67 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal ["It ships"], ticket.acceptance_criteria
     assert_nil Setting.instance.reload.setup["enrich:TST-EN2"], "marker cleared"
     assert Event.exists?(["text LIKE ?", "%TST-EN2 enriched%"])
+  end
+
+  test "archive job runs the harness archive command after a merge" do
+    install_harness!
+    write_stub!("{}")
+    ticket = Ticket.create!(code: "TST-AC1", title: "Merged work", repo: "demo-repo", state: :done,
+                            artifacts: ["openspec change: add-auth"])
+
+    ArchiveChangeJob.perform_now(ticket.id)
+
+    args = File.read(File.join(@dir, "stub_args.txt"))
+    assert_match(%r{/opsx:archive add-auth}, args)
+    assert_includes ticket.reload.artifacts, "change archived: add-auth"
+    assert Event.exists?(["text LIKE ?", "%add-auth archived into the permanent spec tree%"])
+  end
+
+  test "archive job no-ops without a change ref or archive command" do
+    write_stub!("{}")
+    plain = Ticket.create!(code: "TST-AC2", title: "No change", repo: "demo-repo", state: :done)
+    assert_no_difference -> { Event.count } do
+      ArchiveChangeJob.perform_now(plain.id)
+    end
+  end
+
+  test "push & PR pushes the branch to origin and opens a pull request" do
+    # a bare origin + a gh stub that records its args and prints a PR URL
+    origin = File.join(@dir, "origin.git")
+    system("git", "init", "-q", "--bare", origin)
+    git!("remote", "add", "origin", origin)
+    git!("checkout", "-b", "pipe/tst-pr1")
+    File.write(File.join(@repo, "pr.txt"), "x")
+    git!("add", ".")
+    git!("commit", "-m", "pr work")
+
+    gh_stub = File.join(@dir, "gh_stub")
+    File.write(gh_stub, "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > '#{@dir}/gh_args.txt'\n" \
+                        "echo 'https://github.com/example/demo-repo/pull/7'\n")
+    FileUtils.chmod("+x", gh_stub)
+    ENV["GH_BIN"] = gh_stub
+
+    ticket = Ticket.create!(code: "TST-PR1", title: "PR work", repo: "demo-repo", state: :review,
+                            description: "Adds the thing.", acceptance_criteria: ["Thing works"])
+    PushPrJob.perform_now(ticket.id)
+
+    out, = Open3.capture2("git", "-C", origin, "for-each-ref", "--format=%(refname:short)")
+    assert_includes out, "pipe/tst-pr1", "branch pushed to origin"
+    gh_args = File.read(File.join(@dir, "gh_args.txt"))
+    assert_match(/pr\ncreate/, gh_args)
+    assert_match(/TST-PR1: PR work/, gh_args)
+    assert_match(/Thing works/, gh_args)
+    assert_includes ticket.reload.artifacts, "PR: https://github.com/example/demo-repo/pull/7"
+    assert Event.exists?(["text LIKE ?", "%Pull request opened for TST-PR1%"])
+  ensure
+    ENV.delete("GH_BIN")
+  end
+
+  test "push & PR fails cleanly without an origin remote" do
+    git!("checkout", "-b", "pipe/tst-pr2")
+    ticket = Ticket.create!(code: "TST-PR2", title: "No remote", repo: "demo-repo", state: :review)
+    PushPrJob.perform_now(ticket.id)
+    assert Event.exists?(["text LIKE ?", "%no origin remote%"])
   end
 
   test "workspace recent commits merges selected repos newest first" do

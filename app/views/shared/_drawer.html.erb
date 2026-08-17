@@ -159,6 +159,10 @@
                             class: "btn-outline-ok busy-btn",
                             data: { turbo_submits_with: "Merging…",
                                     turbo_confirm: "Merge pipe/#{ticket.code.downcase} into the base branch#{ticket.done? ? '' : ' and complete this ticket'}?" } %>
+              <%= button_to "⇡ Push & PR", ticket_push_pr_path(ticket.code), form_class: "bt",
+                            class: "btn-ghost btn-sm hv-acc busy-btn",
+                            title: "Push pipe/#{ticket.code.downcase} to origin and open a pull request (needs a remote + gh auth)",
+                            data: { turbo_submits_with: "Pushing…" } %>
             </div>
             <%= form_with url: ticket_request_changes_path(ticket.code), method: :post,
                           style: "display:flex;gap:8px" do %>

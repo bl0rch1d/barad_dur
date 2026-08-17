@@ -149,6 +149,10 @@
                         class: "mono", style: "font-size:11px;color:var(--tx)" %>
             <span class="mono-meta"><%= run.phase %></span>
             <span class="spacer"></span>
+            <% if run.tests_passed || run.tests_failed %>
+              <span class="mono-meta" style="color:var(--ok)"><%= run.tests_passed.to_i %>✓</span>
+              <span class="mono-meta" style="color:<%= run.tests_failed.to_i.positive? ? 'var(--err)' : 'var(--tx3)' %>"><%= run.tests_failed.to_i %>✗</span>
+            <% end %>
             <span class="mono-meta" style="color:<%= tone %>"><%= run.status == "running" ? "live" : run.status %></span>
             <span class="mono-meta"><%= run.duration_label %></span>
             <% if run.cost.to_f.positive? %><span class="mono-meta">$<%= format("%.2f", run.cost) %></span><% end %>

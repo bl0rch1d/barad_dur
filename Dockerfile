@@ -20,6 +20,21 @@ RUN apt-get update -qq && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
+# Agent tooling: git for workspace operations, claude CLI for the runner,
+# gh for the opt-in push & PR flow. Mounted workspace repos belong to the
+# host user, so git needs the system-wide safe.directory exemption.
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y git nodejs npm wget && \
+    npm install -g @anthropic-ai/claude-code && \
+    wget -qO /usr/share/keyrings/githubcli.gpg https://cli.github.com/packages/githubcli-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list && \
+    apt-get update -qq && apt-get install --no-install-recommends -y gh && \
+    git config --system --add safe.directory '*' && \
+    git config --system user.email "pipeline@barad.dur" && \
+    git config --system user.name "barad_dur pipeline" && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
 # Set production environment variables and enable jemalloc for reduced memory usage and latency.
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \

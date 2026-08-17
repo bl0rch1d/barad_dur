@@ -17,7 +17,7 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-65%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-63%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Words of Command](#-words-of-command) • [The Road Ahead](#%EF%B8%8F-the-road-goes-ever-on)
 
@@ -156,20 +156,36 @@ No harness? The default seven serve faithfully. They are not evil, merely… *am
 | `PIPELINE_TICK_INTERVAL` | Heartbeat of the forge | `3.2s` |
 | `DISABLE_RELOADING` | `1` = use mode: much faster renders, restart to pick up code edits | `0` |
 
+## 🏰 Raising the tower elsewhere (production)
+
+For towers that must stand outside one's own machine:
+
+```bash
+export RAILS_MASTER_KEY=$(cat config/master.key)
+WORKSPACE_PATH=~/dev docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Precompiled assets, jemalloc, Thruster, jobs inside Puma, the ticker as its
+own service — and the same agent tooling (claude CLI, gh, git) baked into the
+image. `PORT` picks the door (default 3000); `FORCE_SSL=1` when a
+TLS-terminating proxy stands before the gate. The push & PR flow authenticates
+via `GH_TOKEN`.
+
 ## 🔬 The Trials
 
 ```bash
 docker compose exec web bin/rails test
-# 65 runs, 395 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 63 runs, 398 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 
 ## 🗺️ The Road Goes Ever On
 
-- [ ] Test-result capture — the testing phase's pass/fail counts, told truly on the dashboard
-- [ ] Push & PR flow — optional `gh` tribute to the far lands of GitHub, plus `/opsx:archive` after merge
-- [ ] Production deploy scrolls — for towers that must stand outside one's own machine
+- [x] Test-result capture — the testing phase's pass/fail counts, told truly on the dashboard
+- [x] Push & PR flow — optional `gh` tribute to the far lands of GitHub, plus `/opsx:archive` after merge
+- [x] Production deploy scrolls — for towers that must stand outside one's own machine
 - [x] Everything else you can see. It took nine days. Make of that number what you will.
+- [ ] Whatever the Eye desires next. Open an issue; the tower is listening.
 
 ## 🤝 Fellowship
 
