@@ -7,8 +7,10 @@
 # Ignore bundler config.
 /.bundle
 
-# Ignore all environment files.
+# Ignore environment files — but keep the example, which the entrypoint
+# seeds a .env from. The real .env must never bake into an image.
 /.env*
+!/.env.example
 
 # Ignore all default key files.
 /config/master.key

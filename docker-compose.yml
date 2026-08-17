@@ -17,6 +17,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     image: barad_dur-app
+    entrypoint: bin/docker-env
     command: bash -c "rm -f tmp/pids/server.pid && bin/rails db:prepare db:seed && bin/rails server -b 0.0.0.0"
     volumes:
       - .:/app
@@ -25,6 +26,8 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # the host folder actually mounted at /workspace, shown in the wizard
+      WORKSPACE_PATH: ${WORKSPACE_PATH:-./workspace}
       DB_HOST: db
       DB_USER: barad_dur
       DB_PASSWORD: barad_dur
@@ -54,12 +57,15 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     image: barad_dur-app
+    entrypoint: bin/docker-env
     command: bin/rails pipeline:ticker
     volumes:
       - .:/app
       - ${WORKSPACE_PATH:-./workspace}:/workspace
       - ${CLAUDE_CONFIG_PATH:-~/.claude}:/root/.claude
     environment:
+      # the host folder actually mounted at /workspace, shown in the wizard
+      WORKSPACE_PATH: ${WORKSPACE_PATH:-./workspace}
       DB_HOST: db
       DB_USER: barad_dur
       DB_PASSWORD: barad_dur

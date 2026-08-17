@@ -41,8 +41,11 @@
           <% ws_layout = ws_mounted ? Workspace.layout : :empty %>
           <div class="path-row">
             <span class="path"><%= ws_mounted ? Workspace.root : "no workspace mounted" %></span>
+            <% if (host_path = ENV["WORKSPACE_PATH"].presence) %>
+              <span class="mono-meta">mounted from <%= host_path %></span>
+            <% end %>
             <% if ws_mounted %>
-              <span class="tag" style="color:<%= ws_layout == :empty ? 'var(--tx3)' : 'var(--info)' %>">
+              <span class="tag" style="color:<%= ws_layout == :empty ? 'var(--warn)' : 'var(--info)' %>">
                 <%= { monorepo: "monorepo", multi_repo: "#{ws_repos.size} repos", empty: "no repos here" }[ws_layout] %>
               </span>
             <% end %>
@@ -92,7 +95,22 @@
                 <% end %>
               <% end %>
             <% elsif ws_browse.empty? && ws_parent.nil? %>
-              <span class="mono-meta">the mount is empty — put repositories under ./workspace or start with WORKSPACE_PATH=~/dev/yourproject</span>
+              <div class="parse-card" style="border-color:var(--warn);gap:9px">
+                <span class="k-label" style="color:var(--warn)">Nothing mounted here yet</span>
+                <div class="mono-meta" style="line-height:1.6;color:var(--tx2)">
+                  The tower can only see the folder mounted at <span class="mono">/workspace</span>, and it is
+                  empty<%= " (from #{ENV["WORKSPACE_PATH"]})" if ENV["WORKSPACE_PATH"].present? %>.
+                  Point it at your code, then restart:
+                </div>
+                <div class="diff-body" style="border-radius:5px">
+                  <div class="diff-line" style="color:var(--tx2)"># 1. edit .env in the project root</div>
+                  <div class="diff-line" style="color:var(--accent)">WORKSPACE_PATH=~/dev</div>
+                  <div class="diff-line" style="color:var(--tx3)">#    a folder of repositories, or one repository</div>
+                  <div class="diff-line" style="color:var(--tx2)"># 2. restart</div>
+                  <div class="diff-line" style="color:var(--accent)">docker compose up -d</div>
+                </div>
+                <span class="mono-meta">Or drop the repositories straight into the <span class="mono">workspace/</span> folder of this project.</span>
+              </div>
             <% end %>
           <% else %>
             <span class="mono-meta">no workspace mounted — start the stack with WORKSPACE_PATH pointing at your code</span>

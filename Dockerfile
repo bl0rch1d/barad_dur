@@ -62,6 +62,10 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
+# Binstubs must be executable regardless of how the checkout arrived — a
+# clone made where core.filemode is off can carry them as 0644.
+RUN chmod +x bin/*
+
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
@@ -85,7 +89,8 @@ COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails
 
 # Entrypoint prepares the database.
-ENTRYPOINT ["/rails/bin/docker-entrypoint"]
+# docker-env seeds/exports .env, then hands off to the usual entrypoint
+ENTRYPOINT ["/rails/bin/docker-env", "/rails/bin/docker-entrypoint"]
 
 # Start server via Thruster by default, this can be overwritten at runtime
 EXPOSE 80

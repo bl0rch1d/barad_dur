@@ -29,6 +29,8 @@ services:
       - "${PORT:-3000}:80"
     environment: &app_env
       RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?export RAILS_MASTER_KEY=$$(cat config/master.key)}
+      # the host folder actually mounted at /workspace, shown in the wizard
+      WORKSPACE_PATH: ${WORKSPACE_PATH:-./workspace}
       DB_HOST: db
       DB_USER: barad_dur
       DB_PASSWORD: ${DB_PASSWORD:-barad_dur}

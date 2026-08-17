@@ -1,0 +1,48 @@
+#!/bin/bash -e
+# Guarantee the app starts with a .env, and put it in the environment.
+#
+# Compose reads .env only to substitute ${...} inside the compose file — the
+# variables never reach the container that way. The env_file directive that
+# would inject them needs Compose 2.24+, so this does the job in the
+# container instead and works with any version.
+#
+# Seeds .env from .env.example on first run, then exports it and hands off.
+
+if [ ! -f .env ] && [ -f .env.example ]; then
+  if cp .env.example .env 2>/dev/null; then
+    echo "==> no .env found — seeded one from .env.example"
+  else
+    echo "==> no .env and could not create one; reading .env.example directly"
+  fi
+fi
+
+env_source=""
+if [ -f .env ]; then
+  env_source=".env"
+elif [ -f .env.example ]; then
+  env_source=".env.example"
+fi
+
+if [ -n "$env_source" ]; then
+  # Export each setting, but never overwrite one the container already has:
+  # compose's own `environment:` block (DB_HOST and friends) must win, or a
+  # stray line in .env could point the app at the wrong database.
+  loaded=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|\#*) continue ;; esac
+    key=${line%%=*}
+    case "$key" in *[!A-Za-z0-9_]*|'') continue ;; esac
+    if [ -z "$(eval "printf '%s' \"\${$key:-}\"")" ]; then
+      value=${line#*=}
+      value=${value%\"}; value=${value#\"}
+      value=${value%\'}; value=${value#\'}
+      export "$key=$value"
+      loaded=$((loaded + 1))
+    fi
+  done < "$env_source"
+  echo "==> loaded $loaded settings from $env_source"
+else
+  echo "==> no .env or .env.example found in $(pwd); using built-in defaults"
+fi
+
+exec "$@"

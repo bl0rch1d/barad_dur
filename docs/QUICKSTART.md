@@ -42,7 +42,9 @@ the container read-only, so the agents inherit your session. Nothing else to con
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Set it in the shell you start the app from, and choose "API key" in the wizard.
+Set it in the shell you start the app from — or put it in a `.env` file next to the
+compose file, which is tidier and survives new terminals (see
+[step 2](#2-point-it-at-your-projects)). Then choose "API key" in the wizard.
 
 > The container has its own copy of the agent CLI, so you don't strictly need it installed
 > locally for Option B — but you do for Option A, since that's where the login lives.
@@ -74,6 +76,27 @@ WORKSPACE_PATH=~/dev/my-project docker compose up
 Point it at a **parent folder** if you want the pipeline to work across several
 repositories at once. You choose which of them it may modify in the wizard; the rest stay
 readable but untouchable.
+
+If you leave `WORKSPACE_PATH` unset, the pipeline looks in the `workspace/` folder inside
+this repository — drop or symlink your projects there and plain `docker compose up` works.
+
+**Prefer not to retype it every time?** Copy the example file and edit it once:
+
+```bash
+cp .env.example .env      # then set WORKSPACE_PATH inside it
+docker compose up
+```
+
+Compose reads `.env` automatically, and it is gitignored — your paths and keys stay on
+your machine. Everything in the [settings table](#settings-you-might-want) below can live
+there, and an inline variable still wins over the file when you need a one-off.
+
+You don't have to create it yourself: on first start, if no `.env` exists, the container
+copies `.env.example` into place and uses that. Either way the app always starts from a
+`.env`, and everything in it is readable by the running app.
+
+Settings the compose file fixes itself — the database host, for instance — can't be
+overridden from `.env`, which is deliberate.
 
 > **Tip:** try it on a repository with a git history and some tests. The agents lean on
 > both, and you'll see much better results than on an empty project.
@@ -147,6 +170,14 @@ and edit it there (Compose reads `.env` automatically, and it is gitignored).
 | `CLAUDE_MODEL` | Override the orchestrating model | wizard choice |
 | `CLAUDE_MAX_TURNS` / `CLAUDE_TIMEOUT` | How long an agent may work on one stage | `40` / `900s` |
 | `GH_TOKEN` | Needed only for the optional "Push & PR" button | — |
+
+A typical `.env` is short. `.env.example` sets `WORKSPACE_PATH` and leaves the rest
+commented out, so you only uncomment what you actually need:
+
+```bash
+WORKSPACE_PATH=~/dev
+DISABLE_RELOADING=1
+```
 
 A daily **spend cap** (default `$80`) is set in the app itself, not here. Reaching it
 pauses the pipeline.

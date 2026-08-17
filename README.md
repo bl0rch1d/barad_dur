@@ -308,6 +308,11 @@ wizard re-detects immediately — and an **unselected** repo can never supply th
 
 ## 📜 Words of Command
 
+Speak them before `docker compose up`, or inscribe them once in a `.env` file. Both
+services read `.env` into their own environment on start, so anything written there
+reaches the running app — and if no `.env` exists, one is seeded from `.env.example`
+automatically. It is gitignored, so your paths and keys never leave your machine.
+
 | Rune | Effect | Default |
 |---|---|---|
 | `WORKSPACE_PATH` | Host folder mounted as the realm | `./workspace` |
