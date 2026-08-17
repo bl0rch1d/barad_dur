@@ -21,11 +21,26 @@ class DashboardController < ApplicationController
     @cycle = CycleStats.rows
     @median = CycleStats.median_label
     @done_count = Ticket.done.count
-    @spend_bars = SpendSample.bars
+    @spend_bars = SpendEntry.hourly_bars
     @stats = build_stats
+    @spend_stats = Rails.cache.fetch("spend_stats", expires_in: 30.seconds) { build_spend_stats }
   end
 
   private
+
+  # The reckoning panels. Cached briefly — the dashboard re-renders on every
+  # morph refresh and these are the only aggregate queries on the page.
+  def build_spend_stats
+    {
+      cost_per_ticket: SpendStats.cost_per_ticket,
+      first_pass: SpendStats.first_pass,
+      attention: SpendStats.attention,
+      by_phase: SpendStats.by_phase,
+      by_model: SpendStats.by_model,
+      by_source: SpendStats.by_source,
+      burn: SpendStats.burn
+    }
+  end
 
   # Prefer the ticket whose live run is actually streaming right now;
   # fall back to the most recently touched in-flight ticket.

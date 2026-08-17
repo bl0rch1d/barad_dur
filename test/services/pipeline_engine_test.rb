@@ -5,7 +5,7 @@ require "test_helper"
 # in live_runner_test with the stub CLI.
 class PipelineEngineTest < ActiveSupport::TestCase
   setup do
-    Setting.instance.update!(running: true, autonomy: "auto", spend_today: 0,
+    Setting.instance.update!(running: true, autonomy: "auto",
                              spend_cap: 80, setup_complete: true)
   end
 
@@ -97,7 +97,7 @@ class PipelineEngineTest < ActiveSupport::TestCase
   end
 
   test "spend cap quenches the pipeline" do
-    Setting.instance.update!(spend_today: 100)
+    SpendEntry.record!(100, source: "phase")
     assert_difference -> { Event.count }, +1 do
       PipelineEngine.tick!
     end

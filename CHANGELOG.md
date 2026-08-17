@@ -7,7 +7,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- Spend is a ledger rather than a running total. Three separate counters could
+  drift apart, none of them reset, and the daily cap was really a lifetime one.
+  Every charge is now a row, so "today" resets at midnight on its own and the
+  per-agent, per-ticket and global figures cannot disagree.
+- Money is kept to four decimal places. Rounding every charge to whole cents
+  lost sub-cent runs entirely and over-counted mid-priced ones by about 15%.
+- Charges are recorded with an insert rather than a read-modify-write, so runs
+  in the web and ticker processes can no longer lose each other's spend.
+- The hourly spend bars cover a contiguous run of hours. They previously drew
+  the last fourteen hours that happened to have rows, so idle hours vanished
+  and unrelated hours appeared side by side.
+- Feature-request and archive charges are attributed to their ticket and agent;
+  previously they were counted only in the global total.
+
+### Added
+
+- **The reckoning** on the dashboard: cost per shipped ticket, first-pass rate
+  with the cost of rework, and how much of the elapsed time was spent waiting on
+  a person rather than on an agent.
+- Spend broken down by pipeline stage, by model and by source, plus today's burn
+  projected to midnight against the cap.
+
+### Changed
+
+- Restarting while over the cap now overrides the cap for the rest of the day
+  instead of zeroing the spend counter; the ledger keeps its history.
 
 ## [1.0.0] — 2026-08-17
 
@@ -73,7 +100,7 @@ history starts here.
 - Docker Compose for development and a separate production profile
 - Runs without Node, Redis or a separate job server: import maps for JavaScript, and the
   queue, cache and cable all backed by PostgreSQL
-- Test suite of 71 runs covering the full agent path against a stub CLI, so tests never
+- Test suite of 84 runs covering the full agent path against a stub CLI, so tests never
   spend anything
 
 [Unreleased]: https://github.com/bl0rch1d/barad_dur/compare/v1.0.0...HEAD

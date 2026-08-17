@@ -2,6 +2,10 @@ class Agent < ApplicationRecord
   STATUSES = %w[idle running waiting].freeze
 
   has_many :tickets
+  has_many :spend_entries
+
+  # today's spend for this agent, straight from the ledger
+  def cost_today = spend_entries.today.sum(:amount)
 
   validates :name, :abbr, :role, :llm_model, presence: true
   validates :status, inclusion: { in: STATUSES }

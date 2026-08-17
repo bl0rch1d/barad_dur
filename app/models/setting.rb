@@ -29,8 +29,26 @@ class Setting < ApplicationRecord
     auth_mode == "subscription"
   end
 
+  # Derived from the ledger, so it is genuinely "today" and resets itself at
+  # midnight without anything having to remember to zero a counter.
+  def spend_today
+    SpendEntry.total_today
+  end
+
   def spend_pct
     return 0 if spend_cap.zero?
     ((spend_today / spend_cap) * 100).round
+  end
+
+  def over_cap?
+    return false if setup["cap_override_on"] == Date.current.to_s
+
+    spend_cap.positive? && spend_today >= spend_cap
+  end
+
+  # Restarting while over the cap is a decision to keep spending today. The
+  # ledger is history and stays intact; the override simply expires tonight.
+  def override_cap_for_today!
+    update!(setup: setup.merge("cap_override_on" => Date.current.to_s))
   end
 end

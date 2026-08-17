@@ -32,7 +32,7 @@ class ArchiveChangeJob < ApplicationJob
 
     if result.ok
       ticket.update!(artifacts: ticket.artifacts | ["change archived: #{change}"])
-      accrue(result)
+      accrue(result, ticket)
       Event.record!(phase_tag: "SPEC", tone: "var(--ok)", ticket: ticket, agent_name: "Shipper",
                     meta: "#{(result.duration_ms.to_i / 1000.0).round}s",
                     text: "Change #{change} archived into the permanent spec tree")
@@ -45,12 +45,10 @@ class ArchiveChangeJob < ApplicationJob
 
   private
 
-  def accrue(result)
+  def accrue(result, ticket)
     cost = result.cost.to_f.round(4)
     return unless cost.positive?
 
-    setting = Setting.instance
-    setting.update!(spend_today: (setting.spend_today + cost).round(2))
-    SpendSample.accrue!(cost)
+    SpendEntry.record!(cost, source: "archive", ticket: ticket, llm_model: HeadlessAgent.model_name)
   end
 end

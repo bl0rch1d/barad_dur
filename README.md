@@ -17,7 +17,7 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-71%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-84%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 [![License](https://img.shields.io/badge/license-MIT-ffb03a?labelColor=0a0705)](LICENSE)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Inside the Tower](#-inside-the-tower) • [Words of Command](#-words-of-command)
@@ -53,6 +53,7 @@ with you as the Lidless Eye atop it. Describe a feature in plain speech, and the
 
 Every agent is a real headless [Claude Code](https://claude.com/claude-code) session. Every diff is a real diff.
 Every dollar of **Tribute burned** is real spend, capped daily — the tower pauses itself before it beggars you.
+Every charge is a ledger row, so *cost per shipped ticket*, *cost by phase* and *cost by model* are facts rather than estimates.
 
 > *"It needs but one Eye to command a legion."* — the Setup Wizard, step 5 of 5, probably
 
@@ -116,7 +117,8 @@ replies render as proper markdown.</i></td>
 | **The Eye demands** | Your action center: clarifying questions, approval gates, failed runs to retry |
 | **The Legion** | The agent roster — auto-mapped from your repo's own `.claude/agents` harness |
 | **SUMMONS** | An approval gate. Nothing risky moves until you say so |
-| **Tribute burned** | Real API spend, hourly bars, hard daily cap |
+| **Tribute burned** | Real spend today, hourly bars, hard daily cap — every charge is a ledger row |
+| **The reckoning** | Unit economics: cost per shipped ticket, first-pass rate, and how much of the elapsed time waited on you |
 | **Unleashed / Wary / Chained** | Autonomy modes: full auto → gate risky things → gate everything |
 | **Quench / Kindle** | Pause / start. The forge answers to you alone |
 
@@ -344,7 +346,7 @@ via `GH_TOKEN`.
 
 ```bash
 docker compose exec web bin/rails test
-# 71 runs, 445 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 84 runs, 489 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 

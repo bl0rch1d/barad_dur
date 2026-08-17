@@ -6,9 +6,9 @@ class SettingsController < ApplicationController
   end
 
   def toggle_run
-    if !@setting.running? && @setting.spend_today >= @setting.spend_cap
-      @setting.update!(spend_today: 0)
-      Event.record!(phase_tag: "SYS", agent_name: "you", text: "Spend counter reset — new budget window")
+    if !@setting.running? && @setting.over_cap?
+      @setting.override_cap_for_today!
+      Event.record!(phase_tag: "SYS", agent_name: "you", text: "Spend cap overridden for today — the forge burns on")
     end
     @setting.update!(running: !@setting.running)
     Event.record!(phase_tag: "SYS", agent_name: "you",

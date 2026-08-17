@@ -172,11 +172,8 @@ class ClaudeCodeRunner
     cost = result["total_cost_usd"].to_f.round(4)
     return unless cost.positive?
 
-    setting = Setting.instance
-    setting.update!(spend_today: (setting.spend_today + cost).round(2))
-    SpendSample.accrue!(cost)
-    ticket.agent&.increment!(:cost_today, cost.round(2))
-    ticket.increment!(:cost, cost.round(2))
+    SpendEntry.record!(cost, source: "phase", phase: phase, ticket: ticket,
+                       agent: ticket.agent, llm_model: HeadlessAgent.model_name)
 
     usage = result["usage"] || {}
     tokens = usage.values_at("input_tokens", "output_tokens", "cache_read_input_tokens").compact.sum

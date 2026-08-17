@@ -211,4 +211,92 @@
       </div>
     </div>
   </div>
+
+  <!-- ── the reckoning: what the work costs and where it waits ─────── -->
+  <div class="dash-bottom">
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="k-label">The reckoning</span>
+        <span class="spacer"></span>
+        <span class="mono-meta">last 30 days</span>
+      </div>
+      <div class="cycle-body">
+        <% if (cpt = @spend_stats[:cost_per_ticket]) %>
+          <div class="reckon-row">
+            <span class="reckon-val">$<%= format("%.2f", cpt[:average]) %></span>
+            <span class="reckon-label">per shipped ticket<br>
+              <span class="mono-meta"><%= cpt[:tickets] %> shipped · $<%= format("%.2f", cpt[:total]) %> total</span></span>
+          </div>
+        <% end %>
+        <% if (fp = @spend_stats[:first_pass]) %>
+          <div class="reckon-row">
+            <span class="reckon-val" style="color:<%= fp[:rate] >= 70 ? "var(--ok)" : "var(--warn)" %>"><%= fp[:rate] %>%</span>
+            <span class="reckon-label">first-pass rate<br>
+              <span class="mono-meta"><%= fp[:clean] %> of <%= fp[:total] %> shipped without rework<%=
+                " · $#{format('%.2f', fp[:rework_cost])} spent redoing work" if fp[:rework_cost].to_f.positive? %></span></span>
+          </div>
+        <% end %>
+        <% if (att = @spend_stats[:attention]) %>
+          <div class="reckon-row">
+            <span class="reckon-val" style="color:<%= att[:share] > 50 ? "var(--warn)" : "var(--tx)" %>"><%= att[:share] %>%</span>
+            <span class="reckon-label">of elapsed time waiting on you<br>
+              <span class="mono-meta"><%= duration_label(att[:waiting]) %> waiting · <%= duration_label(att[:working]) %> of agent work</span></span>
+          </div>
+        <% end %>
+        <% if @spend_stats.values_at(:cost_per_ticket, :first_pass, :attention).all?(&:nil?) %>
+          <div class="commit-row"><span class="mono-meta">nothing shipped yet — these appear once tickets complete</span></div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd"><span class="k-label">Tribute by phase</span></div>
+      <div class="cycle-body">
+        <% if @spend_stats[:by_phase].any? %>
+          <% @spend_stats[:by_phase].each do |row| %>
+            <div class="cycle-row">
+              <span class="cycle-name"><%= row[:label] %></span>
+              <span class="cycle-track"><span style="width:<%= row[:bar] %>%;background:var(--accent)"></span></span>
+              <span class="cycle-val">$<%= format("%.2f", row[:amount]) %></span>
+            </div>
+          <% end %>
+        <% else %>
+          <div class="commit-row"><span class="mono-meta">no phase spend yet</span></div>
+        <% end %>
+        <% if @spend_stats[:by_model].any? %>
+          <div class="cycle-foot">
+            <% @spend_stats[:by_model].each do |row| %>
+              <%= Setting::ORCHESTRATOR_MODELS[row[:label]] || row[:label] %>
+              <span class="val">$<%= format("%.2f", row[:amount]) %></span><%= " · " unless row == @spend_stats[:by_model].last %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd"><span class="k-label">Today's burn</span></div>
+      <div class="cycle-body">
+        <% burn = @spend_stats[:burn] %>
+        <div class="reckon-row">
+          <span class="reckon-val">$<%= format("%.2f", burn[:spent]) %></span>
+          <span class="reckon-label">spent today<br>
+            <span class="mono-meta">cap $<%= format("%.0f", burn[:cap]) %> · <%= @setting.spend_pct %>% used</span></span>
+        </div>
+        <div class="reckon-row">
+          <span class="reckon-val" style="color:<%= burn[:over_cap] ? "var(--warn)" : "var(--tx3)" %>">
+            $<%= format("%.2f", burn[:projected]) %></span>
+          <span class="reckon-label">projected by midnight<br>
+            <span class="mono-meta"><%= burn[:over_cap] ? "at this rate the cap quenches the forge today" : "at the current rate" %></span></span>
+        </div>
+        <% if @spend_stats[:by_source].any? %>
+          <div class="cycle-foot">
+            <% @spend_stats[:by_source].each do |row| %>
+              <%= row[:label] %> <span class="val"><%= row[:pct] %>%</span><%= " · " unless row == @spend_stats[:by_source].last %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
 </div>

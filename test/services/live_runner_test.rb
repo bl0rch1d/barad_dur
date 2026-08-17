@@ -36,7 +36,7 @@ class LiveRunnerTest < ActiveSupport::TestCase
     ENV["CLAUDE_BIN"] = Rails.root.join("test/fixtures/files/fake_claude").to_s
     ENV["PIPELINE_RUNNER"] = "auto"
     Workspace.refresh!
-    Setting.instance.update!(running: true, autonomy: "auto", spend_today: 0, spend_cap: 80)
+    Setting.instance.update!(running: true, autonomy: "auto", spend_cap: 80)
   end
 
   teardown do

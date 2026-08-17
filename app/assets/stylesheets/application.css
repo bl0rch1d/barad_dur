@@ -386,6 +386,12 @@ a.btn-accent, a.btn-accent:hover, .btn-accent:hover { color:var(--bg) }
 .side-event-hd { display:flex; gap:8px; align-items:baseline }
 .side-event-text { font-size:12px; line-height:1.45; color:var(--tx2) }
 
+/* reckoning rows: one big figure, one explanation */
+.reckon-row { display:flex; align-items:center; gap:13px; padding:11px 14px; border-bottom:1px solid var(--soft) }
+.reckon-row:last-child { border-bottom:0 }
+.reckon-val { font-family:var(--mono); font-size:19px; font-weight:600; font-variant-numeric:tabular-nums; min-width:84px; text-align:right }
+.reckon-label { font-size:12px; line-height:1.5; color:var(--tx2) }
+
 /* ── drawer ────────────────────────────────────────────── */
 .overlay { position:fixed; inset:0; background:rgba(0,0,0,.42); display:flex; justify-content:flex-end; z-index:40 }
 .overlay-dismiss { flex:1 }

@@ -9,7 +9,7 @@ class ApplicationController < ActionController::Base
     @setting = Setting.instance
     @board_count = Ticket.on_board.count
     @agents_running = Agent.where(status: "running").count
-    @spend_bars = SpendSample.bars
+    @spend_bars = SpendEntry.hourly_bars
     @attention_count = attention_count
 
     if params[:ticket].present?

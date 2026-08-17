@@ -11,12 +11,17 @@ class HeadlessAgent
                       :log, :exit_status, :session_id, :raw, keyword_init: true)
 
   class << self
+    # the model these runs actually use, recorded against each charge
+    def model_name
+      ENV["CLAUDE_MODEL"].presence || Setting.instance.orchestrator_model
+    end
+
     def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, extra_args: [], &on_message)
       bin = ClaudeCodeRunner.bin_path
       return Result.new(ok: false, error: "claude CLI not found", log: "") unless bin
 
       flags = (ENV["CLAUDE_FLAGS"].presence || ClaudeCodeRunner::DEFAULT_FLAGS).shellsplit
-      model = ENV["CLAUDE_MODEL"].presence || Setting.instance.orchestrator_model
+      model = model_name
       command = [bin, "-p", prompt, "--output-format", "stream-json", "--verbose",
                  "--model", model,
                  "--max-turns", (max_turns || ENV.fetch("CLAUDE_MAX_TURNS", "40")).to_s,

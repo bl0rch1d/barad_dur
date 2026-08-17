@@ -34,7 +34,7 @@ class ChatReplyJob < ApplicationJob
       body = result.result_text.to_s.strip.presence || "(no reply)"
       ChatMessage.create!(room: room, sender: "architect",
                           body: body.truncate(4000), sent_at: Time.current)
-      accrue(result, architect)
+      accrue(result, architect, room)
     else
       ChatMessage.create!(room: room, sender: "architect", sent_at: Time.current,
                           body: "⚠ I couldn't reply: #{result.error.to_s.truncate(200)}")
@@ -63,13 +63,11 @@ class ChatReplyJob < ApplicationJob
     "#{intro}\n\nOperator: #{message.body}"
   end
 
-  def accrue(result, architect)
+  def accrue(result, architect, room)
     cost = result.cost.to_f.round(4)
     return unless cost.positive?
 
-    setting = Setting.instance
-    setting.update!(spend_today: (setting.spend_today + cost).round(2))
-    SpendSample.accrue!(cost)
-    architect&.increment!(:cost_today, cost.round(2))
+    SpendEntry.record!(cost, source: "chat", agent: architect,
+                       ticket: Ticket.find_by(code: room), llm_model: HeadlessAgent.model_name)
   end
 end

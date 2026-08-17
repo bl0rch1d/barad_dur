@@ -35,12 +35,21 @@ class ScreensTest < ActionDispatch::IntegrationTest
     assert_equal "every", Setting.instance.autonomy
   end
 
-  test "run toggle flips running and restarting over cap resets spend" do
-    Setting.instance.update!(running: false, spend_today: 100, spend_cap: 80)
+  test "restarting over the cap overrides it for today without erasing the ledger" do
+    Setting.instance.update!(running: false, spend_cap: 80)
+    SpendEntry.record!(100, source: "phase")
+    assert Setting.instance.over_cap?
+
     post settings_toggle_run_path
+
     setting = Setting.instance
     assert setting.running?
-    assert_equal 0, setting.spend_today
+    assert_equal 100, setting.spend_today, "spend history is kept, not zeroed"
+    refute setting.over_cap?, "the cap is overridden for today so work can resume"
+
+    # the override is scoped to today — tomorrow the cap applies again
+    setting.update!(setup: setting.setup.merge("cap_override_on" => Date.current.yesterday.to_s))
+    assert Setting.instance.over_cap?
   end
 
   test "sending a chat message enqueues the architect reply" do

@@ -31,7 +31,7 @@ class AgentRoster
           abbr: harness_name ? abbr_for(harness_name) : default[:abbr],
           role: phase, llm_model: model_label, position: position,
           tools: harness_name ? ["#{harness.repo} · .claude/agents"] : default[:tools],
-          status: "idle", cost_today: 0, doing: "idle — waiting for work"
+          status: "idle", doing: "idle — waiting for work"
         }
       end
 

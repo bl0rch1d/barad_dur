@@ -10,13 +10,12 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_18_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_18_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "agents", force: :cascade do |t|
     t.string "abbr", null: false
-    t.decimal "cost_today", precision: 8, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.string "doing"
     t.string "llm_model", null: false
@@ -150,8 +149,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_18_000001) do
     t.boolean "running", default: true, null: false
     t.jsonb "setup", default: {}, null: false
     t.boolean "setup_complete", default: false, null: false
-    t.decimal "spend_cap", precision: 8, scale: 2, default: "80.0", null: false
-    t.decimal "spend_today", precision: 8, scale: 2, default: "0.0", null: false
+    t.decimal "spend_cap", precision: 10, scale: 2, default: "80.0", null: false
     t.datetime "updated_at", null: false
   end
 
@@ -189,12 +187,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_18_000001) do
     t.index ["spec_requirement_id"], name: "index_spec_scenarios_on_spec_requirement_id"
   end
 
-  create_table "spend_samples", force: :cascade do |t|
-    t.decimal "amount", precision: 8, scale: 2, default: "0.0", null: false
-    t.datetime "bucket", null: false
+  create_table "spend_entries", force: :cascade do |t|
+    t.bigint "agent_id"
+    t.decimal "amount", precision: 10, scale: 4, default: "0.0", null: false
     t.datetime "created_at", null: false
+    t.string "llm_model"
+    t.datetime "occurred_at", null: false
+    t.string "phase"
+    t.string "source", null: false
+    t.string "ticket_code"
     t.datetime "updated_at", null: false
-    t.index ["bucket"], name: "index_spend_samples_on_bucket", unique: true
+    t.index ["occurred_at"], name: "index_spend_entries_on_occurred_at"
+    t.index ["source", "occurred_at"], name: "index_spend_entries_on_source_and_occurred_at"
+    t.index ["ticket_code"], name: "index_spend_entries_on_ticket_code"
   end
 
   create_table "tickets", force: :cascade do |t|
@@ -202,7 +207,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_18_000001) do
     t.bigint "agent_id"
     t.jsonb "artifacts", default: [], null: false
     t.string "code", null: false
-    t.decimal "cost", precision: 8, scale: 2, default: "0.0", null: false
+    t.decimal "cost", precision: 10, scale: 4, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.jsonb "dep_codes", default: [], null: false
     t.text "description"

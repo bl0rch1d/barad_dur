@@ -48,10 +48,9 @@ class RfcAgentJob < ApplicationJob
     cost = result.cost.to_f.round(4)
     return unless cost.positive?
 
-    setting = Setting.instance
-    setting.update!(spend_today: (setting.spend_today + cost).round(2))
-    SpendSample.accrue!(cost)
-    Agent.for_phase(agent_name == "Scout" ? "investigation" : "planning")&.increment!(:cost_today, cost.round(2))
+    phase = agent_name == "Scout" ? "investigation" : "planning"
+    SpendEntry.record!(cost, source: "rfc", phase: phase,
+                       agent: Agent.for_phase(phase), llm_model: HeadlessAgent.model_name)
   end
 
   def run_meta(result)

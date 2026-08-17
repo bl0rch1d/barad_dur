@@ -26,6 +26,16 @@ module ApplicationHelper
     format("%dh %02dm", mins / 60, mins % 60)
   end
 
+  # compact duration for the reckoning panel: 45s · 12m · 3.5h · 2.1d
+  def duration_label(seconds)
+    s = seconds.to_i
+    return "#{s}s" if s < 60
+    return "#{(s / 60.0).round}m" if s < 3600
+    return "#{(s / 3600.0).round(1)}h" if s < 86_400
+
+    "#{(s / 86_400.0).round(1)}d"
+  end
+
   def ago_label(time)
     secs = Time.current - time
     if secs < 3600 then "#{[ (secs / 60).round, 1 ].max}m"

@@ -14,7 +14,7 @@ class PipelineEngine
       changed = sweep_stale_runs!.positive?
       return broadcast_if(changed) unless setting.running?
 
-      if setting.spend_today >= setting.spend_cap
+      if setting.over_cap?
         pause_for_cap!(setting)
         return
       end

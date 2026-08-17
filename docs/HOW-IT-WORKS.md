@@ -286,6 +286,15 @@ The complete feature list, by screen.
 - Counters: work in flight, items blocked on you, average time from idea to shipped
 - Today's spend, with an hourly chart and the cap
 - Recent agent runs with status, duration, cost, and test results
+- **The reckoning** — what the pipeline actually costs you:
+  - **Cost per shipped ticket** — the unit economics, over the last 30 days
+  - **First-pass rate** — how much work shipped without being sent back, and what
+    the rework cost
+  - **Time waiting on you** — how much of the elapsed time was a human deciding
+    rather than an agent working. If this is high, you are the bottleneck.
+  - **Cost by stage and by model** — which stage burns money, and what each model
+    costs you in practice
+  - **Today's burn** — spent so far, and where it lands by midnight at this rate
 - Recent commits across your projects, plus a changelog of shipped work
 - Time spent per stage, so you can see where things get stuck
 
@@ -400,7 +409,8 @@ The interface uses themed names. Here's the translation:
 | **The Cold Watch** | The live feed of everything happening |
 | **The Eye demands** | Your to-do list: questions, approvals, failures |
 | **The Legion** | Your agents |
-| **Tribute burned** | Money spent today |
+| **Tribute burned** | Money spent today (resets at midnight) |
+| **The reckoning** | What the work costs: per shipped ticket, per stage, per model |
 | **SUMMONS** | A request for your approval |
 | **Unleashed / Wary / Chained** | Full autonomy / stop for risky work / stop for everything |
 | **Quench / Kindle** | Stop / start |
