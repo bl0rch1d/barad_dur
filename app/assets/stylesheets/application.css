@@ -397,6 +397,10 @@ a.btn-accent, a.btn-accent:hover, .btn-accent:hover { color:var(--bg) }
 .drawer-title { font-size:16px; font-weight:600; line-height:1.35 }
 .drawer-meta { display:flex; gap:14px; font-family:var(--mono); font-size:10.5px; color:var(--tx3); flex-wrap:wrap }
 .drawer-body { flex:1; overflow-y:auto; padding:16px 18px 24px; display:flex; flex-direction:column; gap:14px }
+/* panels are overflow:hidden, so letting them shrink in this scrolling
+   column silently crops their content — anything holding a scroll box
+   (code block, wide table) can otherwise collapse to nothing */
+.drawer-body > *, .screen > * { flex-shrink:0 }
 .phase-list { display:flex; flex-direction:column; gap:8px }
 .phase-row { border:1px solid var(--line); background:var(--panel); border-radius:5px; padding:10px 12px; display:flex; align-items:center; gap:11px }
 .phase-row.active { border-color:var(--accent); background:var(--accent-soft) }
