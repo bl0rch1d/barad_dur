@@ -26,14 +26,58 @@ class Harness
   }.freeze
 
   class << self
-    # Only selected repos can provide the harness — an unchecked repo's
-    # commands must not drive the pipeline. Selection is part of the memo key:
-    # toggling a repo in the wizard doesn't refresh! the workspace cache.
+    # A directory picked in the wizard wins; otherwise the first selected repo
+    # that has one. Auto-detection stays restricted to selected repos — an
+    # unchecked repo must not drive the pipeline by accident — but an explicit
+    # choice may point anywhere in the mount, since that is consent.
+    # Both the selection and the choice are in the memo key, so switching in
+    # the wizard takes effect immediately.
     def detect(setting = Setting.instance)
       repos = Workspace.selected_repos(setting)
-      Workspace.memo("harness:#{Workspace.root(setting)}:#{repos.map { |r| r[:name] }.join(',')}") do
-        repos.filter_map { |repo| scan(repo) }.first
+      chosen = setting.setup["harness_dir"].to_s
+      key = "harness:#{Workspace.root(setting)}:#{chosen}:#{repos.map { |r| r[:name] }.join(',')}"
+
+      Workspace.memo(key) do
+        (chosen.present? && scan_path(chosen, setting)) ||
+          repos.filter_map { |repo| scan(repo) }.first
       end
+    end
+
+    # Every directory in the mount that carries a harness: the workspace root
+    # itself and each folder one level down. Used by the wizard to offer a
+    # choice rather than only announcing what was found first.
+    def available(setting = Setting.instance)
+      root = Workspace.root(setting)
+      return [] unless root.directory?
+
+      selected = Workspace.selected_repos(setting).map { |r| r[:name] }
+      Workspace.memo("harness-choices:#{root}", ttl: 120, allow_empty: true) do
+        # the root, each repo, and each repo's immediate sub-projects — enough
+        # to reach a monorepo package without walking the whole tree
+        tops = root.children.select { |c| interesting?(c) }.sort
+        dirs = [root] + tops + tops.flat_map { |top| top.children.select { |c| interesting?(c) }.sort }
+        dirs.first(200).filter_map do |dir|
+          info = scan({ name: dir.basename.to_s, path: dir.to_s })
+          next unless info
+
+          rel = dir == root ? "." : dir.relative_path_from(root).to_s
+          { name: info.repo, rel: rel, commands: info.commands.size,
+            skills: info.skills.size, agents: info.agents.size,
+            selected: selected.include?(info.repo) }
+        end
+      rescue Errno::EACCES, Errno::ENOENT
+        []
+      end
+    end
+
+    # Resolves a wizard-chosen directory, relative to the workspace root.
+    # Never escapes the mount.
+    def scan_path(rel, setting = Setting.instance)
+      root = Workspace.root(setting)
+      dir = rel == "." ? root : (root + rel).cleanpath
+      return nil unless dir.to_s.start_with?(root.to_s) && dir.directory?
+
+      scan({ name: dir.basename.to_s, path: dir.to_s })
     end
 
     def active?(setting = Setting.instance)
@@ -72,7 +116,14 @@ class Harness
       info.commands.include?(name) || info.skills.include?(name)
     end
 
-    private
+    SKIP_DIRS = %w[node_modules vendor tmp log .git dist build target coverage].freeze
+
+    def interesting?(dir)
+      name = dir.basename.to_s
+      dir.directory? && !name.start_with?(".") && !SKIP_DIRS.include?(name)
+    rescue Errno::EACCES, Errno::ENOENT
+      false
+    end
 
     def scan(repo)
       base = Pathname.new(repo[:path]).join(".claude")

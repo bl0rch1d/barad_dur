@@ -35,8 +35,8 @@ class Workspace
 
     # Public memoization hook for services scanning the workspace (Harness…),
     # sharing the same single-flight cache and refresh! lifecycle.
-    def memo(key, ttl: CACHE_TTL, &block)
-      cached(key, ttl: ttl, &block)
+    def memo(key, ttl: CACHE_TTL, allow_empty: false, &block)
+      cached(key, ttl: ttl, allow_empty: allow_empty, &block)
     end
     def mount_root
       Pathname.new(ENV.fetch("WORKSPACE_ROOT", "/workspace"))

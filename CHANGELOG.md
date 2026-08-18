@@ -50,6 +50,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   real ticket died mid-task at turn 41, having spent its money for nothing.
 - Clarifying questions can be answered from the ticket drawer, not only the
   dashboard.
+- The framework step lists every harness in the workspace — each repo, their
+  immediate sub-projects and the workspace root — and lets you choose which
+  one drives the phases instead of always taking the first one found. A
+  deliberate choice may sit outside the selected repos, where auto-detection
+  still may not; an invalid or since-removed path falls back to auto, and a
+  path pointing outside the workspace is refused.
 - The live event feed has a maximum height and scrolls within it instead of
   pushing the rest of the dashboard down the page.
 - The phase strip on a board card animates: the executing phase sweeps, a

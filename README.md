@@ -17,7 +17,7 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-89%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-95%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 [![License](https://img.shields.io/badge/license-MIT-ffb03a?labelColor=0a0705)](LICENSE)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Inside the Tower](#-inside-the-tower) • [Words of Command](#-words-of-command)
@@ -153,7 +153,9 @@ Walk the Setup Wizard (five steps, one tower):
 1. **Folder** — browse the mount, pick monorepo or multi-repo, check what the pipeline may own
 2. **Auth** — subscription or key, plus the orchestrator model (Opus 5 rules them all by default)
 3. **Framework** — your own agentic harness is auto-detected: commands in `.claude/commands`
-   map onto phases (`/opsx:explore` → investigation, `/opsx:propose` → planning, `/opsx:apply` → implementation, `/review` → review)
+   map onto phases (`/opsx:explore` → investigation, `/opsx:propose` → planning, `/opsx:apply` → implementation, `/review` → review).
+   Carrying more than one? Pick which directory rules them — any repo, a monorepo package,
+   or the workspace root
 4. **Parse** — your `openspec/` specs are indexed with a progress bar that does not lie
 5. **Autonomy** — pick your leash (*Unleashed*, *Wary*, or *Chained*) and **start the watch**
 
@@ -346,7 +348,7 @@ via `GH_TOKEN`.
 
 ```bash
 docker compose exec web bin/rails test
-# 89 runs, 506 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 95 runs, 524 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 
