@@ -7,6 +7,30 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.1.0] — 2026-08-18
+
+The first release driven by running the pipeline on real work. Most of it
+comes from what that surfaced: every ticket failing for reasons the app
+would not explain, and a money panel that was quietly wrong.
+
+### Added
+
+- **The reckoning** on the dashboard: cost per shipped ticket, first-pass rate
+  with the cost of rework, and how much of the elapsed time was spent waiting on
+  a person rather than on an agent.
+- Spend broken down by pipeline stage, by model and by source, plus today's burn
+  projected to midnight against the cap.
+- The framework step lists every harness in the workspace — each repo, their
+  immediate sub-projects and the workspace root — and lets you choose which one
+  drives the phases instead of always taking the first one found. A deliberate
+  choice may sit outside the selected repos, where auto-detection still may not;
+  an invalid or since-removed path falls back to auto, and a path pointing
+  outside the workspace is refused.
+- Clarifying questions can be answered from the ticket drawer, not only the
+  dashboard.
+
 ### Fixed
 
 - Spend is a ledger rather than a running total. Three separate counters could
@@ -17,45 +41,30 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lost sub-cent runs entirely and over-counted mid-priced ones by about 15%.
 - Charges are recorded with an insert rather than a read-modify-write, so runs
   in the web and ticker processes can no longer lose each other's spend.
-- The hourly spend bars cover a contiguous run of hours. They previously drew
-  the last fourteen hours that happened to have rows, so idle hours vanished
-  and unrelated hours appeared side by side.
-- Feature-request and archive charges are attributed to their ticket and agent;
-  previously they were counted only in the global total.
-
-### Added
-
-- **The reckoning** on the dashboard: cost per shipped ticket, first-pass rate
-  with the cost of rework, and how much of the elapsed time was spent waiting on
-  a person rather than on an agent.
-- Spend broken down by pipeline stage, by model and by source, plus today's burn
-  projected to midnight against the cap.
-
 - Runs that failed recorded $0 no matter what they had spent, because cost was
   only read on the success path. Failures are charged now, and a migration
   recovers what earlier ones cost from their own captured output.
 - A failed run said what the agent happened to be saying when it stopped
-  ("Now the design.md corrections:") rather than why it stopped. It now
-  reports the real cause — turns exhausted, terminated, or denied commands —
-  with what to change.
+  ("Now the design.md corrections:") rather than why it stopped. It now reports
+  the real cause — turns exhausted, terminated, or denied commands — with what
+  to change.
+- The hourly spend bars cover a contiguous run of hours. They previously drew
+  the last fourteen hours that happened to have rows, so idle hours vanished and
+  unrelated hours appeared side by side.
+- Feature-request and archive charges are attributed to their ticket and agent;
+  previously they were counted only in the global total.
+- A workspace with no harness is cached as such instead of being rescanned on
+  every render.
 
 ### Changed
 
-- Restarting while over the cap now overrides the cap for the rest of the day
-  instead of zeroing the spend counter; the ledger keeps its history.
 - Agent runs allow shell commands in the selected repositories. `acceptEdits`
   denied every Bash call, so the testing stage could never run a suite and
   implementation runs burned their turns retrying denied commands.
 - Turn and time limits raised to 120 turns and 45 minutes. At 40 turns every
   real ticket died mid-task at turn 41, having spent its money for nothing.
-- Clarifying questions can be answered from the ticket drawer, not only the
-  dashboard.
-- The framework step lists every harness in the workspace — each repo, their
-  immediate sub-projects and the workspace root — and lets you choose which
-  one drives the phases instead of always taking the first one found. A
-  deliberate choice may sit outside the selected repos, where auto-detection
-  still may not; an invalid or since-removed path falls back to auto, and a
-  path pointing outside the workspace is refused.
+- Restarting while over the cap now overrides the cap for the rest of the day
+  instead of zeroing the spend counter; the ledger keeps its history.
 - The live event feed has a maximum height and scrolls within it instead of
   pushing the rest of the dashboard down the page.
 - The phase strip on a board card animates: the executing phase sweeps, a
@@ -128,5 +137,6 @@ history starts here.
 - Test suite of 84 runs covering the full agent path against a stub CLI, so tests never
   spend anything
 
-[Unreleased]: https://github.com/bl0rch1d/barad_dur/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/bl0rch1d/barad_dur/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/bl0rch1d/barad_dur/releases/tag/v1.1.0
 [1.0.0]: https://github.com/bl0rch1d/barad_dur/releases/tag/v1.0.0
