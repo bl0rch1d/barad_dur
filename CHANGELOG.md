@@ -133,6 +133,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The pull request body now carries its own verification story — what ran, what
   passed, what could not run and why, and any weakening — since whoever reviews
   it on GitHub cannot see the tower.
+- The stale-run sweeper uses each phase's own time limit. Per-phase budgets
+  gave review 5400s while the sweeper still killed anything quiet for 2820s,
+  so a long review was marked dead while it was still working — the same class
+  of bug as the earlier 900s-vs-2700s mismatch, in the other direction.
+- **A Ruby project's `bundle exec` no longer resolves against this app's
+  bundle.** `BUNDLE_PATH`, `BUNDLE_DEPLOYMENT`, `RUBYOPT` and the rest are set
+  in the image and inherited by every child process, so an agent running
+  `bundle exec rspec` in your repo was pointed at barad-dûr's own production,
+  deployment-mode gems.
+- The pipeline's own `.pipe/` record is excluded from the diff preview. It is
+  committed with the work, so it was the first thing the drawer's forty lines
+  showed.
 - **Pause now pauses, and the daily cap now caps.** Both stopped the tower
   picking up new work while letting every ticket already in flight run all its
   remaining phases — the opposite of what either control is for. A ticket that

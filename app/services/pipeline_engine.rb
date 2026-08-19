@@ -118,14 +118,17 @@ class PipelineEngine
     # would freeze their ticket forever. A healthy run touches its record
     # continuously while streaming; one silent past the CLI timeout is dead.
     def sweep_stale_runs!
-      # Must use the same default the runner does, or a phase the agent is
-      # still legitimately working on gets swept as dead: the runner allows
-      # DEFAULT_TIMEOUT, and a 900s fallback here marked it failed long before.
-      limit = Float(ENV.fetch("CLAUDE_TIMEOUT", HeadlessAgent::DEFAULT_TIMEOUT))
-      cutoff = (limit + 120).seconds.ago
+      # Must use the same limit the runner gave THIS phase. A single global
+      # cutoff was already wrong once (a 900s fallback against a 2700s runner);
+      # per-phase budgets broke it again in the other direction, since review
+      # is allowed 5400s and would be swept as dead at 2820s while still
+      # legitimately working. Query on the longest budget, then check each run
+      # against its own.
       swept = 0
       PhaseRun.where(runner: "claude", status: "running")
-              .where(updated_at: ...cutoff).find_each do |run|
+              .where(updated_at: ...(shortest_budget + 120).seconds.ago).find_each do |run|
+        next if run.updated_at > (budget_for_run(run) + 120).seconds.ago
+
         run.update!(status: "failed", finished_at: Time.current)
         Event.record!(phase_tag: "SYS", tone: "var(--err)", ticket: run.ticket,
                       meta: run.phase,
@@ -133,6 +136,20 @@ class PipelineEngine
         swept += 1
       end
       swept
+    end
+
+    def budget_for_run(run)
+      PhasePrompts.budget_for(run.phase)[:timeout].to_f.nonzero? ||
+        Float(ENV.fetch("CLAUDE_TIMEOUT", HeadlessAgent::DEFAULT_TIMEOUT))
+    end
+
+    # The coarse query has to be the SHORTEST any run could be allowed, or a
+    # phase with a small budget never becomes a candidate and its dead run
+    # freezes the ticket forever. Each candidate is then checked against its
+    # own limit, which is where the long phases are protected.
+    def shortest_budget
+      ([Float(ENV.fetch("CLAUDE_TIMEOUT", HeadlessAgent::DEFAULT_TIMEOUT))] +
+        PhasePrompts::BUDGETS.values.map { |b| b[:timeout].to_f }).min
     end
 
     private

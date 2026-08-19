@@ -157,12 +157,17 @@ class ClaudeCodeRunner
 
   # Only the credential matching the chosen auth mode reaches the CLI, so
   # subscription runs never silently bill the API key and vice versa.
+  # This app's own bundle config is set as ENV in the image and is inherited by
+  # every child process, so `bundle exec` inside a Ruby target repo would
+  # resolve against barad-dûr's production, deployment-mode bundle instead of
+  # its own — which fails, or worse, quietly succeeds against the wrong gems.
+  BUNDLE_ENV = %w[BUNDLE_DEPLOYMENT BUNDLE_PATH BUNDLE_WITHOUT BUNDLE_GEMFILE
+                  BUNDLE_APP_CONFIG RUBYOPT RAILS_ENV].freeze
+
   def child_env
-    if Setting.instance.subscription_auth?
-      { "ANTHROPIC_API_KEY" => nil }
-    else
-      { "CLAUDE_CODE_OAUTH_TOKEN" => nil }
-    end
+    env = BUNDLE_ENV.index_with(nil)
+    env[Setting.instance.subscription_auth? ? "ANTHROPIC_API_KEY" : "CLAUDE_CODE_OAUTH_TOKEN"] = nil
+    env
   end
 
   def tag
@@ -280,8 +285,11 @@ class ClaudeCodeRunner
     base = GitRepo.base_branch(repo) || "HEAD~1"
     # Three dots is already merge-base relative: the diff shows what this
     # branch added, not what the base branch moved on to.
-    out, ok = git(repo, "diff", "#{base}...HEAD", "--unified=1")
-    out, ok = git(repo, "diff", "HEAD~1", "--unified=1") unless ok && out.present?
+    # The record and the brief live in .pipe/ and are committed with the work;
+    # left in, they are the first thing the forty-line preview shows.
+    scope = ["--", ".", ":(exclude).pipe/"]
+    out, ok = git(repo, "diff", "#{base}...HEAD", "--unified=1", *scope)
+    out, ok = git(repo, "diff", "HEAD~1", "--unified=1", *scope) unless ok && out.present?
     lines = ok ? out.lines : []
 
     rendered = lines.first(DIFF_LINES).map { |raw| diff_line(raw.chomp) }
