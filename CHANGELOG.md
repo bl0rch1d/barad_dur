@@ -88,6 +88,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves HEAD on the base branch — silently discarded every implementation
   commit. It is also prepared for review, testing and deployment, not only
   implementation.
+- **Pause now pauses, and the daily cap now caps.** Both stopped the tower
+  picking up new work while letting every ticket already in flight run all its
+  remaining phases — the opposite of what either control is for. A ticket that
+  reaches its next phase while the tower is stopped is held there, says which
+  of the two held it, and is picked up when the tower runs again.
+- **Planning marks a ticket risky.** The `risky` autonomy mode asks you before
+  an agent writes code on a dangerous change, and it reads a flag only a human
+  checkbox ever set — so it did nothing for the tickets that most needed it.
+  Planning has read the code by then, so it now says whether the change touches
+  a schema, authentication, money, data deletion or a public API, and why. It
+  can only escalate: a ticket you marked risky stays risky.
 - **Every ticket was inheriting the previous ticket's commits.** The work branch
   was cut from wherever HEAD happened to sit, and the last ticket leaves the
   repo on its own `pipe/*` branch. Branches are now cut from the base branch.

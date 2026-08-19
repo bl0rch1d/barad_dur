@@ -243,6 +243,14 @@ only that agent changes. A cheaper model is usually fine for mechanical stages
 and a stronger one earns its cost on planning and review, but the useful default
 is to leave them all following the realm until you have a reason not to.
 
+### Stopping it
+
+Pressing pause, or hitting the daily spend cap, stops the tower — including the
+tickets already part-way through. A ticket that reaches its next stage while the
+tower is stopped waits there, and the ticket says which of the two is holding it.
+Nothing is lost and nothing is spent; starting the tower again picks each held
+ticket up where it stopped.
+
 ### Why the Critic does not fix what it finds
 
 It would be faster to let the reviewer patch the problems it spots. It is also

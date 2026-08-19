@@ -19,6 +19,7 @@ class PipelineEngine
         return
       end
 
+      changed |= resume_paused_runs!.positive?
       in_flight = Ticket.in_flight.count
       changed |= pull_implementation_work(in_flight, setting)
       changed |= pull_ready_work(in_flight, setting)
@@ -185,16 +186,56 @@ class PipelineEngine
                       meta: ticket.dep_codes.any? ? "deps: #{ticket.dep_codes.join(', ')}" : nil,
                       text: "#{ticket.code} groomed — ready to implement")
       else
+        # A stopped tower has to stop spending, including on a ticket already
+        # part-way through. Pause and the daily cap both left in-flight work
+        # running every remaining phase, which is the opposite of both.
+        setting = Setting.instance
+        paused = !setting.running?
+
         ticket.transaction do
           ticket.update!(state: next_state)
-          ticket.phase_runs.create!(phase: next_state, status: "running", runner: "claude",
-                                    note: "starting claude code run…", started_at: Time.current)
+          ticket.phase_runs.create!(phase: next_state, status: paused ? "paused" : "running",
+                                    runner: "claude", started_at: Time.current,
+                                    note: paused ? pause_note(setting) : "starting claude code run…")
         end
+
+        if paused
+          ticket.agent&.update!(status: "idle", doing: "Last: #{ticket.code} held at #{next_state}")
+          Event.record!(phase_tag: PipelineText::TAGS[next_state], tone: "var(--warn)",
+                        ticket: ticket, agent: ticket.agent, meta: "held",
+                        text: "#{ticket.code} reached #{next_state} while the tower is stopped — held there")
+          return
+        end
+
         ticket.agent&.update!(status: "running", doing: PipelineText.doing_text(ticket))
         Event.record!(phase_tag: PipelineText::TAGS[next_state], ticket: ticket, agent: ticket.agent,
                       text: PipelineText.transition_text(ticket, from, next_state))
         AgentRunner.start_phase(ticket)
       end
+    end
+
+    def pause_note(setting)
+      setting.over_cap? ? "held — daily spend cap reached" : "held — the tower is stopped"
+    end
+
+    # Work parked mid-pipeline by a pause or the cap, picked up again the
+    # moment the tower runs. Returns how many resumed.
+    def resume_paused_runs!
+      resumed = 0
+      PhaseRun.paused.includes(:ticket).find_each do |run|
+        ticket = run.ticket
+        # Its ticket moved on without it (a retry, a rework round): the run is
+        # stale, not held, and starting it would run the wrong phase.
+        next run.update!(status: "failed", note: "superseded while held") if ticket.state != run.phase
+
+        run.update!(status: "running", note: "starting claude code run…", started_at: Time.current)
+        ticket.agent&.update!(status: "running", doing: PipelineText.doing_text(ticket))
+        Event.record!(phase_tag: PipelineText::TAGS[run.phase], ticket: ticket, agent: ticket.agent,
+                      meta: "resumed", text: "#{ticket.code} resumes at #{run.phase}")
+        AgentRunner.start_phase(ticket)
+        resumed += 1
+      end
+      resumed
     end
 
     # Walks past phases this realm has switched off; nil once nothing enabled

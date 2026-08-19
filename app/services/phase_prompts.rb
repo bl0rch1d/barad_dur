@@ -29,11 +29,17 @@ module PhasePrompts
      "technical_notes": "key files, approach, risks — a short paragraph",
      "acceptance_criteria": ["verifiable outcome 1", "verifiable outcome 2"],
      "depends_on": ["ALG-12"],
+     "risky": false, "risk_reason": "why, in one line — omit when not risky",
      "additional_tickets": [{"title": "...", "estimate": "40m", "risky": false}]}
     ```
     change: the openspec change you created (null if none).
     acceptance_criteria: 2-6 concrete, verifiable outcomes.
     depends_on: existing board ticket codes this work must wait for (usually []).
+    risky: true when the change touches a database schema, authentication or
+    permissions, payment or money handling, deletes or migrates data, alters a
+    public API contract, or is hard to reverse once shipped. It is what decides
+    whether a person is asked before an agent writes the code, so be honest
+    rather than cautious — marking everything risky asks the user for nothing.
     additional_tickets: ONLY when this ticket is too big for one agent
     session — parts split out to run after it (usually []).
   TXT

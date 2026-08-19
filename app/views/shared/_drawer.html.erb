@@ -179,7 +179,8 @@
           <% active = ticket.state == phase %>
           <% active_run = active ? ticket.current_phase_run : nil %>
           <% failed = active_run&.status == "failed" %>
-          <% live = active_run&.runner == "claude" %>
+          <% held = active_run&.paused? %>
+          <% live = active_run&.runner == "claude" && !held && !failed %>
           <% tone = if done then "var(--ok)"
                     elsif failed then "var(--err)"
                     elsif active then (@setting.running? || live) ? "var(--accent)" : "var(--warn)"
@@ -188,7 +189,7 @@
             <span class="dot" style="background:<%= tone %>"></span>
             <span class="phase-name"><%= phase.capitalize %></span>
             <span class="phase-note"><%= active_run&.note || done&.note || (active ? PipelineText.note_for(phase) : "not started") %></span>
-            <span class="phase-dur"><%= done ? short_duration(done.duration_s.to_i) : failed ? "failed" : active ? (live ? "live" : "running") : "—" %></span>
+            <span class="phase-dur"><%= done ? short_duration(done.duration_s.to_i) : failed ? "failed" : held ? "held" : active ? (live ? "live" : "running") : "—" %></span>
             <% if failed %>
               <%= button_to "retry", ticket_phase_path(ticket.code, op: "retry"),
                             form_class: "bt", class: "phase-btn", style: "border-color:var(--err);color:var(--err)" %>

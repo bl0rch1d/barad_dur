@@ -460,7 +460,22 @@ class ClaudeCodeRunner
            Ticket.where.not(code: ticket.code).pluck(:code)
     ticket.update!(dep_codes: ticket.dep_codes | deps) if deps.any?
 
+    apply_risk(data)
+
     create_split_tickets(Array(data["additional_tickets"]), change)
+  end
+
+  # Planning is the phase that has read the code and decided the approach, so
+  # it is the phase that knows whether this is a schema change or a typo fix.
+  # Only ever escalates: a ticket the user marked risky stays risky.
+  def apply_risk(data)
+    return if ticket.risky? || data["risky"] != true
+
+    reason = data["risk_reason"].to_s.strip.truncate(160).presence
+    ticket.update!(risky: true)
+    Event.record!(phase_tag: "PLAN", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "risky",
+                  text: "#{ticket.code} marked risky by planning#{reason ? " — #{reason}" : ''}")
   end
 
   # Shared with TicketEnrichJob: summary/notes/criteria out of a JSON payload.
