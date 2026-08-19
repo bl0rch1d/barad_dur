@@ -409,10 +409,12 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_includes plan[:extra_args], "--add-dir"
     assert_includes plan[:prompt], "explorer", "suggests matching project agents"
 
-    # implementation needs a change ref — without one it falls back to built-in
-    fallback = PhasePrompts.execution(ticket, "implementation", "/elsewhere")
-    refute fallback[:prompt].start_with?("/opsx:apply")
-    assert_equal "/elsewhere", fallback[:chdir]
+    # a repo with no openspec still gets the harness for implementation — the
+    # ticket identifies the work when there is no change slug to pass
+    no_change = PhasePrompts.execution(ticket, "implementation", "/elsewhere")
+    assert no_change[:prompt].start_with?("/opsx:apply TST-H1: Harness ticket"), no_change[:prompt].lines.first
+    assert_equal @repo, no_change[:chdir]
+    assert_includes no_change[:prompt], "/elsewhere", "the harness must be told where the code is"
 
     ticket.artifacts = ["openspec change: add-farewell"]
     apply_plan = PhasePrompts.execution(ticket, "implementation", "/elsewhere")

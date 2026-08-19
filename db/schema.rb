@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_19_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_19_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -19,6 +19,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_19_000002) do
     t.datetime "created_at", null: false
     t.string "doing"
     t.string "llm_model", null: false
+    t.string "model_id"
     t.string "name", null: false
     t.integer "position", default: 0, null: false
     t.string "role", null: false
@@ -98,6 +99,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_19_000002) do
     t.string "status", default: "running", null: false
     t.jsonb "test_suites", default: [], null: false
     t.string "tests_command"
+    t.boolean "tests_executed", default: false, null: false
     t.integer "tests_failed"
     t.integer "tests_passed"
     t.bigint "ticket_id", null: false

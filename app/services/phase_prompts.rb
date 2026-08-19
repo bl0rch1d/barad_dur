@@ -64,9 +64,12 @@ module PhasePrompts
   def execution(ticket, phase, repo_path, setting = Setting.instance)
     invocation = Harness.phase_invocation(phase, setting)
     plan =
-      if invocation && (phase != "implementation" || change_ref(ticket).present?)
+      if invocation
         info = Harness.detect(setting)
-        { prompt: harness_prompt(ticket, phase, invocation, setting),
+        # The harness runs from its own repo, so the phase must be told where
+        # the ticket's code actually is — a bare git call here would operate
+        # on the harness checkout.
+        { prompt: harness_prompt(ticket, phase, invocation, setting, repo_path),
           chdir: info.path,
           extra_args: ["--add-dir", Workspace.root(setting).to_s] }
       else
@@ -101,12 +104,12 @@ module PhasePrompts
           &.delete_prefix("openspec change: ")
   end
 
-  def harness_prompt(ticket, phase, invocation, setting = Setting.instance)
-    argument =
-      case phase
-      when "implementation" then change_ref(ticket)
-      else "#{ticket.code}: #{ticket.title}"
-      end
+  def harness_prompt(ticket, phase, invocation, setting = Setting.instance, repo_path = nil)
+    # /opsx:apply resolves a change by slug, so pass it when we have one —
+    # but never let its absence mean "no harness implementation at all", and
+    # always name the ticket in the body so identity survives either way.
+    argument = (phase == "implementation" && change_ref(ticket).presence) ||
+               "#{ticket.code}: #{ticket.title}"
     agents = Harness.phase_agents(phase, setting)
     scope = Workspace.subpath(ticket.repo)
 
@@ -116,13 +119,46 @@ module PhasePrompts
       Pipeline context: you are running non-interactively as the #{role_for(phase)}
       agent for ticket #{ticket.code} ("#{ticket.title}") targeting repository
       #{ticket.repo}#{scope ? " (scope: #{scope} subdirectory)" : ""}.
-      #{"Draft description from the user:\n#{ticket.description}\n" if ticket.description.present?}
-      #{"The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n" if ticket.feedback.present? && %w[implementation review].include?(phase)}
-      Never ask the user questions interactively — make reasonable choices and note them.
+      #{"The repository under work is at #{repo_path} — your working directory is the harness repo, so pass -C #{repo_path} to git and read files from there.\n" if repo_path}
+      #{"The openspec change for this ticket is #{change_ref(ticket)}.\n" if change_ref(ticket)}
+      #{spec_block(ticket)}
+      #{"Never ask the user questions interactively — make reasonable choices and note them." unless phase == "investigation"}
       #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
       Work autonomously until the #{phase} outcome is complete, then summarize
       what you did.
     TXT
+  end
+
+  # What this ticket is FOR and what "done" means — the specification the
+  # planning phase produced. Without it every later phase re-derives the goal
+  # from the code, which is grading the change against itself.
+  def spec_block(ticket, phase = nil)
+    parts = []
+    parts << "What the user asked for:\n#{ticket.description}\n" if ticket.description.present?
+
+    if ticket.acceptance_criteria.any?
+      list = ticket.acceptance_criteria.each_with_index.map { |c, i| "  #{i + 1}. #{c}" }.join("\n")
+      parts << "Acceptance criteria — written during planning, before any code. " \
+               "This is the contract:\n#{list}\n"
+    end
+    parts << "Technical notes from planning (context, not the contract):\n#{ticket.technical_notes}\n" if ticket.technical_notes.present?
+
+    # A question the user answered is a decision that binds every later phase.
+    answered = Question.where(ticket_code: ticket.code).where.not(chosen: [nil, ""]).order(:asked_at)
+    if answered.any?
+      decisions = answered.map { |q| "  - #{q.body.to_s.truncate(160)} → #{q.chosen}" }.join("\n")
+      parts << "Decisions you already have from the user — treat these as settled, " \
+               "do not ask again and do not contradict them:\n#{decisions}\n"
+    end
+
+    if ticket.feedback.present?
+      parts << if phase == "review"
+                 "A previous review round requested these changes — verify they were addressed:\n#{ticket.feedback}\n"
+               else
+                 "The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n"
+               end
+    end
+    parts.join("\n")
   end
 
   def build(ticket, phase)
@@ -132,10 +168,7 @@ module PhasePrompts
       Repository: current working directory. Work autonomously.
       If an openspec/ directory exists, treat its specs as the contract.
     TXT
-    header += "Draft description from the user:\n#{ticket.description}\n" if ticket.description.present?
-    if ticket.feedback.present? && %w[implementation review].include?(phase)
-      header += "The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n"
-    end
+    header += spec_block(ticket, phase)
     if (sub = Workspace.subpath(ticket.repo))
       header += "Scope: focus your work on the `#{sub}` subdirectory of this repository (monorepo sub-project).\n"
     end

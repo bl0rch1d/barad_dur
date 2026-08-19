@@ -9,7 +9,7 @@
 
   <div class="agents-grid">
     <% @agents.each do |agent| %>
-      <div class="agent-card">
+      <%= link_to url_for(agent: agent.id), class: "agent-card hv-bd", style: "text-decoration:none;color:inherit" do %>
         <div class="agent-hd">
           <span class="agent-abbr" style="background:<%= agent.soft %>;color:<%= agent.tone %>"><%= agent.abbr %></span>
           <div class="agent-id">
@@ -32,7 +32,8 @@
             </div>
           <% end %>
         </div>
-      </div>
+        <span class="mono-meta" style="color:var(--tx3)">click to configure ›</span>
+      <% end %>
     <% end %>
   </div>
 

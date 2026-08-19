@@ -30,8 +30,8 @@ class PushPrJob < ApplicationJob
     body = pr_body(ticket)
     # A red suite still gets a pull request — you need to see the work — but
     # as a draft, so it cannot be mistaken for something ready to merge.
-    draft = ticket.tests_failed?
-    args = ["pr", "create", "--title", "#{draft ? '[tests failing] ' : ''}#{ticket.code}: #{ticket.title}",
+    draft = ticket.verification_red?
+    args = ["pr", "create", "--title", "#{pr_prefix(ticket)}#{ticket.code}: #{ticket.title}",
             "--body", body, "--head", branch]
     args << "--draft" if draft
     out, ok = run(repo, gh, *args)
@@ -48,6 +48,15 @@ class PushPrJob < ApplicationJob
   end
 
   private
+
+  # The title must say why a pull request is a draft — "unverified" and
+  # "failing" are different problems and the reader has to act differently.
+  def pr_prefix(ticket)
+    return "[tests failing] " if ticket.tests_failed?
+    return "[unverified] " unless ticket.tests_ran?
+
+    ""
+  end
 
   def pr_body(ticket)
     parts = []

@@ -14,6 +14,7 @@ Rails.application.routes.draw do
 
   post "chat" => "chat_messages#create", as: :chat_messages
 
+  post "agents/:id/model"    => "agents#model",        as: :agent_model
   get  "settings"            => "settings_page#show",   as: :settings
   post "settings/update"     => "settings_page#update", as: :settings_update
   post "settings/autonomy"   => "settings#autonomy",   as: :settings_autonomy

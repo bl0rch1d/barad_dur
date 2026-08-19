@@ -88,7 +88,8 @@ class ClaudeCodeRunner
                   text: "Started #{phase} run (#{harness_run ? plan[:prompt].lines.first.to_s.strip.truncate(40) : 'claude code'})")
 
     result = HeadlessAgent.call(prompt: plan[:prompt], chdir: plan[:chdir],
-                                extra_args: plan[:extra_args], env: child_env) do |data|
+                                extra_args: plan[:extra_args], env: child_env,
+                                model: ticket.agent&.effective_model) do |data|
       case data["type"]
       when "system"
         run.update!(session_id: data["session_id"]) if data["session_id"]
@@ -136,12 +137,24 @@ class ClaudeCodeRunner
 
   # Implementation happens on a dedicated work branch; later phases keep
   # operating on it because it stays checked out.
+  # `checkout -B` resets an existing branch to whatever HEAD happens to be —
+  # after a merge conflict leaves HEAD on the base branch, a retry would
+  # silently throw away every implementation commit. Create it once, then only
+  # ever switch to it.
   def prepare_branch(repo)
-    return unless phase == "implementation"
+    return unless %w[implementation review testing deployment].include?(phase)
 
-    branch = "pipe/#{ticket.code.downcase}"
-    created = system("git", "-C", repo, "checkout", "-B", branch, out: File::NULL, err: File::NULL)
-    ticket.update!(artifacts: ticket.artifacts | ["branch #{branch}"]) if created
+    branch = ticket.branch_name
+    exists = system("git", "-C", repo, "rev-parse", "--verify", branch,
+                    out: File::NULL, err: File::NULL)
+    unless exists
+      return unless system("git", "-C", repo, "checkout", "-b", branch, out: File::NULL, err: File::NULL)
+
+      ticket.update!(artifacts: ticket.artifacts | ["branch #{branch}"])
+      return
+    end
+
+    system("git", "-C", repo, "checkout", branch, out: File::NULL, err: File::NULL)
   end
 
   def narrate(data)
@@ -181,7 +194,7 @@ class ClaudeCodeRunner
     return unless cost.positive?
 
     SpendEntry.record!(cost, source: "phase", phase: phase, ticket: ticket,
-                       agent: ticket.agent, llm_model: HeadlessAgent.model_name)
+                       agent: ticket.agent, llm_model: ticket.agent&.effective_model || HeadlessAgent.model_name)
 
     usage = result["usage"] || {}
     tokens = usage.values_at("input_tokens", "output_tokens", "cache_read_input_tokens").compact.sum
@@ -249,7 +262,16 @@ class ClaudeCodeRunner
   end
 
   def capture_test_results(data)
-    return unless data.key?("passed") || data.key?("failed")
+    # A repo where nothing could be run must never read as green. Previously
+    # this returned early with no counts, tests_failed? stayed false, and a
+    # non-draft pull request opened on work no suite ever touched.
+    executed = data.key?("passed") || data.key?("failed")
+    unless executed
+      run.update!(tests_executed: false, note: "no suite ran — nothing verified this change")
+      Event.record!(phase_tag: "TEST", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                    text: "No tests ran for #{ticket.code} — the change is unverified")
+      return
+    end
 
     passed = data["passed"].to_i
     failed = data["failed"].to_i
@@ -262,6 +284,7 @@ class ClaudeCodeRunner
 
     run.update!(tests_command: data["command"].to_s.truncate(120).presence,
                 tests_passed: passed, tests_failed: failed, test_suites: suites,
+                tests_executed: true,
                 note: suite_note(passed, failed, suites))
     suites.each do |s|
       next unless s["skipped"]

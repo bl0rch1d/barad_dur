@@ -24,6 +24,7 @@
         <main class="main"><%= yield %></main>
       </div>
       <%= render "shared/drawer" if @drawer_ticket %>
+      <%= render "shared/agent_panel" if @panel_agent %>
       <%= render "shared/wizard" if @wizard_step %>
     </div>
   </body>

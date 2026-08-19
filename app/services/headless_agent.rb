@@ -22,12 +22,12 @@ class HeadlessAgent
       ENV["CLAUDE_MODEL"].presence || Setting.instance.orchestrator_model
     end
 
-    def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, extra_args: [], &on_message)
+    def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, model: nil, extra_args: [], &on_message)
       bin = ClaudeCodeRunner.bin_path
       return Result.new(ok: false, error: "claude CLI not found", log: "") unless bin
 
       flags = (ENV["CLAUDE_FLAGS"].presence || ClaudeCodeRunner::DEFAULT_FLAGS).shellsplit
-      model = model_name
+      model = model.presence || model_name
       command = [bin, "-p", prompt, "--output-format", "stream-json", "--verbose",
                  "--model", model,
                  "--max-turns", (max_turns || ENV.fetch("CLAUDE_MAX_TURNS", DEFAULT_MAX_TURNS)).to_s,

@@ -47,6 +47,14 @@ class Ticket < ApplicationRecord
 
   def tests_failed? = last_test_run&.tests_failed.to_i.positive?
 
+  # "no suite ran" is not the same as "the suite passed". A pull request must
+  # not present unverified work as ready.
+  def tests_ran?
+    phase_runs.any? { |r| r.phase == "testing" && r.tests_executed }
+  end
+
+  def verification_red? = tests_failed? || !tests_ran?
+
   def gated?
     ticket_gates.pending.exists?
   end
