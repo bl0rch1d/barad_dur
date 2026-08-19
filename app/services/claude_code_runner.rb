@@ -82,7 +82,12 @@ class ClaudeCodeRunner
 
     prepare_branch(repo)
     PhaseOutput.clear(run)
-    plan = PhasePrompts.execution(ticket, phase, repo, Setting.instance, run)
+
+    setting = Setting.instance
+    brief = PhaseBrief.write!(ticket, phase, repo) if Harness.phase_invocation(phase, setting)
+    return false if brief && !prerequisites_met?(repo)
+
+    plan = PhasePrompts.execution(ticket, phase, repo, setting, run, brief)
     harness_run = plan[:chdir] != repo
     Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
                   meta: harness_run ? "harness run" : "live run",
@@ -90,6 +95,7 @@ class ClaudeCodeRunner
 
     result = HeadlessAgent.call(prompt: plan[:prompt], chdir: plan[:chdir],
                                 extra_args: plan[:extra_args], env: child_env,
+                                max_turns: plan[:max_turns], timeout: plan[:timeout],
                                 model: ticket.agent&.effective_model) do |data|
       case data["type"]
       when "system"
@@ -124,6 +130,30 @@ class ClaudeCodeRunner
   end
 
   private
+
+  # Planning without an intent, or implementation without a plan, is a phase
+  # inventing the thing it was supposed to be working from. Every design that
+  # met this left it as an instruction to the next model — "if the section is
+  # missing, do a compressed version and say so" — which is followed only when
+  # the model feels like it. Refuse instead, and say which section is missing.
+  def prerequisites_met?(repo)
+    missing = PhaseRecord.degraded(repo, ticket.code, phase)
+    return true if missing.empty?
+
+    # A gap only blocks when the phase that owns it actually ran and still
+    # produced nothing — that is a failure worth stopping on. A phase this
+    # realm switched off, or one this ticket never went through, leaves a gap
+    # to work around instead: dead-ending every ticket at planning because
+    # investigation is disabled would be a worse bug than the one being fixed.
+    ran = ticket.phase_runs.where(status: "done").distinct.pluck(:phase)
+    blocking = missing.select { |section| ran.include?(PhaseRecord.owner_of(section)) }
+    return true unless PhaseRecord.blocking?(phase, blocking)
+
+    owners = blocking.map { |s| PhaseRecord.owner_of(s) }.uniq
+    fail_run("#{phase} needs #{blocking.join(' and ')} from the record, and #{owners.join(' and ')} " \
+             "ran without writing #{blocking.size > 1 ? 'them' : 'it'} — re-run that phase")
+    false
+  end
 
   # Only the credential matching the chosen auth mode reaches the CLI, so
   # subscription runs never silently bill the API key and vice versa.
@@ -506,9 +536,16 @@ class ClaudeCodeRunner
   # it is the phase that knows whether this is a schema change or a typo fix.
   # Only ever escalates: a ticket the user marked risky stays risky.
   def apply_risk(data)
-    return if ticket.risky? || data["risky"] != true
+    # Nested, because "risky" also appears inside additional_tickets and two
+    # same-named keys at two nesting levels is a reliable way to get one of
+    # them dropped. The flat form is still read: an agent that ignores the
+    # nesting should not silently unflag a dangerous change.
+    risk = data["risk"].is_a?(Hash) ? data["risk"] : {}
+    flagged = risk["flagged"] == true || data["risky"] == true
+    return if ticket.risky? || !flagged
 
-    reason = data["risk_reason"].to_s.strip.truncate(160).presence
+    reason = (Array(risk["reasons"]).map(&:to_s).reject(&:blank?).join(", ").presence ||
+              data["risk_reason"].to_s.strip).truncate(160).presence
     ticket.update!(risky: true)
     Event.record!(phase_tag: "PLAN", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
                   meta: "risky",

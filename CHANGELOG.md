@@ -51,6 +51,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   visibly disabled and links to the setting.
 - Approving a ticket merges its pull request by default, rather than merging
   into the local default branch.
+- A phase's structured result is found by its own sentinel rather than by
+  taking the last fenced JSON block in the message. A review report is mostly
+  code fences, and the last one is very often an example the agent was
+  explaining rather than the contract it was asked for.
 - **The Critic reports problems and no longer fixes them.** A reviewer that
   edits the code is, on the next round, reviewing its own work — and an agent
   almost never rejects its own fix.
@@ -88,6 +92,27 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves HEAD on the base branch — silently discarded every implementation
   commit. It is also prepared for review, testing and deployment, not only
   implementation.
+- **Sammath, a six-skill harness, ships with the app and is the default when a
+  repository has none of its own.** `/explore` grounds the ticket in the code
+  and writes what the change is *for*; `/propose` freezes acceptance criteria
+  and a contract before any code exists; `/apply` commits the test before the
+  fix; `/review` dispatches bounded units, executes before it opines, and then
+  tries to *refute* its own findings before reporting them; `/test` verifies
+  each criterion by name; `/ship` checks hygiene against what the repository
+  actually has. Four subagents come with it — a read-only scout, a per-unit
+  reviewer, an adversarial verifier, and a fixer that never sees who raised the
+  finding it is fixing. A repository with its own `.claude` skills still wins,
+  and the wizard can now pick Sammath explicitly over one.
+- **Every phase is handed a brief that Ruby computed.** The resolved base
+  commit, the runnable toolchain, untruncated acceptance criteria, the answers
+  you gave to clarifying questions, the repository's own `CLAUDE.md` — which
+  never auto-loads for a harness phase — and, named explicitly, whichever
+  upstream section is missing. Planning and implementation refuse to start on a
+  gap that an earlier phase ran and failed to fill, rather than inventing what
+  should have been there.
+- Phases now carry their own turn and time budgets rather than sharing one
+  ceiling set for the longest of them. Review gets the headroom it needs to fan
+  out; deployment no longer carries a budget it could never use.
 - **The testing phase is told how to verify the project instead of working it
   out again every run.** The repository's own configuration — Gemfile,
   package.json scripts, pyproject, go.mod, Cargo.toml, Makefile targets — is

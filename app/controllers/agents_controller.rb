@@ -4,8 +4,11 @@ class AgentsController < ApplicationController
     @agents = Agent.ordered.to_a
     @total_cost = @agents.sum(&:cost_today)
     @harness = Harness.detect(@setting)
-    # only claim a harness roster when the mapping has actually been applied
-    @harness = nil unless @harness && (@agents.map(&:name) & @harness.agents).any?
+    # Only claim a harness roster when the mapping has actually been applied —
+    # except for the bundled one, whose agents are ours by definition and whose
+    # names are lower-case where the roster's are capitalised.
+    mapped = @harness && (@agents.map { |a| a.name.downcase } & @harness.agents.map(&:downcase)).any?
+    @harness = nil unless @harness&.bundled? || mapped
     @specialists = @harness ? AgentRoster.specialists(@setting) : []
   end
 

@@ -29,17 +29,21 @@ module PhasePrompts
      "technical_notes": "key files, approach, risks — a short paragraph",
      "acceptance_criteria": ["verifiable outcome 1", "verifiable outcome 2"],
      "depends_on": ["ALG-12"],
-     "risky": false, "risk_reason": "why, in one line — omit when not risky",
+     "risk": {"flagged": false, "reasons": ["auth"]},
      "additional_tickets": [{"title": "...", "estimate": "40m", "risky": false}]}
     ```
     change: the openspec change you created (null if none).
     acceptance_criteria: 2-6 concrete, verifiable outcomes.
     depends_on: existing board ticket codes this work must wait for (usually []).
-    risky: true when the change touches a database schema, authentication or
-    permissions, payment or money handling, deletes or migrates data, alters a
-    public API contract, or is hard to reverse once shipped. It is what decides
-    whether a person is asked before an agent writes the code, so be honest
-    rather than cautious — marking everything risky asks the user for nothing.
+    risk.flagged: true when THIS ticket touches a database schema,
+    authentication or permissions, payment or money handling, deletes or
+    migrates data, alters a public API contract, adds a secret, or is hard to
+    reverse once shipped. reasons: the ones that applied, as short words. It
+    decides whether a person is asked before an agent writes the code, so be
+    honest rather than cautious — marking everything risky asks for nothing.
+    (Note the nesting: risk is about this ticket, and the "risky" inside
+    additional_tickets is about each split-out ticket. They are not the same
+    field.)
     additional_tickets: ONLY when this ticket is too big for one agent
     session — parts split out to run after it (usually []).
   TXT
@@ -82,26 +86,52 @@ module PhasePrompts
     project genuinely has one command and nothing else.
   TXT
 
+  # Turns and seconds per phase. One global ceiling has to be set for the
+  # longest phase, which means every short phase carries a runaway budget it
+  # will never need — and review, which fans out, is the one that actually
+  # needs the headroom.
+  BUDGETS = {
+    "investigation"  => { turns: 60,  timeout: 1800 },
+    "planning"       => { turns: 60,  timeout: 1800 },
+    "implementation" => { turns: 150, timeout: 3600 },
+    "review"         => { turns: 250, timeout: 5400 },
+    "testing"        => { turns: 100, timeout: 3600 },
+    "deployment"     => { turns: 40,  timeout: 900 }
+  }.freeze
+
   module_function
+
+  # Env overrides still win: a realm that raised CLAUDE_MAX_TURNS did so for a
+  # reason, and a per-phase default must not quietly lower it.
+  def budget_for(phase)
+    budget = BUDGETS[phase] or return {}
+
+    { max_turns: ENV["CLAUDE_MAX_TURNS"].presence&.to_i || budget[:turns],
+      timeout: ENV["CLAUDE_TIMEOUT"].presence&.to_f || budget[:timeout] }
+  end
 
   # Full execution plan for a phase run: prompt, working directory and extra
   # CLI args. Harness-mapped phases run in the harness repo with the whole
   # workspace reachable; everything else uses the built-in prompt in the
   # ticket's repo. Grooming phases carry structured-output contracts.
-  def execution(ticket, phase, repo_path, setting = Setting.instance, run = nil)
+  def execution(ticket, phase, repo_path, setting = Setting.instance, run = nil, brief = nil)
     invocation = Harness.phase_invocation(phase, setting)
     plan =
       if invocation
         info = Harness.detect(setting)
         # The harness runs from its own repo, so the phase must be told where
         # the ticket's code actually is — a bare git call here would operate
-        # on the harness checkout.
-        { prompt: harness_prompt(ticket, phase, invocation, setting, repo_path),
+        # on the harness checkout. AskUserQuestion is removed rather than
+        # forbidden in prose: a headless run that asks simply hangs.
+        { prompt: harness_prompt(ticket, phase, invocation, setting, repo_path, brief),
           chdir: info.path,
-          extra_args: ["--add-dir", Workspace.root(setting).to_s] }
+          extra_args: ["--add-dir", Workspace.root(setting).to_s,
+                       "--add-dir", repo_path.to_s,
+                       "--disallowed-tools", "AskUserQuestion"] }
       else
         { prompt: build(ticket, phase), chdir: repo_path, extra_args: [] }
       end
+    plan.merge!(budget_for(phase))
     # Rediscovering how to run this project's suites costs turns on an answer
     # that does not change between runs, and when the turns run short the phase
     # ends having verified nothing.
@@ -141,7 +171,7 @@ module PhasePrompts
           &.delete_prefix("openspec change: ")
   end
 
-  def harness_prompt(ticket, phase, invocation, setting = Setting.instance, repo_path = nil)
+  def harness_prompt(ticket, phase, invocation, setting = Setting.instance, repo_path = nil, brief = nil)
     # /opsx:apply resolves a change by slug, so pass it when we have one —
     # but never let its absence mean "no harness implementation at all", and
     # always name the ticket in the body so identity survives either way.
@@ -152,17 +182,32 @@ module PhasePrompts
 
     <<~TXT
       #{invocation} #{argument}
-
+      #{brief_block(brief, phase, repo_path)}
       Pipeline context: you are running non-interactively as the #{role_for(phase)}
       agent for ticket #{ticket.code} ("#{ticket.title}") targeting repository
       #{ticket.repo}#{scope ? " (scope: #{scope} subdirectory)" : ""}.
       #{"The repository under work is at #{repo_path} — your working directory is the harness repo, so pass -C #{repo_path} to git and read files from there.\n" if repo_path}
       #{"The openspec change for this ticket is #{change_ref(ticket)}.\n" if change_ref(ticket)}
-      #{spec_block(ticket, phase)}
-      #{"Never ask the user questions interactively — make reasonable choices and note them." unless phase == "investigation"}
+      #{brief ? "" : spec_block(ticket, phase)}
+      Never ask the user questions interactively — AskUserQuestion is not
+      available in this mode. Make reasonable choices and record them.
       #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
       Work autonomously until the #{phase} outcome is complete, then summarize
       what you did.
+    TXT
+  end
+
+  # The brief supersedes the prompt: everything spec_block used to inline is
+  # in it, untruncated, alongside the things a prompt cannot carry honestly —
+  # the base commit, the runnable toolchain, and what is missing upstream.
+  def brief_block(brief, phase, repo_path)
+    return "" if brief.blank?
+
+    <<~TXT
+
+      BARAD-DUR-BRIEF=#{brief}
+      BARAD-DUR-PHASE=#{phase}
+      BARAD-DUR-REPO=#{repo_path}
     TXT
   end
 

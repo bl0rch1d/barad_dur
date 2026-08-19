@@ -68,8 +68,14 @@
             </span>
           </div>
           <% if invocation %>
+            <% source = Harness.detect(@setting) %>
             <span class="mono-meta">
-              from your harness — <%= Harness.detect(@setting)&.repo %>/.claude
+              <% if source&.bundled? %>
+                from <%= source.label %>, the harness shipped with this app — a repo with its own
+                <span class="mono">.claude</span> skills would take over here
+              <% else %>
+                from your harness — <%= source&.repo %>/.claude
+              <% end %>
             </span>
           <% end %>
           <div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap">

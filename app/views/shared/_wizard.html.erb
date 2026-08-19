@@ -184,8 +184,8 @@
         <% fw = wizard_setup("fw", "0") %>
         <div class="wizard-stack">
           <% [["openspec", "Specs are the contract: each phase reads and writes openspec files, so plans and code stay attached to requirements.", "recommended", "var(--ok)"],
-              ["Custom agentic harness", "Your repo's own .claude commands, skills and agents drive the phases; the app reads their artifacts back into the board.", "auto-detected", "var(--info)"],
-              ["Vanilla — built-in prompts", "No framework. Every phase runs the app's built-in spec-first prompts, each producing a written artifact you can review.", "fallback", "var(--tx3)"]].each_with_index do |(label, blurb, tag, tag_tone), i| %>
+              ["Agentic harness", "Your repo's own .claude commands, skills and agents drive the phases if it has them. If it does not, Sammath — the harness shipped with this app — does: six skills that hand each other a written brief, and a review that refutes its own findings before reporting them.", "auto-detected", "var(--info)"],
+              ["Vanilla — built-in prompts", "No harness. Every phase runs the app's own short prompts, each producing a written artifact you can review.", "fallback", "var(--tx3)"]].each_with_index do |(label, blurb, tag, tag_tone), i| %>
             <% on = fw == i.to_s %>
             <%= button_to wizard_patch_path(key: "fw", value: i, wizard: step), form_class: "bt",
                           class: "radio-card#{' on' if on}" do %>
@@ -202,12 +202,12 @@
           <% if fw != "2" %>
             <% harness_choices = Harness.available %>
             <% chosen_dir = wizard_setup("harness_dir", "") %>
-            <% if harness_choices.size > 1 || chosen_dir.present? %>
+            <% if harness_choices.any? || chosen_dir.present? %>
               <div class="panel" style="border-color:var(--info)">
                 <div class="panel-hd">
                   <span class="k-label" style="color:var(--info)">Which harness drives the phases</span>
                   <span class="spacer"></span>
-                  <span class="mono-meta"><%= harness_choices.size %> found in the workspace</span>
+                  <span class="mono-meta"><%= harness_choices.size %> in the workspace, plus the one shipped here</span>
                 </div>
                 <div style="padding:11px 13px;display:flex;flex-direction:column;gap:7px">
                   <div class="chip-row">
@@ -221,7 +221,21 @@
                         <%= choice[:rel] == "." ? "#{choice[:name]} (workspace root)" : choice[:rel] %>
                       <% end %>
                     <% end %>
+                    <%= button_to wizard_patch_path(key: "harness_dir", value: Harness::BUNDLED_CHOICE, wizard: step),
+                                  form_class: "bt",
+                                  class: "chip#{' on' if chosen_dir == Harness::BUNDLED_CHOICE}" do %>
+                      <%= Harness.bundled&.label || "Sammath" %> (shipped here)
+                    <% end %>
                   </div>
+                  <% if chosen_dir == Harness::BUNDLED_CHOICE %>
+                    <span class="mono-meta">
+                      Six skills that hand each other a written brief: explore reads the code and
+                      writes what the change is for, propose freezes acceptance criteria before any
+                      code exists, apply commits the test before the fix, review dispatches units and
+                      then tries to refute its own findings, test verifies each criterion by name, and
+                      ship checks hygiene. Chosen deliberately, so it is used over the workspace's own.
+                    </span>
+                  <% end %>
                   <% if (picked = harness_choices.detect { |c| c[:rel] == chosen_dir }) %>
                     <span class="mono-meta">
                       <%= picked[:commands] %> commands · <%= picked[:skills] %> skills · <%= picked[:agents] %> agents
@@ -242,7 +256,9 @@
           <% if detected_harness && fw != "2" %>
             <div class="panel harness-panel">
               <div class="panel-hd">
-                <span class="k-label" style="color:var(--info)">Harness in use · <%= detected_harness.repo %></span>
+                <span class="k-label" style="color:var(--info)">
+                  Harness in use · <%= detected_harness.label %><%= " — shipped with this app" if detected_harness.bundled? %>
+                </span>
                 <span class="spacer"></span>
                 <span class="mono-meta"><%= detected_harness.commands.size %> commands · <%= detected_harness.skills.size %> skills · <%= detected_harness.agents.size %> agents</span>
               </div>

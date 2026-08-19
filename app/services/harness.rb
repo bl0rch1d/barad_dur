@@ -5,7 +5,22 @@
 # of the built-in prompts, executing inside the harness repo with the whole
 # workspace reachable via --add-dir.
 class Harness
-  Info = Struct.new(:repo, :path, :commands, :skills, :agents, :agent_details, keyword_init: true)
+  Info = Struct.new(:repo, :path, :commands, :skills, :agents, :agent_details, :bundled,
+                    keyword_init: true) do
+    def bundled? = bundled == true
+    def label = bundled? ? "Sammath #{Harness.bundled_version}" : repo
+  end
+
+  # Shipped inside the image, used when the workspace has no harness of its
+  # own. It is the default, not a fallback of last resort: the built-in
+  # prompts stay reachable per phase, and a realm that wants none of it sets
+  # the framework to vanilla.
+  BUNDLED_NAME = "sammath".freeze
+
+  # The wizard value that means "use the bundled one even though the workspace
+  # has its own". A leading colon cannot be a real path under the mount, so it
+  # can never collide with a directory someone actually has.
+  BUNDLED_CHOICE = ":bundled".freeze
 
   # Candidates tried in order per phase; a candidate matches a command or a
   # skill of that name. Phases with no match use the built-in prompts.
@@ -22,7 +37,7 @@ class Harness
   PHASE_AGENT_HINTS = {
     "investigation" => %w[explorer scout],
     "planning"      => %w[planner critic],
-    "review"        => %w[reviewer review-unit review-integration review-verifier critic]
+    "review"        => %w[reviewer review-unit review-integration review-verifier critic fixer]
   }.freeze
 
   class << self
@@ -39,8 +54,32 @@ class Harness
 
       Workspace.memo(key) do
         (chosen.present? && scan_path(chosen, setting)) ||
-          repos.filter_map { |repo| scan(repo) }.first
+          repos.filter_map { |repo| scan(repo) }.first ||
+          bundled
       end
+    end
+
+    # The harness that ships with the image. HARNESS_DIR wins so a deployment
+    # can mount its own; the image path is next; Rails.root is the development
+    # checkout, where harness/ is source rather than a copy.
+    def bundled
+      path = bundled_path or return nil
+
+      info = scan({ name: BUNDLED_NAME, path: path })
+      info&.tap { |i| i.bundled = true }
+    end
+
+    def bundled_path
+      [ENV["HARNESS_DIR"].presence, "/opt/barad-dur/harness", Rails.root.join("harness").to_s]
+        .compact.find { |dir| File.directory?(File.join(dir, ".claude", "skills")) }
+    end
+
+    def bundled_version
+      path = bundled_path or return "?"
+
+      File.read(File.join(path, "VERSION"), 32).to_s.strip.presence || "?"
+    rescue SystemCallError
+      "?"
     end
 
     # Every directory in the mount that carries a harness: the workspace root
@@ -73,6 +112,8 @@ class Harness
     # Resolves a wizard-chosen directory, relative to the workspace root.
     # Never escapes the mount.
     def scan_path(rel, setting = Setting.instance)
+      return bundled if rel == BUNDLED_CHOICE
+
       root = Workspace.root(setting)
       dir = rel == "." ? root : (root + rel).cleanpath
       return nil unless dir.to_s.start_with?(root.to_s) && dir.directory?

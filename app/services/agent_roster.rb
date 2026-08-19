@@ -53,8 +53,8 @@ class AgentRoster
       harness = Harness.detect(setting)
       return [] unless harness
 
-      roster_names = Agent.pluck(:name)
-      harness.agent_details.reject { |a| roster_names.include?(a[:name]) }
+      roster_names = Agent.pluck(:name).map(&:downcase)
+      harness.agent_details.reject { |a| roster_names.include?(a[:name].downcase) }
     end
 
     private

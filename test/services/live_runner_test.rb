@@ -93,7 +93,9 @@ class LiveRunnerTest < ActiveSupport::TestCase
     setting.update!(setup: setting.setup.merge("repo:aaa-other" => "false"))
     assert_equal %w[sample-repo], Workspace.selected_repos(setting).map { |r| r[:name] }
     assert_equal %w[sample-repo], Workspace.selected_ticket_targets(setting)
-    assert_nil Harness.detect(setting), "harness must not come from an unchecked repo"
+    fallen_back = Harness.detect(setting)
+    refute_equal "aaa-other", fallen_back.repo, "harness must not come from an unchecked repo"
+    assert fallen_back.bundled?, "and the bundled default takes over rather than nothing"
   end
 
   test "monorepo folder choice: root repo with sub-projects" do

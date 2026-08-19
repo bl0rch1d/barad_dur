@@ -14,6 +14,13 @@ class PlanningRiskTest < ActiveSupport::TestCase
   def plan(data) = @runner.send(:apply_plan_output, data)
 
   test "planning can mark a ticket risky, and says why" do
+    plan({ "risk" => { "flagged" => true, "reasons" => %w[schema destructive] } })
+
+    assert @ticket.reload.risky?
+    assert_match(/schema, destructive/, Event.where(meta: "risky").last.text)
+  end
+
+  test "the flat form is still honoured — an agent that misses the nesting must not unflag" do
     plan({ "risky" => true, "risk_reason" => "drops a table with production data" })
 
     assert @ticket.reload.risky?
@@ -29,14 +36,14 @@ class PlanningRiskTest < ActiveSupport::TestCase
   test "planning never clears a risk the user set by hand" do
     @ticket.update!(risky: true)
 
-    plan({ "risky" => false })
+    plan({ "risk" => { "flagged" => false } })
 
     assert @ticket.reload.risky?, "the user's own judgement outranks the agent's"
   end
 
   test "the risky gate now actually fires on a ticket planning flagged" do
     Setting.instance.update!(autonomy: "risky")
-    plan({ "risky" => true })
+    plan({ "risk" => { "flagged" => true } })
 
     assert PipelineEngine.send(:gate_required?, Setting.instance, @ticket.reload, "implementation"),
            "this is the whole point of the risky autonomy mode"
@@ -45,9 +52,9 @@ class PlanningRiskTest < ActiveSupport::TestCase
   test "the planning contract explains what counts as risky rather than leaving it to taste" do
     contract = PhasePrompts::PLANNING_CONTRACT
 
-    assert_match(/"risky"/, contract)
+    assert_match(/"risk":/, contract)
     assert_match(/schema/i, contract)
-    assert_match(/marking everything risky asks the user for nothing/i, contract,
+    assert_match(/marking everything risky asks for nothing/i, contract,
                  "an agent told only 'be careful' marks everything risky")
   end
 end

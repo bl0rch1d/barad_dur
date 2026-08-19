@@ -2,7 +2,13 @@
   <div class="title-row">
     <span class="page-title">The Legion</span>
     <span class="mono-dim">
-      <%= @harness ? "roster mapped from #{@harness.repo}/.claude/agents" : "spec-first harness" %>
+      <% if @harness&.bundled? %>
+        running on <%= @harness.label %>
+      <% elsif @harness %>
+        roster mapped from <%= @harness.repo %>/.claude/agents
+      <% else %>
+        spec-first harness
+      <% end %>
       · <%= @agents.size %> roles · $<%= format("%.2f", @total_cost) %> today
     </span>
   </div>
@@ -48,7 +54,7 @@
             <span class="agent-abbr" style="background:var(--info-soft);color:var(--info)"><%= specialist[:name].split(/[-_]/).first(2).map { |p| p[0] }.join.upcase %></span>
             <div class="agent-id">
               <span class="agent-name"><%= specialist[:name] %></span>
-              <span class="agent-role"><%= @harness.repo %> · .claude/agents</span>
+              <span class="agent-role"><%= @harness.bundled? ? @harness.label : @harness.repo %> · .claude/agents</span>
             </div>
             <span class="tag" style="color:var(--info)">delegate</span>
           </div>

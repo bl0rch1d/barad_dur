@@ -24,7 +24,7 @@ class AgentConfigTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Reads the code before anything is decided"
     assert_includes response.body, "Where this agent is used"
-    assert_includes response.body, "built-in investigation prompt"
+    assert_includes response.body, "/explore", "the command this agent actually runs"
     assert_includes response.body, "follow realm"
   end
 

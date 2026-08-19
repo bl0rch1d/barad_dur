@@ -34,7 +34,7 @@ module PhaseOutput
   # The file first, the final message second: a truncated run has one and not
   # the other, and a complete run has the same content in both.
   def read(run, result_text = nil)
-    from_file(run) || StructuredOutput.json_block(result_text)
+    from_file(run) || StructuredOutput.json_block(result_text, expect: run.phase)
   end
 
   def from_file(run)

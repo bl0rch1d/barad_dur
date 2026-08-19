@@ -1,0 +1,17 @@
+{
+  "$comment": "Sammath runs under bypassPermissions, so these denials are advisory: they stop an honest mistake, not a determined one. The real boundary is the mounted workspace and the pipe/* branch. See harness/CLAUDE.md §6 for the rules these encode.",
+  "permissions": {
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git tag:*)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)",
+      "Bash(git restore:*)",
+      "Bash(git clean:*)",
+      "Bash(git add -A:*)",
+      "Bash(git add .:*)"
+    ]
+  }
+}
