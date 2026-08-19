@@ -22,6 +22,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   marking itself shipped. Approving lands it the way the realm was configured to.
 - A pull request opens automatically once that point is reached, and the ticket
   carries its link.
+- **Every agent can run on its own model.** Click an agent card to open a
+  configuration panel explaining what the role does, which phase it serves,
+  which command or prompt it runs, what it can delegate to, and what it has
+  cost. An agent follows the realm's orchestrator setting until you pin it, so
+  changing that still moves everything you have not overridden.
+- **Review produces a verdict, not prose.** Each finding is blocking or minor;
+  a blocking one sends the ticket back to implementation with the finding
+  attached, at most twice, after which the unresolved findings are carried to
+  your verdict rather than looping. They appear in the ticket drawer under
+  **Review findings**, with the blocking ones flagged.
+- A phase writes its structured answer to a file as well as to its final
+  message, so a run killed at the turn limit or the timeout still reports what
+  it found.
 
 ### Changed
 
@@ -38,6 +51,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   visibly disabled and links to the setting.
 - Approving a ticket merges its pull request by default, rather than merging
   into the local default branch.
+- **The Critic reports problems and no longer fixes them.** A reviewer that
+  edits the code is, on the next round, reviewing its own work — and an agent
+  almost never rejects its own fix.
 
 ### Fixed
 
@@ -50,6 +66,31 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A ticket waiting on your verdict no longer releases the tickets that depend on
   it. The dependency rule was always right — it was being told the parent was
   done, because the pipeline completed it without asking.
+- **Phases after planning are given the specification.** The acceptance
+  criteria, the planner's technical notes and the description never reached
+  implementation, review or testing, so each phase re-derived the goal from the
+  code it was meant to be judging.
+- **Answers to clarifying questions now reach the agents.** `chosen` was written
+  when you answered and read nowhere: the pipeline asked, parked the ticket,
+  resumed on your answer, and no prompt ever learned what you decided.
+- **A failed run keeps what it produced.** Commits, the diff, clarification
+  questions and test results were all discarded when a run died — and that is
+  exactly the run that had done the most work, so the retry started from
+  nothing and the money was spent twice.
+- A harness-mapped phase is told the path of the repository under work. It runs
+  from the harness repo, so every bare git command it issued operated on the
+  wrong checkout.
+- A repo where no suite could run no longer reads as green. It recorded nothing,
+  `tests_failed?` stayed false, and a non-draft pull request opened on
+  unverified work; such a pull request is now a draft titled "[unverified]".
+- The work branch is created once and only ever checked out again. `checkout -B`
+  reset it to whatever HEAD held, so retrying after a merge conflict — which
+  leaves HEAD on the base branch — silently discarded every implementation
+  commit. It is also prepared for review, testing and deployment, not only
+  implementation.
+- A harness implementation run no longer requires an openspec change to exist.
+  Without one the phase fell back to the built-in prompt, so a repo without
+  openspec never used its own harness for the one phase that writes code.
 
 ## [1.1.0] — 2026-08-18
 

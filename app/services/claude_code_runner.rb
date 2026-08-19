@@ -81,7 +81,8 @@ class ClaudeCodeRunner
     return fail_run("repository #{ticket.repo.inspect} not found in workspace") unless repo
 
     prepare_branch(repo)
-    plan = PhasePrompts.execution(ticket, phase, repo)
+    PhaseOutput.clear(run)
+    plan = PhasePrompts.execution(ticket, phase, repo, Setting.instance, run)
     harness_run = plan[:chdir] != repo
     Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
                   meta: harness_run ? "harness run" : "live run",
@@ -107,12 +108,15 @@ class ClaudeCodeRunner
 
     if result.ok
       capture_outputs(repo)
-      handle_structured_output(result)
+      rerouted = handle_structured_output(result) == :rerouted
       Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
                     meta: run_meta(result.raw),
                     text: "#{phase.capitalize} run finished — #{summary(result.raw)}")
-      PipelineEngine.phase_finished!(ticket)
+      # A review that sent the ticket back has already moved it and started the
+      # rework run; advancing it again would skip implementation entirely.
+      PipelineEngine.phase_finished!(ticket) unless rerouted
     else
+      salvage(repo, result)
       fail_run(result.error.to_s)
     end
   rescue StandardError => e
@@ -248,17 +252,107 @@ class ClaudeCodeRunner
     ticket.update!(artifacts: ticket.artifacts | [plan])
   end
 
+  # A run that hit its turn limit or its timeout is usually a run that did
+  # most of the work — it committed, it answered, it just never got to say so.
+  # Discarding all of it means the retry starts from nothing and the money is
+  # spent twice. Keep what reached disk; the ticket still fails.
+  def salvage(repo, result)
+    capture_outputs(repo)
+    # Keep what the run reported, but never let a failed run reroute the
+    # ticket: it is about to be marked failed and would leave two live runs.
+    handle_structured_output(result, reroute: false)
+    return unless (kept = salvaged_note)
+
+    Event.record!(phase_tag: tag, tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "salvaged", text: "Kept from the failed #{phase} run: #{kept}")
+  rescue StandardError => e
+    # Salvage is best-effort — never let it mask the failure it is salvaging.
+    Rails.logger.warn { "salvage failed for run #{run.id}: #{e.class}: #{e.message}" }
+  end
+
+  def salvaged_note
+    parts = []
+    parts << "#{ticket.diff.size} diff lines" if ticket.diff.any?
+    pending = Question.pending.where(ticket_code: ticket.code, phase: phase).count
+    parts << "#{pending} clarification question(s)" if pending.positive?
+    parts << "test results" if run.tests_executed?
+    parts << "the plan" if phase == "planning" && ticket.acceptance_criteria.any?
+    parts.join(", ").presence
+  end
+
   # Grooming contracts (PhasePrompts): investigation may raise clarification
-  # questions; planning reports change ref, board dependencies and splits.
-  def handle_structured_output(result)
-    data = StructuredOutput.json_block(result.result_text)
+  # questions; planning reports change ref, board dependencies and splits;
+  # review reports findings and a verdict. Read from the run's out-file first
+  # so a truncated run still reports (PhaseOutput).
+  def handle_structured_output(result, reroute: true)
+    data = PhaseOutput.read(run, result&.result_text)
     return unless data
 
     case phase
     when "investigation" then create_questions(data)
     when "planning"      then apply_plan_output(data)
+    when "review"        then apply_review_output(data, reroute: reroute)
     when "testing"       then capture_test_results(data)
     end
+  ensure
+    PhaseOutput.clear(run)
+  end
+
+  # How many times implementation may be sent back before the machine stops
+  # arguing with itself and the operator decides.
+  REWORK_LIMIT = 2
+
+  # The reviewer reports; implementation fixes. A blocking finding therefore
+  # has to move the ticket, or review is a phase that produces prose and
+  # changes nothing.
+  def apply_review_output(data, reroute: true)
+    findings = Array(data["findings"]).filter_map do |f|
+      next unless f.is_a?(Hash)
+
+      what = f["what"].to_s.strip.presence or next
+      { "severity" => (f["severity"].to_s == "blocking" ? "blocking" : "minor"),
+        "file" => f["file"].to_s.truncate(120).presence,
+        "what" => what.truncate(300), "why" => f["why"].to_s.truncate(300).presence }.compact
+    end
+    blocking = findings.select { |f| f["severity"] == "blocking" }
+    verdict = blocking.any? ? "changes_requested" : "pass"
+    run.update!(review_findings: findings, review_verdict: verdict,
+                note: review_note(findings, verdict))
+    Event.record!(phase_tag: "REVIEW", tone: blocking.any? ? "var(--warn)" : "var(--ok)",
+                  ticket: ticket, agent: ticket.agent, meta: verdict.tr("_", " "),
+                  text: "Review of #{ticket.code}: #{review_note(findings, verdict)}")
+    return if blocking.empty?
+
+    feedback = blocking.map { |f| "- #{f['file'] ? "#{f['file']} — " : ''}#{f['what']}" }.join("\n")
+    ticket.update!(feedback: feedback)
+
+    # Two rounds of rework is the machine's budget. Past that it keeps going
+    # to testing carrying the unresolved findings, and the operator decides at
+    # the verdict gate rather than watching it loop.
+    rounds = ticket.phase_runs.where(phase: "implementation").count
+    if rounds > REWORK_LIMIT
+      Event.record!(phase_tag: "REVIEW", tone: "var(--err)", ticket: ticket, agent: ticket.agent,
+                    meta: "unresolved",
+                    text: "#{ticket.code} still has #{blocking.size} blocking finding(s) after " \
+                          "#{rounds} implementation rounds — carrying them to your verdict")
+      return
+    end
+
+    return unless reroute
+
+    PipelineEngine.request_changes!(ticket, feedback)
+    :rerouted
+  end
+
+  def review_note(findings, verdict)
+    blocking = findings.count { |f| f["severity"] == "blocking" }
+    minor = findings.size - blocking
+    return "clean — nothing to change" if findings.empty?
+
+    parts = []
+    parts << "#{blocking} blocking" if blocking.positive?
+    parts << "#{minor} minor" if minor.positive?
+    "#{verdict == 'pass' ? 'passed' : 'changes requested'} · #{parts.join(', ')}".truncate(120)
   end
 
   def capture_test_results(data)

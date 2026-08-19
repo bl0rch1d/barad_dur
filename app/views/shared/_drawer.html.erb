@@ -85,6 +85,45 @@
         </div>
       <% end %>
 
+      <!-- ── what the reviewer found ──────────────────────── -->
+      <% review = ticket.last_review %>
+      <% if review %>
+        <% blocking = review.review_findings.select { |f| f["severity"] == "blocking" } %>
+        <% unresolved = blocking.any? && !ticket.done? && ticket.state != "implementation" %>
+        <div class="panel" style="border-color:<%= unresolved ? "var(--warn)" : "var(--bd)" %>">
+          <div class="panel-hd">
+            <span class="k-label" style="<%= "color:var(--warn)" if unresolved %>">Review findings</span>
+            <span class="spacer"></span>
+            <span class="mono-meta"><%= review.note %></span>
+          </div>
+          <div style="padding:11px 14px;display:flex;flex-direction:column;gap:9px">
+            <% review.review_findings.each do |finding| %>
+              <% hard = finding["severity"] == "blocking" %>
+              <div style="display:flex;gap:8px;align-items:baseline">
+                <span class="tag" style="flex:none;min-width:52px;text-align:center;color:<%= hard ? "var(--warn)" : "var(--tx3)" %>">
+                  <%= hard ? "blocks" : "minor" %>
+                </span>
+                <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                  <% if finding["file"] %>
+                    <span class="mono" style="font-size:11px;color:var(--info);overflow-wrap:anywhere"><%= finding["file"] %></span>
+                  <% end %>
+                  <span style="font-size:12px;color:var(--tx);line-height:1.5"><%= finding["what"] %></span>
+                  <% if finding["why"] %>
+                    <span class="mono-meta" style="line-height:1.5"><%= finding["why"] %></span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+            <% if unresolved %>
+              <span class="mono-meta" style="color:var(--warn);line-height:1.55">
+                Rework ran its course without clearing these — they reached the pull
+                request unresolved, and your verdict is what decides them.
+              </span>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
       <!-- ── overview ─────────────────────────────────────── -->
       <% enriching = @setting.setup["enrich:#{ticket.code}"].to_i > 5.minutes.ago.to_i %>
       <% has_overview = ticket.description.present? || ticket.technical_notes.present? || ticket.acceptance_criteria.any? %>

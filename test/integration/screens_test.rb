@@ -19,6 +19,34 @@ class ScreensTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Drawer ticket"
   end
 
+  test "the drawer shows what the reviewer found, and flags what rework never cleared" do
+    ticket = Ticket.create!(code: "TST-RF", title: "Reviewed ticket", repo: "sample-repo", state: :testing)
+    ticket.phase_runs.create!(phase: "review", status: "done", started_at: 1.hour.ago,
+                              review_verdict: "changes_requested", note: "changes requested · 1 blocking",
+                              review_findings: [{ "severity" => "blocking", "file" => "app/cache.rb:12",
+                                                  "what" => "the cache key omits the venue",
+                                                  "why" => "two venues collide" }])
+
+    get root_path(ticket: ticket.code)
+
+    assert_response :success
+    assert_includes response.body, "the cache key omits the venue"
+    assert_includes response.body, "app/cache.rb:12"
+    assert_includes response.body, "your verdict is what decides them"
+  end
+
+  test "a review that only found nits is shown without the unresolved warning" do
+    ticket = Ticket.create!(code: "TST-RN", title: "Nitpicked ticket", repo: "sample-repo", state: :testing)
+    ticket.phase_runs.create!(phase: "review", status: "done", started_at: 1.hour.ago,
+                              review_verdict: "pass", note: "passed · 1 minor",
+                              review_findings: [{ "severity" => "minor", "what" => "the name reads oddly" }])
+
+    get root_path(ticket: ticket.code)
+
+    assert_includes response.body, "the name reads oddly"
+    refute_includes response.body, "your verdict is what decides them"
+  end
+
   test "wizard renders each step" do
     (1..5).each do |step|
       get root_path(wizard: step)

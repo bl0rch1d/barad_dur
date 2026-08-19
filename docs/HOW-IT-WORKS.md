@@ -198,6 +198,7 @@ flowchart TD
     Ready --> Inv --> Plan --> RTI
     RTI -->|"your approval, if required"| Impl
     Impl --> Rev --> Test --> Dep --> Done
+    Rev -->|"a blocking finding, up to twice"| Impl
     Inv -.->|"has a question"| Blocked
     RTI -.->|"needs approval"| Blocked
     Impl -.->|"something failed"| Blocked
@@ -226,7 +227,7 @@ better than asking one assistant to do everything at once.
 | **Scout** | Investigation | Reads your code to understand what exists. Never changes anything. |
 | **Architect** | Planning | Decides the approach and breaks it into tasks |
 | **Builder** | Implementation | Writes the actual code |
-| **Critic** | Review | Reviews the Builder's work against the plan |
+| **Critic** | Review | Judges the Builder's work against the plan. Reports problems; never fixes them itself |
 | **Tester** | Testing | Runs your linters, unit tests, regression and end-to-end suites — everything the project has — and reports what passed, failed, or could not run |
 | **Shipper** | Deployment | Prepares the finished work to land |
 
@@ -234,6 +235,29 @@ better than asking one assistant to do everything at once.
 commands and *your* specialist agents instead of these defaults — your existing
 conventions win. If you don't have one, the six above are used and nothing is required
 from you.
+
+**Each agent can run on its own model.** Click an agent's card to open its
+configuration. By default every agent follows the realm's model setting, so
+changing that one setting moves them all; pin an agent to a specific model and
+only that agent changes. A cheaper model is usually fine for mechanical stages
+and a stronger one earns its cost on planning and review, but the useful default
+is to leave them all following the realm until you have a reason not to.
+
+### Why the Critic does not fix what it finds
+
+It would be faster to let the reviewer patch the problems it spots. It is also
+how review stops meaning anything: on the next round, the reviewer is checking
+its own work, and an agent almost never rejects its own fix.
+
+So the Critic reports. Each finding is either **blocking** — the change is
+wrong, unsafe, or does not meet the acceptance criteria — or **minor**. A
+blocking finding sends the whole ticket back to Implementation with the finding
+attached, and a different run fixes it.
+
+That can only repeat twice. After the second round of rework the tower stops
+arguing with itself: the remaining findings are attached to the ticket, marked
+unresolved, and carried to the pull request for you to judge. You will see them
+in the ticket drawer under **Review findings**, with the blocking ones flagged.
 
 ---
 

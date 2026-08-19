@@ -38,6 +38,27 @@ module PhasePrompts
     session — parts split out to run after it (usually []).
   TXT
 
+  # A reviewer that edits the code has, on the next round, reviewed its own
+  # work — so review reports and implementation fixes. That only holds
+  # together if a blocking finding actually sends the ticket back, which is
+  # what the verdict here drives.
+  REVIEW_CONTRACT = <<~TXT.freeze
+
+    End your FINAL message with a fenced json block:
+    ```json
+    {"verdict": "changes_requested",
+     "findings": [{"severity": "blocking", "file": "app/models/order.rb:88",
+                   "what": "the cache key omits the venue",
+                   "why": "two venues collide and return each other's prices"}]}
+    ```
+    verdict: "pass" when nothing blocking remains, "changes_requested" otherwise.
+    severity: "blocking" for anything that makes the change wrong, unsafe, or
+    incomplete against the acceptance criteria above — everything else is
+    "minor". Be strict about what blocks and honest about what does not; a
+    blocking finding sends the whole ticket back for rework.
+    Report findings — do NOT fix them yourself.
+  TXT
+
   TESTING_CONTRACT = <<~TXT.freeze
 
     End your FINAL message with a fenced json block reporting what you ran.
@@ -61,7 +82,7 @@ module PhasePrompts
   # CLI args. Harness-mapped phases run in the harness repo with the whole
   # workspace reachable; everything else uses the built-in prompt in the
   # ticket's repo. Grooming phases carry structured-output contracts.
-  def execution(ticket, phase, repo_path, setting = Setting.instance)
+  def execution(ticket, phase, repo_path, setting = Setting.instance, run = nil)
     invocation = Harness.phase_invocation(phase, setting)
     plan =
       if invocation
@@ -75,7 +96,9 @@ module PhasePrompts
       else
         { prompt: build(ticket, phase), chdir: repo_path, extra_args: [] }
       end
-    plan[:prompt] += contract_for(ticket, phase)
+    contract = contract_for(ticket, phase)
+    contract += PhaseOutput.instruction(run) if contract.present? && run
+    plan[:prompt] += contract
     plan
   end
 
@@ -83,6 +106,7 @@ module PhasePrompts
     case phase
     when "investigation" then QUESTIONS_CONTRACT + board_context(ticket)
     when "planning"      then PLANNING_CONTRACT + board_context(ticket)
+    when "review"        then REVIEW_CONTRACT
     when "testing"       then TESTING_CONTRACT
     else ""
     end
@@ -121,7 +145,7 @@ module PhasePrompts
       #{ticket.repo}#{scope ? " (scope: #{scope} subdirectory)" : ""}.
       #{"The repository under work is at #{repo_path} — your working directory is the harness repo, so pass -C #{repo_path} to git and read files from there.\n" if repo_path}
       #{"The openspec change for this ticket is #{change_ref(ticket)}.\n" if change_ref(ticket)}
-      #{spec_block(ticket)}
+      #{spec_block(ticket, phase)}
       #{"Never ask the user questions interactively — make reasonable choices and note them." unless phase == "investigation"}
       #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
       Work autonomously until the #{phase} outcome is complete, then summarize
@@ -201,8 +225,14 @@ module PhasePrompts
     TXT
     when "review" then <<~TXT
       Review the diff of this branch against its merge base like a strict code
-      reviewer: correctness, spec compliance, edge cases. Fix any real problems
-      you find with additional commits. Finish with a verdict summary.
+      reviewer: correctness, compliance with the acceptance criteria above,
+      edge cases, and anything the change breaks elsewhere.
+
+      Read only. Do NOT edit, commit, or fix what you find — report it. A
+      blocking finding sends the ticket back to implementation, where it is
+      fixed by an agent that did not also decide it was a problem.
+
+      Judge the change that is here, not the change you would have written.
     TXT
     when "testing" then <<~TXT
       Verify this change properly — a pull request is opened for human review

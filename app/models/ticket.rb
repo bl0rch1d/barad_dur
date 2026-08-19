@@ -63,6 +63,15 @@ class Ticket < ApplicationRecord
     Question.pending.exists?(ticket_code: code)
   end
 
+  # The last review that actually reported. Kept visible after the ticket
+  # moves on: unresolved blocking findings are the reason to read the PR
+  # carefully, and they are otherwise buried in a run log.
+  def last_review
+    phase_runs.to_a
+              .select { |r| r.phase == "review" && r.review_findings.any? }
+              .max_by { |r| r.started_at || Time.at(0) }
+  end
+
   def current_phase_run
     if phase_runs.loaded?
       phase_runs.select { |r| r.phase == state }.max_by { |r| r.started_at || Time.at(0) }
