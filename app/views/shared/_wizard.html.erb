@@ -355,17 +355,33 @@
             </div>
           <% end %>
 
-          <div class="parse-card" id="indexing-progress-card" data-turbo-permanent
+          <%# While a parse is actually running this card shows its real
+              progress and stays incomplete — the eased animation below is for
+              the workspace scan, which finishes in a moment. It is only
+              turbo-permanent when idle, so live refreshes can update the real
+              numbers while parsing. %>
+          <% parse = setup["spec_sync_progress"] %>
+          <% parse = nil if parse && parse["at"].to_i < 90.seconds.ago.to_i %>
+          <% parse_total = parse["total"].to_i if parse %>
+          <% parse_pct = parse && parse_total.to_i.positive? ? (100 * parse["done"].to_i / parse_total) : 0 %>
+          <div class="parse-card" id="indexing-progress-card" <%= "data-turbo-permanent" if parse.nil? %>
                data-controller="progress" data-progress-cap-value="100"
+               data-progress-busy-value="<%= parse.present? %>"
+               data-progress-pct-value="<%= parse_pct %>"
                data-progress-done-label-value="Workspace indexed ✓">
             <div style="display:flex;align-items:center;gap:10px">
-              <span class="mono" data-progress-target="title" style="font-size:11px;color:var(--accent);flex:1">Indexing workspace…</span>
-              <span class="mono-dim" data-progress-target="label">0%</span>
+              <span class="mono" data-progress-target="title" style="font-size:11px;color:var(--accent);flex:1">
+                <%= parse ? "Parsing specs — #{parse['done']} of #{parse_total}…" : "Indexing workspace…" %>
+              </span>
+              <span class="mono-dim" data-progress-target="label"><%= parse ? "#{parse_pct}%" : "0%" %></span>
             </div>
             <div class="meter"><span data-progress-target="bar" style="width:0%;background:var(--accent);transition:width .2s linear"></span></div>
             <div class="parse-log">
               <% index_line = ws_selected.any? ? "indexed #{ws_selected.sum { |r| r[:files] }} files · #{ws_selected.sum { |r| r[:commits] }} commits · #{repos_selected} selected #{"repo".pluralize(repos_selected)}" : "no repos selected to index yet" %>
-              <% spec_line = Capability.any? ? "parsed #{Capability.count} openspec capabilities, #{SpecRequirement.count} requirements" : "spec index pending" %>
+              <% spec_line = if parse then "parsing #{parse['label']} — #{parse['done']} of #{parse_total}"
+                             elsif Capability.any? then "parsed #{Capability.count} openspec capabilities, #{SpecRequirement.count} requirements"
+                             else "spec index pending"
+                             end %>
               <% [[index_line, 20], [spec_line, 45],
                   ["inferred test commands from the workspace", 65],
                   ["mapped agent roles onto phases", 78],

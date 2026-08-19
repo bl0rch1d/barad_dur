@@ -27,6 +27,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The setup wizard's indexing card no longer claims the workspace is indexed
+  while the spec parse is still running. It eased a cosmetic bar to 100% in
+  about ten seconds and unlocked Continue, whatever the real parse was doing —
+  a 65-file workspace takes over a minute. While a parse runs the card shows
+  its actual position, names the file being read, and Continue stays locked
+  until the job finishes.
 - A ticket waiting on your verdict no longer releases the tickets that depend on
   it. The dependency rule was always right — it was being told the parent was
   done, because the pipeline completed it without asking.

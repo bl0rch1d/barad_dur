@@ -17,7 +17,7 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-101%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-105%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 [![License](https://img.shields.io/badge/license-MIT-ffb03a?labelColor=0a0705)](LICENSE)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Inside the Tower](#-inside-the-tower) • [Words of Command](#-words-of-command)
@@ -352,7 +352,7 @@ via `GH_TOKEN`.
 
 ```bash
 docker compose exec web bin/rails test
-# 101 runs, 545 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 105 runs, 563 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 

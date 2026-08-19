@@ -9,10 +9,20 @@ export default class extends Controller {
   static targets = ["bar", "label", "row", "title"]
   static values = {
     cap: { type: Number, default: 100 },
-    doneLabel: { type: String, default: "done" }
+    doneLabel: { type: String, default: "done" },
+    // real work is in flight: show its actual position and do not complete
+    busy: { type: Boolean, default: false },
+    pct: { type: Number, default: 0 }
   }
 
   connect() {
+    // A spec parse can run for minutes. Easing a cosmetic bar to 100% over it
+    // would claim the work was finished — and unlock Continue — while the
+    // parse was still going. Show where it really is instead.
+    if (this.busyValue) {
+      this.showActual()
+      return
+    }
     if (this.alreadyCompleted()) {
       this.finish()
       return
@@ -20,6 +30,13 @@ export default class extends Controller {
     this.start = performance.now()
     this.tick = this.tick.bind(this)
     this.frame = requestAnimationFrame(this.tick)
+  }
+
+  // Rendered fresh by each live refresh while the work runs, so there is
+  // nothing to animate — just paint the server's numbers and stay locked.
+  showActual() {
+    this.render(Math.min(this.pctValue, this.capValue))
+    document.querySelectorAll("[data-progress-unlock]").forEach((el) => el.classList.add("locked"))
   }
 
   disconnect() {
