@@ -88,6 +88,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves HEAD on the base branch — silently discarded every implementation
   commit. It is also prepared for review, testing and deployment, not only
   implementation.
+- **Every ticket was inheriting the previous ticket's commits.** The work branch
+  was cut from wherever HEAD happened to sit, and the last ticket leaves the
+  repo on its own `pipe/*` branch. Branches are now cut from the base branch.
+- The base branch is asked of the repository rather than guessed as "main, else
+  master" — the remote's own HEAD first, then the configured default, then the
+  conventional names. A project whose trunk is `develop`, or one that renamed to
+  `main` and left a stale `master` behind, was diffed and merged against the
+  wrong branch.
+- Work the agent changed but never committed is surfaced on the ticket and in
+  the diff. It is invisible to a branch diff and absent from the pull request,
+  so it silently did not ship.
+- The diff preview says how many lines it left out instead of stopping at forty
+  as though that were the whole change.
 - A harness implementation run no longer requires an openspec change to exist.
   Without one the phase fell back to the built-in prompt, so a repo without
   openspec never used its own harness for the one phase that writes code.

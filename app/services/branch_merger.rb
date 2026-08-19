@@ -13,8 +13,8 @@ class BranchMerger
       branch = "pipe/#{ticket.code.downcase}"
       return failure("branch #{branch} not found") unless git?(repo, "rev-parse", "--verify", branch)
 
-      base = %w[main master].find { |b| git?(repo, "rev-parse", "--verify", b) }
-      return failure("no main/master branch in #{ticket.repo}") unless base
+      base = GitRepo.base_branch(repo)
+      return failure("no base branch found in #{ticket.repo}") unless base
 
       unless git?(repo, "checkout", base)
         return failure("cannot check out #{base} — uncommitted changes in the repo?")

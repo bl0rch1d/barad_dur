@@ -152,7 +152,12 @@ class ClaudeCodeRunner
     exists = system("git", "-C", repo, "rev-parse", "--verify", branch,
                     out: File::NULL, err: File::NULL)
     unless exists
-      return unless system("git", "-C", repo, "checkout", "-b", branch, out: File::NULL, err: File::NULL)
+      # Cut from the base branch, never from wherever HEAD happens to sit. The
+      # previous ticket leaves the repo on its own pipe/* branch, so branching
+      # from HEAD quietly gave every ticket the last one's commits.
+      start = GitRepo.base_branch(repo)
+      args = ["checkout", "-b", branch, start].compact
+      return unless system("git", "-C", repo, *args, out: File::NULL, err: File::NULL)
 
       ticket.update!(artifacts: ticket.artifacts | ["branch #{branch}"])
       return
@@ -224,24 +229,50 @@ class ClaudeCodeRunner
     end
   end
 
+  DIFF_LINES = 40
+
   def capture_diff(repo)
-    base = %w[main master].find { |b| git(repo, "rev-parse", "--verify", b).last } || "HEAD~1"
+    base = GitRepo.base_branch(repo) || "HEAD~1"
+    # Three dots is already merge-base relative: the diff shows what this
+    # branch added, not what the base branch moved on to.
     out, ok = git(repo, "diff", "#{base}...HEAD", "--unified=1")
     out, ok = git(repo, "diff", "HEAD~1", "--unified=1") unless ok && out.present?
-    return unless ok && out.present?
+    lines = ok ? out.lines : []
 
-    lines = out.lines.first(40).map do |raw|
-      line = raw.chomp
-      style =
-        case line
-        when /\A\+/ then { "bg" => "var(--ok-soft)", "fg" => "var(--ok)" }
-        when /\A-/  then { "bg" => "var(--err-soft)", "fg" => "var(--err)" }
-        when /\A@@/ then { "bg" => "var(--sunken)", "fg" => "var(--info)" }
-        else             { "bg" => "transparent", "fg" => "var(--tx2)" }
-        end
-      style.merge("line" => line)
+    rendered = lines.first(DIFF_LINES).map { |raw| diff_line(raw.chomp) }
+    if lines.size > DIFF_LINES
+      rendered << diff_line("… #{lines.size - DIFF_LINES} more lines — read the branch for the rest")
     end
-    ticket.update!(diff: lines)
+    rendered.concat(stranded_lines(repo))
+    return if rendered.empty?
+
+    ticket.update!(diff: rendered)
+  end
+
+  def diff_line(line)
+    style =
+      case line
+      when /\A\+/ then { "bg" => "var(--ok-soft)", "fg" => "var(--ok)" }
+      when /\A-/  then { "bg" => "var(--err-soft)", "fg" => "var(--err)" }
+      when /\A@@/ then { "bg" => "var(--sunken)", "fg" => "var(--info)" }
+      else             { "bg" => "transparent", "fg" => "var(--tx2)" }
+      end
+    style.merge("line" => line)
+  end
+
+  # Work the agent left uncommitted is work the pull request will not contain.
+  # It is invisible in the branch diff, so say so where the diff is read.
+  def stranded_lines(repo)
+    stranded = GitRepo.uncommitted(repo)
+    return [] if stranded.empty?
+
+    Event.record!(phase_tag: tag, tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "uncommitted",
+                  text: "#{ticket.code}: #{stranded.size} file(s) changed but never committed — " \
+                        "they will not be in the pull request")
+    warn = { "bg" => "var(--warn-soft)", "fg" => "var(--warn)" }
+    [warn.merge("line" => "── uncommitted, and therefore NOT in the pull request ──")] +
+      stranded.first(10).map { |f| warn.merge("line" => "#{f['status']} #{f['path']}") }
   end
 
   def capture_plan_artifact
