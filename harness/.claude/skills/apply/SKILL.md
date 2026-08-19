@@ -16,6 +16,12 @@ someone else can verify without taking your word for anything.
 `BARAD-DUR-BRIEF=<path>` first (`CLAUDE.md` §2). Then `brief.contract_path` and
 `## Plan` from the record.
 
+**If `contract.json` does not exist**, planning ran on a built-in prompt or was
+switched off. Use `brief.acceptance_criteria` instead — it carries the same
+criteria, untruncated — and note in `deviations` that there was no frozen
+contract. Do not write one yourself: a contract authored alongside the code is
+a description of the code, and checking one against the other proves nothing.
+
 Barad-dûr has already checked out `brief.branch` in `brief.repo_path`. Do not
 create it, do not switch branches, and never commit to `brief.base_branch`.
 
@@ -60,8 +66,12 @@ the fix is task 2. Keep them separate.
 ## Step 4 — The frozen tests are frozen
 
 `contract.json.frozen_tests` lists existing test files with their digests.
-**Do not modify any of them.** Not to update an assertion, not to fix an import,
-not to "make it consistent".
+**Do not modify any of them** — not to update an assertion, not to fix an
+import, not to "make it consistent".
+
+With no contract, treat every test file that already existed at
+`brief.base_sha` as frozen. The rule is the point; the list is only how it is
+usually delivered.
 
 Never add `skip`, `xit`, `xdescribe`, `it.only`, `fdescribe`,
 `@pytest.mark.skip`, `@unittest.skip` or `t.Skip` anywhere.

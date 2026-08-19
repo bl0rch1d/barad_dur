@@ -23,6 +23,12 @@ an agent can read the original rather than your compression of it. A review with
 the wrong premise produces confident, wrong findings — and it produces them in
 several reviewers at once, all agreeing.
 
+**If `contract.json` does not exist**, planning ran on a built-in prompt or was
+switched off. Use `brief.acceptance_criteria` instead — it carries the same
+criteria, untruncated — and say in the report header that there was no frozen
+contract, so nothing was checked against a version that predates the code. That
+is a real weakening of this review and a reader should know it.
+
 If `brief.degraded` contains `"intent"`, say so at the top of the report and
 mark every intent-dependent finding **unverified against intent**. Do not
 reconstruct the intent from the diff. That is grading the change against itself.
@@ -96,11 +102,11 @@ has the prompt templates; the rules:
   highest-value output is a call site that *should* have received the change and
   did not. That file is not in the diff, so it can only be found by grepping
   outside it. A per-file split structurally cannot find it.
-- **A criteria-conformance unit always exists**, checking each
-  `contract.json` criterion against an independently grepped implementing code
-  path. It treats "the tests pass" as **zero evidence**. This is the most
-  valuable unit in the phase, and it exists on every run because planning always
-  writes a contract.
+- **A criteria-conformance unit always exists**, checking each criterion —
+  from `contract.json`, or from `brief.acceptance_criteria` when there is no
+  contract — against an independently grepped implementing code path. It treats
+  "the tests pass" as **zero evidence**. This is the most valuable unit in the
+  phase, and there is always something for it to check.
 
 Emit all `Agent` calls in a **single message**. They may still be serialized —
 that is the runtime's choice, not yours. If they are, say so as a *method

@@ -17,6 +17,10 @@ A pull request opens for human review the moment you finish.
 `BARAD-DUR-BRIEF=<path>` first (`CLAUDE.md` §2). Then `brief.contract_path`,
 `## Plan`, `## Changes`, `## Review` and the review report it names.
 
+**If `contract.json` does not exist**, planning ran on a built-in prompt or was
+switched off. Verify against `brief.acceptance_criteria` instead — it carries
+the same criteria, untruncated — and say so in `## Verification`.
+
 `brief.toolchain` is the command list, discovered from this repository's own
 configuration. **Do not invent a command.** If an entry is absent, the dimension
 is `no-tooling-detected`; if it is `"runnable": false`, it is `unavailable`.
@@ -41,7 +45,8 @@ Report every one separately, **including the ones you could not run and why**.
 
 ## Step 3 — Verify each criterion
 
-For every criterion in `contract.json`, name **the test that exercises it** and
+For every criterion — from `contract.json`, or `brief.acceptance_criteria` when
+there is none — name **the test that exercises it** and
 give a verdict:
 
 - `satisfied` — a test asserts it and passes. Name the test, `file:line`.

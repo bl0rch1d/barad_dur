@@ -236,6 +236,47 @@ commands and *your* specialist agents instead of these defaults — your existin
 conventions win. If you don't have one, the six above are used and nothing is required
 from you.
 
+### What the agents actually run
+
+Each of the six is a real Claude Code session, and something has to tell it how
+to do its job. That something is a *harness*: a set of skills, one per stage,
+plus the specialists they can hand work to.
+
+**If your project already has one** — a `.claude` directory with its own
+commands, skills or agents — Barad-dûr detects it and uses yours. Your
+conventions win, and nothing here overrides them.
+
+**If it doesn't, Sammath does the work.** Sammath ships with the app, and it is
+built around one idea: *the handover between stages belongs to the program, not
+to the next agent.* Before each stage starts, Barad-dûr writes it a briefing
+file — the exact commit the work branches from, the commands this project can
+actually be verified with, your acceptance criteria in full, the answers you
+gave to its questions, your repo's own `CLAUDE.md`, and a plain list of anything
+an earlier stage failed to produce. The agent reads facts instead of guessing at
+them, and where something is genuinely missing it is told so rather than left to
+invent it.
+
+What each stage is asked to do:
+
+| Skill | Stage | The thing it is strict about |
+|---|---|---|
+| `/explore` | Investigation | Takes the purpose from your ticket — never from the code, because an agent that infers the goal from the change will approve whatever the change does |
+| `/propose` | Planning | Writes acceptance criteria **before** any code exists, so there is something real to check against later |
+| `/apply` | Implementation | Commits the failing test *before* the fix, as separate commits, so the ordering can be verified rather than believed |
+| `/review` | Review | Runs the linter and tests before forming an opinion, then sends verifiers to attack its own findings |
+| `/test` | Testing | Checks each criterion by name; a green suite counts as no evidence that what you asked for happened |
+| `/ship` | Deployment | Only adds a changelog entry if your repo already keeps one, in the format it already uses |
+
+Four specialists come with it: a read-only scout for exploring a subsystem, a
+per-unit reviewer, an adversarial verifier, and a fixer that is deliberately
+never shown who raised the finding it is fixing.
+
+**The adversarial step is the unusual one.** Every finding the review produces is
+handed to a separate agent whose instructions are to *prove it wrong* and to
+give up on it when unsure. Findings that survive that are worth your attention;
+the ones that don't never reach you. It is slower and it costs more, and it is
+the difference between a review you read and a review you skim.
+
 **Each agent can run on its own model.** Click an agent's card to open its
 configuration. By default every agent follows the realm's model setting, so
 changing that one setting moves them all; pin an agent to a specific model and

@@ -1,8 +1,24 @@
-<!-- Design proposal. Not implemented. -->
+<!-- Implemented. Kept for the reasoning, not as a plan. -->
 
 # Proposal: a default agentic harness
 
-**Status:** proposal, awaiting a decision. Nothing here is built.
+**Status: built and shipped** — see the CHANGELOG entries under Unreleased.
+This document is kept for its reasoning and its evidence, not as a plan.
+
+Two deliberate departures from what is written below:
+
+- **All six phases map to Sammath, not three.** §10 recommends mapping only
+  investigation, planning and review by default and leaving the rest on the
+  improved built-ins until a benchmark says otherwise. The request was to
+  replace the default harness outright, so all six are mapped — with the
+  per-phase override in the wizard as the way back, and each skill written to
+  degrade rather than fail when an earlier phase ran on a built-in prompt and
+  left it no contract.
+- **The benchmark of §10 stage 1 was not built.** Stages 0 and 2 shipped
+  first, on the grounds that every item in them was an independently verified
+  live defect and did not need a benchmark to justify. Nothing here has been
+  measured against the built-ins; the case for it rests on the defects it
+  closes, which is a weaker claim than the one this document argues for.
 
 ## Provenance
 

@@ -178,7 +178,32 @@ runs via the Task tool, never assigned tickets of their own.
 | Testing | `Tester` — linters, unit, regression and e2e, whatever exists | built-in |
 | Deployment | `Shipper` | built-in |
 
-No harness? The default seven serve faithfully. They are not evil, merely… *ambitious*.
+No harness of your own? **Sammath** answers — the harness forged into the tower itself.
+
+## ⚔️ Sammath — the harness in the tower
+
+Six skills, one per phase, and four specialists they may summon. Every one of them is handed
+a **brief the tower wrote first**: the resolved base commit, the commands this repository can
+actually be verified with, your criteria in full, the answers you gave, your repo's own
+`CLAUDE.md` — and, named plainly, whatever an earlier phase failed to leave behind.
+
+| Skill | Phase | Sworn to |
+|---|---|---|
+| `/explore` | Investigation | Take the purpose from the ticket. Never from the diff — an agent that reads the goal off the change will bless whatever the change does |
+| `/propose` | Planning | Write the criteria **before** the code, or there is nothing to judge it against |
+| `/apply` | Implementation | Commit the failing test *before* the fix, as separate commits, so the order can be read from `git log` rather than taken on trust |
+| `/review` | Review | Run the linter and the tests before forming an opinion. Then set verifiers on its own findings |
+| `/test` | Testing | Verify every criterion by name. A green suite is *no evidence* that what was asked for happened |
+| `/ship` | Deployment | Add a changelog entry only where one already lives, in the form it already takes |
+
+**The refutation wave is the point.** Each finding is handed to a fresh agent ordered to
+*prove it wrong* — and to abandon it when unsure. Six routes kill a finding: it predates the
+branch; three or more places do it deliberately; the failure cannot occur; the fix is merely
+different; it cites something that does not exist; it was already refuted and nothing changed.
+What survives that is worth your eye. What doesn't never reaches you.
+
+Your own harness still outranks it. Sammath serves where none other does — or where you
+name it deliberately in the wizard.
 
 ## 🔥 How the work is forged
 
@@ -289,16 +314,17 @@ the gaps.
 ```mermaid
 flowchart LR
     Scan["Scan selected repos"] --> Found{"Commands<br/>found?"}
-    Found -->|no| Builtin["Built-in prompts<br/><i>works with any repo</i>"]
-    Found -->|yes| Map["Map onto phases"]
+    Found -->|no| Sam["Sammath — shipped in the tower<br/><i>/explore /propose /apply<br/>/review /test /ship</i>"]
+    Found -->|yes| Map["Map yours onto phases"]
 
     Map --> I["investigation → /opsx:explore"]
     Map --> P["planning → /opsx:propose"]
     Map --> M["implementation → /opsx:apply &lt;change&gt;"]
     Map --> R["review → review skill"]
-    Map --> X["testing · deployment<br/><i>no match → built-in</i>"]
+    Map --> X["unmatched phase<br/><i>→ built-in prompt</i>"]
 
-    I & P & M & R & X --> Over["Per-phase override in the wizard<br/><i>harness · built-in · off</i>"]
+    Sam & I & P & M & R & X --> Brief["Brief written by the tower<br/><i>base sha · toolchain · criteria ·<br/>your answers · what is missing</i>"]
+    Brief --> Over["Per-phase override in the wizard<br/><i>harness · built-in · off</i>"]
 ```
 
 Detection is cached with the repo selection in the key, so ticking a repository in the

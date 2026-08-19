@@ -82,18 +82,22 @@ FROM base
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
+
+# The default harness lives outside the application tree on purpose. Phases run
+# with it as their working directory, so a git command that forgot its -C hits a
+# directory that is not a repository and fails, rather than quietly staging
+# changes into barad-dûr's own checkout. Root-owned and unwritable while the app
+# runs as uid 1000, so no ticket can drift a skill every later ticket then uses.
+# (chmod is explicit: a source tree on a Windows mount arrives mode 777.)
+COPY --chown=root:root harness/ /opt/barad-dur/harness/
+RUN chmod -R a-w /opt/barad-dur/harness
+
 USER 1000:1000
 
 # Copy built artifacts: gems, application
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails
 
-# The default harness lives outside the application tree on purpose. Phases run
-# with it as their working directory, so a git command that forgot its -C must
-# fail rather than quietly stage changes into barad-dûr's own checkout — and
-# root-owned while the app runs as uid 1000 means no ticket can drift a skill
-# that every other ticket then uses.
-COPY --chown=root:root harness/ /opt/barad-dur/harness/
 
 # Entrypoint prepares the database.
 # docker-env seeds/exports .env, then hands off to the usual entrypoint
