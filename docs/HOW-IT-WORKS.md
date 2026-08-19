@@ -243,6 +243,20 @@ only that agent changes. A cheaper model is usually fine for mechanical stages
 and a stronger one earns its cost on planning and review, but the useful default
 is to leave them all following the realm until you have a reason not to.
 
+### How it knows what to run
+
+Before the Tester starts, the tower reads the project's own configuration —
+`Gemfile`, `package.json` scripts, `pyproject.toml`, `go.mod`, `Cargo.toml`,
+`Makefile` targets — and hands over the linter, unit and end-to-end commands it
+found, along with where each came from. The Tester is asked to correct that list
+rather than trust it, since a command still has to actually work.
+
+This is partly to save time: working the same answer out on every run costs the
+agent turns it could spend testing, and a run that spends its budget on
+discovery finishes having verified nothing. It also means the tower knows what
+the project has, so a suite that comes back neither run nor explained gets
+flagged rather than believed.
+
 ### Why a passing suite is not enough
 
 "Make the tests pass" is also, read literally, an instruction to delete the

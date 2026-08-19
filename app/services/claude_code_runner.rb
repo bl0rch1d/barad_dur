@@ -77,7 +77,7 @@ class ClaudeCodeRunner
   end
 
   def execute
-    repo = Workspace.repo_path(ticket.repo)
+    repo = @repo = Workspace.repo_path(ticket.repo)
     return fail_run("repository #{ticket.repo.inspect} not found in workspace") unless repo
 
     prepare_branch(repo)
@@ -432,10 +432,28 @@ class ClaudeCodeRunner
       Event.record!(phase_tag: "TEST", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
                     meta: s["kind"], text: "#{s['kind']} not run on #{ticket.code} — #{s['skipped']}")
     end
+    report_unrun_suites(suites)
     Event.record!(phase_tag: "TEST", tone: failed.positive? ? "var(--warn)" : "var(--ok)",
                   ticket: ticket, agent: ticket.agent,
                   meta: data["command"].to_s.truncate(40).presence,
                   text: "Tests: #{passed} passed, #{failed} failed on #{ticket.code}")
+  end
+
+  # The prompt named the suites this repository has. A kind that came back
+  # neither run nor explained was silently dropped — which is the difference
+  # between a change that was tested and one that merely looks it.
+  def report_unrun_suites(suites)
+    expected = Toolchain.detect(@repo).map(&:kind).uniq
+    return if expected.empty?
+
+    accounted = suites.map { |s| s["kind"] }.uniq
+    missing = expected - accounted
+    return if missing.empty?
+
+    Event.record!(phase_tag: "TEST", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "not reported",
+                  text: "#{ticket.code}: this repo has #{missing.join(', ')} but the run never " \
+                        "mentioned #{missing.size > 1 ? 'them' : 'it'}")
   end
 
   # "128 passed · 0 failed · lint, unit, e2e" — the phase row should say what

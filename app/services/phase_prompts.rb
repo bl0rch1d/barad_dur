@@ -102,6 +102,13 @@ module PhasePrompts
       else
         { prompt: build(ticket, phase), chdir: repo_path, extra_args: [] }
       end
+    # Rediscovering how to run this project's suites costs turns on an answer
+    # that does not change between runs, and when the turns run short the phase
+    # ends having verified nothing.
+    if phase == "testing" && (tools = Toolchain.describe(repo_path))
+      plan[:prompt] += "\n#{tools}"
+    end
+
     contract = contract_for(ticket, phase)
     contract += PhaseOutput.instruction(run) if contract.present? && run
     plan[:prompt] += contract

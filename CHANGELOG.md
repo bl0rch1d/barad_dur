@@ -88,6 +88,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves HEAD on the base branch — silently discarded every implementation
   commit. It is also prepared for review, testing and deployment, not only
   implementation.
+- **The testing phase is told how to verify the project instead of working it
+  out again every run.** The repository's own configuration — Gemfile,
+  package.json scripts, pyproject, go.mod, Cargo.toml, Makefile targets — is
+  read in a few file reads and handed over as a starting point it is asked to
+  correct. Rediscovering it cost turns on an answer that never changes, and
+  when the turns ran short the phase finished having verified nothing. It also
+  means the tower knows what the repo has, so a suite that came back neither
+  run nor explained is now called out.
 - **A green run that asks less is no longer taken for a green run.** The tester
   is told never to weaken, skip or delete a test to make the suite pass, and
   nothing checked — while "make the tests pass" is the exact instruction under
