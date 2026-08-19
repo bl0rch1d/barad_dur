@@ -253,13 +253,37 @@ class ClaudeCodeRunner
 
     passed = data["passed"].to_i
     failed = data["failed"].to_i
+    suites = Array(data["suites"]).filter_map do |s|
+      next unless s.is_a?(Hash)
+
+      { "kind" => s["kind"].to_s.presence || "tests", "command" => s["command"].to_s.truncate(120),
+        "passed" => s["passed"], "failed" => s["failed"], "skipped" => s["skipped"].to_s.presence }.compact
+    end
+
     run.update!(tests_command: data["command"].to_s.truncate(120).presence,
-                tests_passed: passed, tests_failed: failed,
-                note: "#{passed} passed · #{failed} failed")
+                tests_passed: passed, tests_failed: failed, test_suites: suites,
+                note: suite_note(passed, failed, suites))
+    suites.each do |s|
+      next unless s["skipped"]
+
+      Event.record!(phase_tag: "TEST", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                    meta: s["kind"], text: "#{s['kind']} not run on #{ticket.code} — #{s['skipped']}")
+    end
     Event.record!(phase_tag: "TEST", tone: failed.positive? ? "var(--warn)" : "var(--ok)",
                   ticket: ticket, agent: ticket.agent,
                   meta: data["command"].to_s.truncate(40).presence,
                   text: "Tests: #{passed} passed, #{failed} failed on #{ticket.code}")
+  end
+
+  # "128 passed · 0 failed · lint, unit, e2e" — the phase row should say what
+  # was actually covered, not just a number.
+  def suite_note(passed, failed, suites)
+    note = "#{passed} passed · #{failed} failed"
+    kinds = suites.map { |s| s["kind"] }.uniq
+    note += " · #{kinds.join(', ')}" if kinds.any?
+    skipped = suites.count { |s| s["skipped"] }
+    note += " · #{skipped} not run" if skipped.positive?
+    note.truncate(120)
   end
 
   def create_questions(data)

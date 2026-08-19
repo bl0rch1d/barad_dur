@@ -4,7 +4,11 @@ class BoardController < ApplicationController
   # there (with its subtype) instead of in its phase column, and returns
   # automatically once the blocker clears.
   COLUMNS = %w[draft ready investigation planning ready_to_implement blocked
-               implementation review testing deployment].freeze
+               implementation review testing deployment done].freeze
+
+  # Done accumulates forever; the column shows the latest landings and points
+  # at the full history rather than growing without limit.
+  DONE_ON_BOARD = 8
 
   def show
     @shipped_view = params[:shipped] == "1"
@@ -22,9 +26,15 @@ class BoardController < ApplicationController
     active = [] if @blocked_only
     by_state = active.group_by(&:state)
 
+    recent_done = Ticket.done.order(finished_at: :desc, id: :desc).limit(DONE_ON_BOARD).to_a
+    recent_done = recent_done.select { |t| t.repo.to_s.start_with?(@repo_filter) } if @repo_filter
+    recent_done = [] if @blocked_only
+
     @columns = COLUMNS.map do |column|
       if column == "blocked"
         { state: "blocked", name: "Blocked", tone: "var(--err)", tickets: blocked, blocked: true }
+      elsif column == "done"
+        { state: "done", name: "Done", tone: "var(--ok)", tickets: recent_done, done: true }
       else
         meta = helpers.state_meta(column)
         { state: column, name: meta[:name], tone: meta[:tone], tickets: by_state.fetch(column, []) }

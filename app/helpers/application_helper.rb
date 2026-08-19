@@ -75,6 +75,7 @@ module ApplicationHelper
     when "ready"              then { label: "queued", tone: "var(--line)", fg: "var(--tx2)" }
     when "ready_to_implement" then { label: "ready", tone: "var(--ok)", fg: "var(--ok)" }
     when "deployment"         then { label: "ship", tone: "var(--accent)", fg: "var(--accent)" }
+    when "done"               then { label: "landed", tone: "var(--ok)", fg: "var(--ok)" }
     else                           { label: "open", tone: "var(--accent)", fg: "var(--accent)" }
     end
   end

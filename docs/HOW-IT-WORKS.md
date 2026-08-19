@@ -227,7 +227,7 @@ better than asking one assistant to do everything at once.
 | **Architect** | Planning | Decides the approach and breaks it into tasks |
 | **Builder** | Implementation | Writes the actual code |
 | **Critic** | Review | Reviews the Builder's work against the plan |
-| **Tester** | Testing | Runs your test suite and reports pass/fail |
+| **Tester** | Testing | Runs your linters, unit tests, regression and end-to-end suites — everything the project has — and reports what passed, failed, or could not run |
 | **Shipper** | Deployment | Prepares the finished work to land |
 
 **If your project already has its own AI setup**, Barad-dûr detects it and uses *your*
@@ -303,7 +303,8 @@ The complete feature list, by screen.
 
 ### 📋 Board — the work itself
 
-- Columns for every stage, tickets moving on their own
+- Columns for every stage, ending in **Done** where landed work collects
+- Tickets move on their own
 - **Blocked** column with the reason labelled
 - File a ticket yourself in one line, with an optional free-form description
 - **Groom** turns a rough note into a fully specified, planned task

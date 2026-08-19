@@ -9,6 +9,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A **Done** column on the board, where merged work lands. It shows the most
+  recent landings with when they landed, their cost and a link to the pull
+  request, and points at the full shipped history beyond that.
 - A **Settings** screen, scoped to the bound realm: how work lands, which phases
   run, the orchestrator model, the daily cap and autonomy — none of which
   previously survived the setup wizard.
@@ -19,6 +22,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The testing phase is the last automated gate before a human sees the work,
+  so it now runs everything the project has — linters and formatters, unit
+  tests, regression and integration suites, and end-to-end tests — reports
+  each separately, and says plainly when one could not run rather than
+  skipping it silently. It is told never to weaken or delete a test to make
+  it pass.
+- A pull request whose suite is red opens as a **draft**, titled
+  "[tests failing]", so the work is visible without looking ready to merge.
 - **Deployment is off by default.** It only appends a changelog entry, and
   leaving it on meant tickets reached "done" unattended. Its board column is
   visibly disabled and links to the setting.

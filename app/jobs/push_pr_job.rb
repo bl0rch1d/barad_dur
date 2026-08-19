@@ -28,8 +28,13 @@ class PushPrJob < ApplicationJob
 
     gh = ENV["GH_BIN"].presence || "gh"
     body = pr_body(ticket)
-    out, ok = run(repo, gh, "pr", "create", "--title", "#{ticket.code}: #{ticket.title}",
-                  "--body", body, "--head", branch)
+    # A red suite still gets a pull request — you need to see the work — but
+    # as a draft, so it cannot be mistaken for something ready to merge.
+    draft = ticket.tests_failed?
+    args = ["pr", "create", "--title", "#{draft ? '[tests failing] ' : ''}#{ticket.code}: #{ticket.title}",
+            "--body", body, "--head", branch]
+    args << "--draft" if draft
+    out, ok = run(repo, gh, *args)
     if ok
       url = out[%r{https://\S+}]
       ticket.update!(pr_url: url, artifacts: ticket.artifacts | ["PR: #{url || 'opened'}"])

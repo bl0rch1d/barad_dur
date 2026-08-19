@@ -106,6 +106,15 @@
           <div class="pips">
             <% ticket_pips(ticket).each do |colour, mark| %><span class="<%= mark %>" style="background:<%= colour %>"></span><% end %>
           </div>
+          <% if ticket.done? %>
+            <div class="mono-meta" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="color:var(--ok)">✓ landed <%= ticket.finished_at ? ago_label(ticket.finished_at) : "" %></span>
+              <% if ticket.pr_url.present? %>
+                <%= link_to "PR", ticket.pr_url, target: "_blank", rel: "noopener", style: "color:var(--info)" %>
+              <% end %>
+              <% if ticket.cost.to_f.positive? %><span>$<%= format("%.2f", ticket.cost) %></span><% end %>
+            </div>
+          <% end %>
           <div class="card-foot">
             <span class="card-agent"><%= blocker ? state_meta(ticket.state)[:name].downcase : ticket.agent_label %></span>
             <% if ticket.draft? %>
@@ -125,6 +134,12 @@
         <span class="add-btn" style="cursor:default">↑ file drafts above</span>
       <% elsif column[:state] == "ready_to_implement" %>
         <%= link_to "+ via feature request", rfc_path, class: "add-btn hv-soft" %>
+      <% elsif column[:done] %>
+        <% if @shipped_count > column[:tickets].size %>
+          <%= link_to "⏷ all #{@shipped_count} shipped", board_path(shipped: 1), class: "add-btn hv-soft" %>
+        <% elsif column[:tickets].empty? %>
+          <span class="add-btn" style="cursor:default">nothing landed yet</span>
+        <% end %>
       <% end %>
 
       <% if Ticket::PHASES.include?(column[:state]) && !Features.phase?(column[:state]) %>

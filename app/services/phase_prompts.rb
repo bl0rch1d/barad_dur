@@ -40,11 +40,19 @@ module PhasePrompts
 
   TESTING_CONTRACT = <<~TXT.freeze
 
-    End your FINAL message with a fenced json block reporting the results:
+    End your FINAL message with a fenced json block reporting what you ran.
+    List every suite separately, including the ones you could not run and why:
     ```json
-    {"command": "the test command you ran", "passed": 12, "failed": 0}
+    {"command": "bundle exec rspec", "passed": 128, "failed": 0,
+     "suites": [
+       {"kind": "lint", "command": "bundle exec rubocop", "passed": 1, "failed": 0},
+       {"kind": "unit", "command": "bundle exec rspec spec/models", "passed": 96, "failed": 0},
+       {"kind": "e2e", "command": "yarn cypress run", "skipped": "needs a running server"}
+     ]}
     ```
-    Report the FINAL counts (after any fixes you committed).
+    "command", "passed" and "failed" are the totals across everything you ran —
+    the FINAL counts, after any fixes you committed. Omit "suites" only if the
+    project genuinely has one command and nothing else.
   TXT
 
   module_function
@@ -164,9 +172,29 @@ module PhasePrompts
       you find with additional commits. Finish with a verdict summary.
     TXT
     when "testing" then <<~TXT
-      Infer how this repository runs its tests and run them. If failures relate
-      to this ticket's change, fix them and commit. Finish by reporting the
-      test command used and the pass/fail counts.
+      Verify this change properly — a pull request is opened for human review
+      the moment you finish, so this is the last automated gate.
+
+      Work out what this repository actually has and run everything that
+      applies, in this order:
+
+        1. Linters and formatters (rubocop, eslint, ruff, golangci-lint,
+           prettier --check, or whatever the project configures). Fix what
+           they flag in code you touched.
+        2. The unit test suite.
+        3. Regression and integration suites, if the project keeps them
+           separate from unit tests.
+        4. End-to-end or browser tests, if the project has them and they can
+           run here. If they need a service you cannot start, say so plainly
+           rather than skipping them silently.
+
+      Look for the commands in the places projects keep them — package.json
+      scripts, Rakefile, Makefile, tox.ini, CI workflow files, CONTRIBUTING —
+      rather than guessing. Do not invent a command that does not exist.
+
+      Fix failures caused by this ticket's change and commit the fixes. If a
+      failure is pre-existing and unrelated, leave it alone and report it as
+      pre-existing. Never weaken, skip or delete a test to make it pass.
     TXT
     when "deployment" then <<~TXT
       Prepare this change for release: append a changelog entry for this ticket

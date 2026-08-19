@@ -39,6 +39,14 @@ class Ticket < ApplicationRecord
     STATES.key(idx + 1)&.to_s
   end
 
+  # The most recent testing run, whose result decides whether a pull request
+  # opens ready or as a draft.
+  def last_test_run
+    phase_runs.select { |r| r.phase == "testing" && r.tests_passed.present? }.max_by(&:id)
+  end
+
+  def tests_failed? = last_test_run&.tests_failed.to_i.positive?
+
   def gated?
     ticket_gates.pending.exists?
   end
