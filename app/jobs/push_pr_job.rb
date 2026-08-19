@@ -53,6 +53,7 @@ class PushPrJob < ApplicationJob
   # "failing" are different problems and the reader has to act differently.
   def pr_prefix(ticket)
     return "[tests failing] " if ticket.tests_failed?
+    return "[suite weakened] " if ticket.tests_weakened?
     return "[unverified] " unless ticket.tests_ran?
 
     ""
@@ -64,8 +65,38 @@ class PushPrJob < ApplicationJob
     if ticket.acceptance_criteria.any?
       parts << "### Acceptance criteria\n" + ticket.acceptance_criteria.map { |c| "- [ ] #{c}" }.join("\n")
     end
+    parts << verification_section(ticket)
     parts << "---\nForged by [Barad-dûr](https://github.com/bl0rch1d/barad_dur) · ticket #{ticket.code}"
-    parts.join("\n\n")
+    parts.compact.join("\n\n")
+  end
+
+  # A reviewer reading this on GitHub cannot see the tower, so the pull request
+  # has to carry its own verification story — including the parts that are bad
+  # news, which is the whole reason for writing it down.
+  def verification_section(ticket)
+    run = ticket.phase_runs.select { |r| r.phase == "testing" }.max_by { |r| r.started_at || Time.at(0) }
+    lines = ["### Verification"]
+
+    if run.nil? || !run.tests_executed?
+      lines << "No suite ran — nothing here has been verified automatically."
+    else
+      lines << "`#{run.tests_command || 'tests'}` — **#{run.tests_passed.to_i} passed, #{run.tests_failed.to_i} failed**"
+      Array(run.test_suites).each do |suite|
+        lines << if suite["skipped"]
+                   "- #{suite['kind']}: not run — #{suite['skipped']}"
+                 else
+                   "- #{suite['kind']}: #{suite['passed'].to_i} passed, #{suite['failed'].to_i} failed (`#{suite['command']}`)"
+                 end
+      end
+    end
+
+    if ticket.tests_weakened?
+      lines << "\n> [!WARNING]\n> The test suite was weakened on this branch — " \
+               "#{TestGuard.summary(ticket.guard_flags)}. Check that each was deliberate:"
+      ticket.guard_flags.first(10).each { |f| lines << "> - `#{f['path']}` — #{f['detail']}" }
+    end
+
+    lines.join("\n")
   end
 
   def run(repo, *cmd)

@@ -214,6 +214,21 @@ class ClaudeCodeRunner
     capture_commits(repo)
     capture_diff(repo) if %w[implementation review testing].include?(phase)
     capture_plan_artifact if phase == "planning"
+    guard_tests(repo) if phase == "testing"
+  end
+
+  # "Make the tests pass" is the instruction under which deleting the failing
+  # test is the shortest path. The prompt forbids it; this checks.
+  def guard_tests(repo)
+    flags = TestGuard.inspect_branch(repo, GitRepo.base_branch(repo))
+    return if flags.empty?
+
+    run.update!(guard_flags: flags)
+    Event.record!(phase_tag: "TEST", tone: "var(--err)", ticket: ticket, agent: ticket.agent,
+                  meta: "suite weakened",
+                  text: "#{ticket.code}: #{TestGuard.summary(flags)} — a green run that asks less is not a green run")
+  rescue StandardError => e
+    Rails.logger.warn { "test guard failed for run #{run.id}: #{e.class}: #{e.message}" }
   end
 
   def capture_commits(repo)
@@ -431,6 +446,10 @@ class ClaudeCodeRunner
     note += " · #{kinds.join(', ')}" if kinds.any?
     skipped = suites.count { |s| s["skipped"] }
     note += " · #{skipped} not run" if skipped.positive?
+    # The guard has already run by now (capture_outputs precedes this), and a
+    # row reading "128 passed" above a weakened-suite warning is a mixed
+    # message about the only thing this phase is for.
+    note += " · suite weakened" if run.guard_flags.any?
     note.truncate(120)
   end
 

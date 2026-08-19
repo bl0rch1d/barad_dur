@@ -85,6 +85,37 @@
         </div>
       <% end %>
 
+      <!-- ── did the suite get weaker? ────────────────────── -->
+      <% guard = ticket.guard_flags %>
+      <% if guard.any? %>
+        <div class="panel" style="border-color:var(--err)">
+          <div class="panel-hd">
+            <span class="k-label" style="color:var(--err)">Suite weakened</span>
+            <span class="spacer"></span>
+            <span class="mono-meta"><%= TestGuard.summary(guard) %></span>
+          </div>
+          <div style="padding:11px 14px;display:flex;flex-direction:column;gap:8px">
+            <% guard.each do |flag| %>
+              <div style="display:flex;gap:8px;align-items:baseline">
+                <span class="tag" style="flex:none;min-width:74px;text-align:center;color:var(--err)"><%= flag["kind"] %></span>
+                <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                  <span class="mono" style="font-size:11px;color:var(--info);overflow-wrap:anywhere"><%= flag["path"] %></span>
+                  <span style="font-size:12px;color:var(--tx);line-height:1.5"><%= flag["detail"] %></span>
+                  <% if flag["line"] %>
+                    <span class="mono-meta" style="overflow-wrap:anywhere"><%= flag["line"] %></span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+            <span class="mono-meta" style="color:var(--err);line-height:1.55">
+              Removing a test is fair when the ticket removes the feature. It is
+              also the shortest way to make a failing suite green, so the pull
+              request stays a draft until you have looked.
+            </span>
+          </div>
+        </div>
+      <% end %>
+
       <!-- ── what the reviewer found ──────────────────────── -->
       <% review = ticket.last_review %>
       <% if review %>

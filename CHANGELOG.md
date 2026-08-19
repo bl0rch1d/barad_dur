@@ -88,6 +88,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves HEAD on the base branch — silently discarded every implementation
   commit. It is also prepared for review, testing and deployment, not only
   implementation.
+- **A green run that asks less is no longer taken for a green run.** The tester
+  is told never to weaken, skip or delete a test to make the suite pass, and
+  nothing checked — while "make the tests pass" is the exact instruction under
+  which deleting the failing test is the shortest path. The branch is now read
+  for deleted test files, added skip markers and gutted assertions across the
+  rspec, jest, pytest and go conventions. Removing a test is fair when the
+  ticket removes the feature, so this reports rather than blocks: the ticket
+  says what changed, the pull request stays a draft titled "[suite weakened]",
+  and you decide.
+- The pull request body now carries its own verification story — what ran, what
+  passed, what could not run and why, and any weakening — since whoever reviews
+  it on GitHub cannot see the tower.
 - **Pause now pauses, and the daily cap now caps.** Both stopped the tower
   picking up new work while letting every ticket already in flight run all its
   remaining phases — the opposite of what either control is for. A ticket that

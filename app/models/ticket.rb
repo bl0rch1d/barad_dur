@@ -53,7 +53,12 @@ class Ticket < ApplicationRecord
     phase_runs.any? { |r| r.phase == "testing" && r.tests_executed }
   end
 
-  def verification_red? = tests_failed? || !tests_ran?
+  # A suite that was made to stop asking is not a suite that passed.
+  def tests_weakened? = phase_runs.any? { |r| r.phase == "testing" && r.guard_flags.any? }
+
+  def guard_flags = phase_runs.select { |r| r.phase == "testing" }.flat_map(&:guard_flags)
+
+  def verification_red? = tests_failed? || !tests_ran? || tests_weakened?
 
   def gated?
     ticket_gates.pending.exists?

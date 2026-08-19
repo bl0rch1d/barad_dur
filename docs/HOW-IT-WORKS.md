@@ -243,6 +243,22 @@ only that agent changes. A cheaper model is usually fine for mechanical stages
 and a stronger one earns its cost on planning and review, but the useful default
 is to leave them all following the realm until you have a reason not to.
 
+### Why a passing suite is not enough
+
+"Make the tests pass" is also, read literally, an instruction to delete the
+failing test. The Tester is told not to, and after it finishes the tower reads
+the branch to check: test files deleted, skip markers added, assertions quietly
+removed.
+
+Removing a test is perfectly fair when the ticket removes the feature, so this
+reports rather than refuses. What it changes is that the work stops looking
+finished — the ticket says exactly what changed, the pull request stays a draft
+labelled "suite weakened", and you decide whether each one was deliberate.
+
+The pull request also carries its own account of what was verified: what ran,
+what passed, and what could not run and why. Whoever reviews it on GitHub cannot
+see the tower, so the tower writes it down.
+
 ### Stopping it
 
 Pressing pause, or hitting the daily spend cap, stops the tower — including the
