@@ -14,11 +14,16 @@ Two deliberate departures from what is written below:
   per-phase override in the wizard as the way back, and each skill written to
   degrade rather than fail when an earlier phase ran on a built-in prompt and
   left it no contract.
-- **The benchmark of §10 stage 1 was not built.** Stages 0 and 2 shipped
-  first, on the grounds that every item in them was an independently verified
-  live defect and did not need a benchmark to justify. Nothing here has been
-  measured against the built-ins; the case for it rests on the defects it
-  closes, which is a weaker claim than the one this document argues for.
+- **The benchmark of §10 stage 1 was dropped, deliberately.** Stages 0 and 2
+  shipped without it, on the grounds that every item in them was an
+  independently verified live defect that did not need a benchmark to justify;
+  the maintainer then decided to skip it outright rather than build it later.
+  So the consequence stands and is worth stating plainly: **nothing here has
+  been measured against the built-ins.** The case for the harness rests on the
+  specific defects it closes, each of which was reproduced before it was
+  fixed — not on the comparison this document argues for, which was never run.
+  §10's gate — *"if stage 2 alone closes most of the gap, stages 3 and 4 need a
+  much stronger case"* — was therefore never evaluated either way.
 
 ## Provenance
 
