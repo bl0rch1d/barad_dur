@@ -117,7 +117,11 @@ class PipelineEngine
     # would freeze their ticket forever. A healthy run touches its record
     # continuously while streaming; one silent past the CLI timeout is dead.
     def sweep_stale_runs!
-      cutoff = (Float(ENV.fetch("CLAUDE_TIMEOUT", 900)) + 120).seconds.ago
+      # Must use the same default the runner does, or a phase the agent is
+      # still legitimately working on gets swept as dead: the runner allows
+      # DEFAULT_TIMEOUT, and a 900s fallback here marked it failed long before.
+      limit = Float(ENV.fetch("CLAUDE_TIMEOUT", HeadlessAgent::DEFAULT_TIMEOUT))
+      cutoff = (limit + 120).seconds.ago
       swept = 0
       PhaseRun.where(runner: "claude", status: "running")
               .where(updated_at: ...cutoff).find_each do |run|
