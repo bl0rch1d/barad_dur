@@ -11,6 +11,11 @@ class WizardController < ApplicationController
         Workspace.refresh!
         @setting.update!(setup: @setting.setup.merge(key => value))
       end
+    elsif key == "spend_cap"
+      # a real column rather than a setup key, and worth bounding: a cap of
+      # zero would mean "never run", a huge one defeats the point
+      cap = value.to_i
+      @setting.update!(spend_cap: cap) if cap.between?(1, 10_000)
     elsif key.match?(ALLOWED_KEY)
       @setting.update!(setup: @setting.setup.merge(key => value))
     end

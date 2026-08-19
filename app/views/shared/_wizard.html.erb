@@ -165,10 +165,17 @@
               <span class="mono-meta" style="color:var(--warn)">unavailable — claude CLI or auth missing; nothing will execute until fixed</span>
             <% end %>
           </div>
-          <div class="cap-row">
-            <span style="font-size:12.5px;flex:1">Daily spend cap</span>
-            <span class="mono" style="font-size:13px;font-weight:600">$<%= @setting.spend_cap.to_i %></span>
-            <span class="mono-meta">pipeline pauses at cap</span>
+          <div class="cap-row" style="flex-wrap:wrap;row-gap:7px">
+            <span style="font-size:12.5px;flex:1;min-width:130px">Daily spend cap</span>
+            <div class="chip-row">
+              <% [10, 25, 50, 80, 150, 300].each do |cap| %>
+                <%= button_to "$#{cap}", wizard_patch_path(key: "spend_cap", value: cap, wizard: step),
+                              form_class: "bt", class: "chip#{' on' if @setting.spend_cap.to_i == cap}" %>
+              <% end %>
+            </div>
+            <span class="mono-meta" style="flex-basis:100%">
+              the pipeline quenches itself at the cap and waits — change it any time in Settings
+            </span>
           </div>
         </div>
       <% end %>
@@ -406,7 +413,7 @@
                 ["Framework", harness && fw_label != "vanilla prompts" ? "#{fw_label} · #{harness.repo}" : fw_label],
                 ["Auth", auth_label],
                 ["Model", Setting::ORCHESTRATOR_MODELS[@setting.orchestrator_model]],
-                ["Spend cap", "$#{@setting.spend_cap.to_i} / day"],
+                ["Spend cap", "$#{@setting.spend_cap.to_i} / day · set on the Auth step"],
                 ["Spec index", Capability.any? ? "#{Capability.count} capabilities · #{SpecRequirement.count} reqs" : "empty"]].each do |key, value| %>
               <div class="summary-card">
                 <div class="k-label" style="letter-spacing:.08em"><%= key %></div>

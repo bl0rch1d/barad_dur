@@ -9,6 +9,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The daily spend cap is set during setup, on the auth step, rather than only
+  afterwards — it is the one number worth deciding before agents can spend
+  anything.
 - A **Done** column on the board, where merged work lands. It shows the most
   recent landings with when they landed, their cost and a link to the pull
   request, and points at the full shipped history beyond that.
