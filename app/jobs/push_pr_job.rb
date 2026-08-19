@@ -12,7 +12,7 @@ class PushPrJob < ApplicationJob
     repo = Workspace.repo_path(ticket.repo)
     return fail!(ticket, "repository not in workspace") unless repo
 
-    branch = "pipe/#{ticket.code.downcase}"
+    branch = ticket.branch_name
     unless run_ok?(repo, "git", "rev-parse", "--verify", branch)
       return fail!(ticket, "branch #{branch} not found")
     end
@@ -32,7 +32,7 @@ class PushPrJob < ApplicationJob
                   "--body", body, "--head", branch)
     if ok
       url = out[%r{https://\S+}]
-      ticket.update!(artifacts: ticket.artifacts | ["PR: #{url || 'opened'}"])
+      ticket.update!(pr_url: url, artifacts: ticket.artifacts | ["PR: #{url || 'opened'}"])
       Event.record!(phase_tag: "DEPLOY", tone: "var(--ok)", ticket: ticket, agent_name: "Shipper",
                     text: "Pull request opened for #{ticket.code}#{" — #{url}" if url}")
     else

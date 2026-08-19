@@ -126,6 +126,20 @@
       <% elsif column[:state] == "ready_to_implement" %>
         <%= link_to "+ via feature request", rfc_path, class: "add-btn hv-soft" %>
       <% end %>
+
+      <% if Ticket::PHASES.include?(column[:state]) && !Features.phase?(column[:state]) %>
+        <div class="col-disabled">
+          <span class="k-label" style="color:var(--tx3)">disabled</span>
+          <span class="mono-meta" style="line-height:1.55">
+            <%= { "deployment" => "Work stops before this and waits for your verdict, so nothing is
+                                   marked shipped without you.",
+                  "review" => "Nothing reviews the diff before it reaches you.",
+                  "testing" => "Your suite is never run for these tickets." }[column[:state]] ||
+                "Tickets skip straight past this phase." %>
+          </span>
+          <%= link_to "enable in settings →", settings_path, class: "mono-meta", style: "color:var(--accent)" %>
+        </div>
+      <% end %>
     </div>
   <% end %>
 </div>

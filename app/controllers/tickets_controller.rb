@@ -87,19 +87,12 @@ class TicketsController < ApplicationController
     back
   end
 
+  # Lands the work the way this realm is configured to: merge the pull
+  # request, merge locally, or simply mark it shipped.
   def merge
     ticket = Ticket.find_by!(code: params[:code])
-    result = BranchMerger.call(ticket)
-    if result.ok
-      ticket.update!(artifacts: ticket.artifacts | [result.message])
-      PipelineEngine.manual_ship!(ticket, result.message)
-      # complete the openspec lifecycle: archive the applied change delta
-      ArchiveChangeJob.perform_later(ticket.id)
-    else
-      Event.record!(phase_tag: "REVIEW", tone: "var(--err)", ticket_code: ticket.code,
-                    agent_name: "you", text: "Merge failed: #{result.message}")
-      PipelineEngine.broadcast
-    end
+    ticket.ticket_gates.pending.update_all(status: "approved")
+    LandWork.call(ticket)
     back
   end
 

@@ -17,7 +17,7 @@ review and ship real work in your repositories, while you sit on the dark throne
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-ff5a1a?logo=postgresql&logoColor=white&labelColor=0a0705)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-compose%20up-ff5a1a?logo=docker&logoColor=white&labelColor=0a0705)](https://docs.docker.com/compose/)
 [![Agents](https://img.shields.io/badge/agents-Claude%20Code-ffb03a?labelColor=0a0705)](https://claude.com/claude-code)
-[![Trials](https://img.shields.io/badge/trials-95%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
+[![Trials](https://img.shields.io/badge/trials-101%20passed%20in%20the%20fires-ffb03a?labelColor=0a0705)](#-the-trials)
 [![License](https://img.shields.io/badge/license-MIT-ffb03a?labelColor=0a0705)](LICENSE)
 
 [The Tower](#-what-rises-here) • [The Palantír](#-gaze-into-the-palantír) • [Speak, Friend, and Enter](#-speak-friend-and-enter) • [The Legion](#%EF%B8%8F-the-legion) • [The Forging](#-how-the-work-is-forged) • [Inside the Tower](#-inside-the-tower) • [Words of Command](#-words-of-command)
@@ -121,6 +121,7 @@ replies render as proper markdown.</i></td>
 | **The reckoning** | Unit economics: cost per shipped ticket, first-pass rate, and how much of the elapsed time waited on you |
 | **Unleashed / Wary / Chained** | Autonomy modes: full auto → gate risky things → gate everything |
 | **Quench / Kindle** | Pause / start. The forge answers to you alone |
+| **Settings** | Per-realm switches: how work lands, which phases run, model, cap, autonomy |
 
 ## 🚪 Speak, friend, and enter
 
@@ -198,6 +199,9 @@ No harness? The default seven serve faithfully. They are not evil, merely… *am
   tickets — which land *ready to implement*, because re-planning planned work is for goblins.
 - **Blocked** is a derived column with subtypes (clarification / dependency / gate / failed) —
   tickets return to their place the moment the blocker falls.
+- **Nothing ships without you.** Deployment is off by default, so work stops after the last
+  enabled phase, opens a pull request, and waits on a SUMMONS. Approving merges the PR.
+  Change any of it on the **Settings** screen — it belongs to the bound realm, not the image.
 - **Dependencies are law**: nothing starts before what it awaits is done; the web and the ticker
   contend for tickets under row locks, so no two Nazgûl claim the same prey.
 - **The palantír chat** (Activity) holds a real resumable agent session per ticket plus one for
@@ -348,7 +352,7 @@ via `GH_TOKEN`.
 
 ```bash
 docker compose exec web bin/rails test
-# 95 runs, 524 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
+# 101 runs, 545 assertions, 0 failures — passed in the fires of Mount Doom (a stub CLI;
 # no tokens were sacrificed, the whole live path is hermetically testable)
 ```
 

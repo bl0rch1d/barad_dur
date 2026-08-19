@@ -152,7 +152,7 @@ TESTER   pytest — 41 passed, 0 failed
 
 ### 6. It stops and waits for you
 
-The ticket lands in **Review** and goes no further. You open it and see:
+Once the last enabled stage finishes it **opens a pull request** and goes no further. You open it and see:
 
 - A plain summary of what it did and why
 - The **exact changes**, line by line
@@ -162,7 +162,8 @@ The ticket lands in **Review** and goes no further. You open it and see:
 
 You have three buttons:
 
-- **Approve & merge** — folds the work into your main code
+- **Approve & merge** — merges the pull request it opened (or merges locally, if you
+  chose that in Settings)
 - **Request changes** — type what's wrong; it goes back and reworks it
 - **Push & PR** — publish the branch and open a pull request instead
 
@@ -343,6 +344,17 @@ The complete feature list, by screen.
 - Ask questions, steer work mid-flight, correct course
 - Replies render properly formatted, including code and tables
 - By default it reads and advises; it only edits when you explicitly ask
+
+### ⚙️ Settings — what this realm does
+
+- **How work lands**: open a pull request and merge it on approval (the default), merge
+  locally without pushing, or neither
+- **Which phases run.** Deployment is off out of the box: it only writes a changelog
+  entry, and leaving it on lets a ticket reach "done" without anyone having looked at it.
+  A disabled phase shows as a blocked column on the board, explaining itself.
+- Orchestrator model, daily spend cap and autonomy, all changeable without re-running setup
+
+Everything here belongs to the bound realm, so a different workspace can answer differently.
 
 ### ⚙️ Setup wizard — five steps, once
 

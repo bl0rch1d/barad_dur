@@ -247,6 +247,11 @@ a.btn-accent, a.btn-accent:hover, .btn-accent:hover { color:var(--bg) }
 .col-hd .dot { width:6px; height:6px }
 .col-name { font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--tx2); flex:1 }
 .col-count { font-family:var(--mono); font-size:10.5px; color:var(--tx3) }
+/* a phase this realm switched off: the column stays visible so the capability
+   is discoverable, but reads as inert */
+.col-disabled { border:1px dashed var(--line); border-radius:6px; padding:12px 13px;
+                display:flex; flex-direction:column; gap:7px; background:var(--sunken); opacity:.85 }
+
 .card { display:flex; background:var(--panel); border:1px solid var(--line); border-radius:5px; padding:10px 11px; flex-direction:column; gap:8px; color:var(--tx) }
 .card:hover { color:var(--tx) }
 .card-hd { display:flex; align-items:baseline; gap:7px }

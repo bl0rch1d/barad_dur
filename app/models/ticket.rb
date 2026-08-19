@@ -31,6 +31,9 @@ class Ticket < ApplicationRecord
     PHASES.index(state)
   end
 
+  # the work branch agents commit to
+  def branch_name = "pipe/#{code.downcase}"
+
   def next_state
     idx = STATES[state.to_sym]
     STATES.key(idx + 1)&.to_s

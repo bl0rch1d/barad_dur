@@ -47,7 +47,13 @@ class PipelineEngine
       return unless gate.status == "pending"
 
       gate.update!(status: "approved")
-      apply_transition(gate.ticket)
+      # A verdict gate is the end of the line, not a step to the next phase:
+      # approving it lands the work the way this realm was told to land it.
+      if gate.to_state == Ticket::STATES[:done]
+        LandWork.call(gate.ticket)
+      else
+        apply_transition(gate.ticket)
+      end
       broadcast
     end
 
@@ -156,10 +162,13 @@ class PipelineEngine
 
     def apply_transition(ticket)
       from = ticket.state
-      next_state = ticket.next_state
-      return unless next_state
+      next_state = next_enabled_state(ticket)
 
       ticket.current_phase_run&.then { |r| r.finish! if r.status == "running" }
+
+      # Nothing enabled remains: the work is built and checked, and landing it
+      # is a decision for a person. Park it rather than declaring it shipped.
+      return await_verdict(ticket) if next_state.nil?
 
       if next_state == "done"
         complete_ticket(ticket)
@@ -182,6 +191,37 @@ class PipelineEngine
                       text: PipelineText.transition_text(ticket, from, next_state))
         AgentRunner.start_phase(ticket)
       end
+    end
+
+    # Walks past phases this realm has switched off; nil once nothing enabled
+    # is left, which is the signal to stop and wait for a verdict.
+    def next_enabled_state(ticket)
+      state = ticket.next_state
+      state = Ticket::STATES.key(Ticket::STATES[state.to_sym] + 1)&.to_s while
+        state && Ticket::PHASES.include?(state) && !Features.phase?(state)
+
+      # Reaching "done" only because the phases after this one are switched
+      # off is not the same as having run them: stop for a verdict. A ticket
+      # that genuinely finished the final phase still completes.
+      return nil if state == "done" && Ticket::PHASES.include?(ticket.state) &&
+                    ticket.state != Ticket::PHASES.last
+
+      state
+    end
+
+    # The human checkpoint: everything the agents were allowed to do is done.
+    # Opening the pull request happens here, then the ticket waits on a gate.
+    def await_verdict(ticket)
+      ticket.agent&.update!(status: "idle", doing: "Last: #{ticket.code} awaits your verdict")
+      PushPrJob.perform_later(ticket.id) if Features.auto_pr? && ticket.pr_url.blank?
+
+      unless ticket.gated?
+        ticket.ticket_gates.create!(to_state: Ticket::STATES[:done],
+                                    reason: PipelineText.verdict_reason(ticket))
+        Event.record!(phase_tag: "GATE", ticket: ticket, agent: ticket.agent,
+                      meta: Features.landing, text: "#{ticket.code} is built and checked — your verdict decides how it lands")
+      end
+      broadcast
     end
 
     def complete_ticket(ticket)

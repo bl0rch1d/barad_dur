@@ -7,7 +7,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- A **Settings** screen, scoped to the bound realm: how work lands, which phases
+  run, the orchestrator model, the daily cap and autonomy — none of which
+  previously survived the setup wizard.
+- Work stops after the last enabled phase and waits on a verdict gate instead of
+  marking itself shipped. Approving lands it the way the realm was configured to.
+- A pull request opens automatically once that point is reached, and the ticket
+  carries its link.
+
+### Changed
+
+- **Deployment is off by default.** It only appends a changelog entry, and
+  leaving it on meant tickets reached "done" unattended. Its board column is
+  visibly disabled and links to the setting.
+- Approving a ticket merges its pull request by default, rather than merging
+  into the local default branch.
+
+### Fixed
+
+- A ticket waiting on your verdict no longer releases the tickets that depend on
+  it. The dependency rule was always right — it was being told the parent was
+  done, because the pipeline completed it without asking.
 
 ## [1.1.0] — 2026-08-18
 

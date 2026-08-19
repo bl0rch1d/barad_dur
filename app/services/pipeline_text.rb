@@ -45,6 +45,17 @@ module PipelineText
     "#{ticket.code} #{ticket.state}: #{ticket.title.downcase.truncate(48)}"
   end
 
+  # Shown on the gate a ticket parks on once the agents are finished with it.
+  def verdict_reason(ticket)
+    case Features.landing
+    when "pull_request"
+      ticket.pr_url.present? ? "#{ticket.code} is ready — approve to merge its pull request" :
+                               "#{ticket.code} is ready — approve once its pull request is open"
+    when "local_merge" then "#{ticket.code} is ready — approve to merge it into the default branch"
+    else "#{ticket.code} is ready — approve to mark it shipped; the branch is yours to land"
+    end
+  end
+
   def gate_reason(ticket, next_state, mode)
     if mode == "every"
       "#{ticket.code} finished #{ticket.state} — approve to enter #{next_state}."

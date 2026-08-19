@@ -6,7 +6,8 @@
       ["rfcs", "Feature request", "✦", rfc_path, nil],
       ["specs", "Specs", "§", specs_path, nil],
       ["agents", "Agents", "◇", agents_path, @agents_running],
-      ["activity", "Activity", "≋", activity_path, nil]].each do |ctrl, label, icon, path, badge| %>
+      ["activity", "Activity", "≋", activity_path, nil],
+      ["settings_page", "Settings", "⚙", settings_path, nil]].each do |ctrl, label, icon, path, badge| %>
     <%= link_to path, class: "rail-item#{' on' if controller_name == ctrl}" do %>
       <span class="rail-icon"><%= icon %></span>
       <span class="rail-label"><%= label %></span>

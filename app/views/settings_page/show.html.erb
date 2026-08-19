@@ -1,0 +1,106 @@
+<div class="screen-bar">
+  <span class="screen-title">Settings</span>
+  <span class="mono-dim">this realm · <%= Workspace.root.basename %></span>
+  <span class="spacer"></span>
+  <%= link_to "⚙ Setup wizard", url_for(wizard: 1), class: "btn-ghost btn-sm hv-acc" %>
+</div>
+
+<div class="screen">
+  <div class="panel" style="max-width:860px">
+    <div class="panel-hd">
+      <span class="k-label">How work lands</span>
+      <span class="spacer"></span>
+      <span class="mono-meta">what happens when you approve a finished ticket</span>
+    </div>
+    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+      <% Features::LANDING_MODES.each do |mode, blurb| %>
+        <%= button_to settings_update_path(key: "landing", value: mode), form_class: "bt",
+                      class: "radio-card#{' on' if Features.landing == mode}" do %>
+          <span class="radio-dot"></span>
+          <div class="radio-body">
+            <span class="radio-label"><%= mode.tr("_", " ").capitalize %></span>
+            <span class="radio-blurb"><%= blurb %></span>
+          </div>
+          <% if mode == Features::DEFAULT_LANDING %>
+            <span class="tag" style="color:var(--ok)">default</span>
+          <% end %>
+        <% end %>
+      <% end %>
+      <label class="tc-risky" style="padding-top:4px">
+        <%= button_to Features.auto_pr? ? "✓ opening the pull request automatically" : "○ open pull requests by hand",
+                      settings_update_path(key: "auto_pr", value: Features.auto_pr? ? "0" : "1"),
+                      form_class: "bt", class: "chip#{' on' if Features.auto_pr?}" %>
+      </label>
+      <span class="mono-meta">
+        A pull request opens once the last enabled phase finishes, and its link lives on the ticket.
+        Needs <span class="mono">GH_TOKEN</span> and a GitHub remote; without them the ticket still
+        waits for you, it just has no pull request.
+      </span>
+    </div>
+  </div>
+
+  <div class="panel" style="max-width:860px">
+    <div class="panel-hd">
+      <span class="k-label">Phases</span>
+      <span class="spacer"></span>
+      <span class="mono-meta">a disabled phase is skipped entirely</span>
+    </div>
+    <div style="padding:6px 0">
+      <% Ticket::PHASES.each do |phase| %>
+        <% on = Features.phase?(phase) %>
+        <%= button_to settings_update_path(key: "phase:#{phase}", value: on ? "0" : "1"),
+                      form_class: "bt", class: "check-row#{' on' if on}" do %>
+          <span class="checkbox"><%= "✓" if on %></span>
+          <span class="check-name"><%= phase.capitalize %></span>
+          <span class="check-meta">
+            <%= { "investigation" => "reads the code before anything is decided",
+                  "planning" => "writes the approach and the acceptance criteria",
+                  "implementation" => "writes the code on the ticket's branch",
+                  "review" => "a second agent checks the work against the plan",
+                  "testing" => "runs your suite and records the result",
+                  "deployment" => "appends a changelog entry — off by default" }[phase] %>
+          </span>
+          <span class="tag" style="color:<%= on ? "var(--ok)" : "var(--tx3)" %>"><%= on ? "on" : "off" %></span>
+        <% end %>
+      <% end %>
+    </div>
+    <div class="cycle-foot">
+      Work stops after <span class="val"><%= Features.last_enabled_phase || "grooming" %></span> and waits for your verdict.
+    </div>
+  </div>
+
+  <div class="panel" style="max-width:860px">
+    <div class="panel-hd"><span class="k-label">Agents &amp; spending</span></div>
+    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:11px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12.5px;width:150px">Orchestrator model</span>
+        <div class="chip-row">
+          <% Setting::ORCHESTRATOR_MODELS.each do |value, label| %>
+            <%= button_to label, settings_update_path(key: "orchestrator_model", value: value),
+                          form_class: "bt", class: "chip#{' on' if @setting.orchestrator_model == value}" %>
+          <% end %>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12.5px;width:150px">Daily spend cap</span>
+        <div class="chip-row">
+          <% [10, 25, 50, 80, 150, 300].each do |cap| %>
+            <%= button_to "$#{cap}", settings_update_path(key: "spend_cap", value: cap),
+                          form_class: "bt", class: "chip#{' on' if @setting.spend_cap.to_i == cap}" %>
+          <% end %>
+        </div>
+        <span class="mono-meta">$<%= format("%.2f", @setting.spend_today) %> spent today</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12.5px;width:150px">Autonomy</span>
+        <div class="chip-row">
+          <% [["auto", "Unleashed"], ["risky", "Wary"], ["every", "Chained"]].each do |value, label| %>
+            <%= button_to label, settings_autonomy_path(value: value), form_class: "bt",
+                          class: "chip#{' on' if @setting.autonomy == value}" %>
+          <% end %>
+        </div>
+        <span class="mono-meta">gates before risky work, or before every phase</span>
+      </div>
+    </div>
+  </div>
+</div>

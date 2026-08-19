@@ -14,6 +14,8 @@ Rails.application.routes.draw do
 
   post "chat" => "chat_messages#create", as: :chat_messages
 
+  get  "settings"            => "settings_page#show",   as: :settings
+  post "settings/update"     => "settings_page#update", as: :settings_update
   post "settings/autonomy"   => "settings#autonomy",   as: :settings_autonomy
   post "settings/toggle_run" => "settings#toggle_run", as: :settings_toggle_run
   post "settings/stop"       => "settings#stop",       as: :settings_stop
