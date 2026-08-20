@@ -9,9 +9,29 @@ class BootRecovery
 
       recover_rfcs
       recover_setting_markers
+      reinterpret_vanilla_framework
     end
 
     private
+
+    # "Vanilla" meant "no harness, use the built-in prompts" back when there
+    # was no harness to have. One ships with the app now, so that setting would
+    # silently keep six phases on three-line prompts. Reinterpret it once, and
+    # say so out loud — a realm whose behaviour changes under it deserves to
+    # read why rather than notice later.
+    def reinterpret_vanilla_framework
+      setting = Setting.first
+      return unless setting && setting.setup["fw"] == "2"
+
+      setting.update!(setup: setting.setup.merge("fw" => "1", "fw_was_vanilla" => "1"))
+      Event.record!(phase_tag: "SYS", tone: "var(--warn)", agent_name: "system",
+                    meta: "framework",
+                    text: "This realm was set to vanilla prompts, from before a harness shipped with " \
+                          "the app. It now runs #{Harness.bundled&.label || 'the bundled harness'} — " \
+                          "switch any phase back to its built-in prompt in Settings.")
+    rescue StandardError => e
+      Rails.logger.warn { "framework reinterpretation skipped: #{e.class}: #{e.message}" }
+    end
 
     def tables_ready?
       ActiveRecord::Base.connection.data_source_exists?("rfcs") &&

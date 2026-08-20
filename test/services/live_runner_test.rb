@@ -390,15 +390,23 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal "/opsx:explore", Harness.phase_invocation("investigation")
     assert_equal "/opsx:propose", Harness.phase_invocation("planning")
     assert_equal "/review", Harness.phase_invocation("review"), "skill fallback"
-    assert_nil Harness.phase_invocation("testing"), "no harness match stays built-in"
+
+    # This harness stops at review. The phases past it are staffed by the
+    # bundled harness rather than dropping to a built-in prompt — half your
+    # conventions and half a three-line prompt was the worst of both.
+    testing, testing_info = Harness.source_for("testing")
+    assert_equal "/test", testing
+    assert testing_info.bundled?
     assert_equal %w[explorer], Harness.phase_agents("investigation")
     assert_equal %w[reviewer critic], Harness.phase_agents("review") & %w[reviewer critic]
 
     Setting.instance.update!(setup: { "map:investigation" => "built-in" })
     assert_nil Harness.phase_invocation("investigation"), "override forces built-in"
 
+    # "Vanilla" predates the shipped harness and no longer vetoes it; opting a
+    # phase out is per phase, which is the override asserted just above.
     Setting.instance.update!(setup: { "fw" => "2" })
-    assert_nil Harness.phase_invocation("planning"), "vanilla framework disables harness"
+    assert Harness.phase_invocation("planning"), "a legacy vanilla setting must not silence the harness"
   end
 
   test "harness-mapped phases execute in the harness repo with workspace access" do

@@ -121,33 +121,58 @@ class Harness
       scan({ name: dir.basename.to_s, path: dir.to_s })
     end
 
+    # A harness is always in force now that one ships with the app. Opting a
+    # phase out is per phase (setup["map:<phase>"] == "built-in"), which is a
+    # real choice; there is no longer a global switch that silently turns six
+    # phases into three-line prompts. Legacy "vanilla" realms are reinterpreted
+    # once at boot, with an Event, rather than being quietly overridden.
     def active?(setting = Setting.instance)
-      setting.setup["fw"] != "2" && detect(setting).present?
+      detect(setting).present?
+    end
+
+    # [invocation, info] — the harness in force for THIS phase.
+    #
+    # The primary harness is tried first (an explicit choice, else the first
+    # selected repo that has one), and the bundled harness is the per-phase
+    # backstop. Resolution used to be wholesale: a repo whose .claude covered
+    # four phases left the other two on the built-in prompts, which is the
+    # worst of both — your conventions for some phases and a three-line prompt
+    # for the rest.
+    def source_for(phase, setting = Setting.instance)
+      return [nil, nil] if setting.setup["map:#{phase}"] == "built-in"
+
+      primary = detect(setting)
+      if primary && (name = candidate_for(primary, phase))
+        return ["/#{name}", primary]
+      end
+      # Already the bundled one: there is nothing further to fall back to.
+      return [nil, nil] if primary.nil? || primary.bundled?
+
+      backstop = bundled
+      name = backstop && candidate_for(backstop, phase)
+      name ? ["/#{name}", backstop] : [nil, nil]
     end
 
     # "/opsx:explore"-style invocation for a phase, or nil for built-in.
-    # setup["map:<phase>"] overrides: "built-in" forces built-in, "harness"
-    # (or absence) resolves through the candidates.
     def phase_invocation(phase, setting = Setting.instance)
-      return nil unless active?(setting)
-      return nil if setting.setup["map:#{phase}"] == "built-in"
-
-      default_invocation(phase, setting)
+      source_for(phase, setting).first
     end
 
-    # The invocation the candidates would resolve to, ignoring overrides.
+    # What would resolve if the phase were not overridden — the wizard shows
+    # this so an override reads as a choice rather than as an absence.
     def default_invocation(phase, setting = Setting.instance)
-      info = detect(setting)
-      return nil unless info
-
-      PHASE_CANDIDATES.fetch(phase, []).each do |candidate|
-        return "/#{candidate}" if provides?(info, candidate)
-      end
-      nil
+      source_for(phase, setting.dup.tap { |s| s.setup = s.setup.except("map:#{phase}") }).first
     end
 
+    def candidate_for(info, phase)
+      PHASE_CANDIDATES.fetch(phase, []).find { |candidate| provides?(info, candidate) }
+    end
+
+    # Delegates come from whichever harness actually staffs this phase, not
+    # from the primary one — a bundled-backstop phase must offer the bundled
+    # agents, which are the only ones its skill knows how to prompt.
     def phase_agents(phase, setting = Setting.instance)
-      info = detect(setting)
+      info = source_for(phase, setting).last || detect(setting)
       return [] unless info
 
       PHASE_AGENT_HINTS.fetch(phase, []).select { |name| info.agents.include?(name) }

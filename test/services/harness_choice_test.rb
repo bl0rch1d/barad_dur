@@ -50,7 +50,12 @@ class HarnessChoiceTest < ActiveSupport::TestCase
 
     assert_equal "zzz-repo", Harness.detect(@setting).repo
     assert_equal "/opsx:propose", Harness.default_invocation("planning", @setting)
-    assert_nil Harness.default_invocation("investigation", @setting), "the chosen harness has no explore"
+
+    # The chosen harness has no explore. That used to mean a three-line
+    # built-in prompt; it now means the bundled harness staffs that one phase.
+    invocation, info = Harness.source_for("investigation", @setting)
+    assert_equal "/explore", invocation
+    assert info.bundled?, "a gap in the chosen harness is filled, not left empty"
   end
 
   test "a chosen directory is used even when its repo is unselected" do

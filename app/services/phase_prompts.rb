@@ -115,10 +115,9 @@ module PhasePrompts
   # workspace reachable; everything else uses the built-in prompt in the
   # ticket's repo. Grooming phases carry structured-output contracts.
   def execution(ticket, phase, repo_path, setting = Setting.instance, run = nil, brief = nil)
-    invocation = Harness.phase_invocation(phase, setting)
+    invocation, info = Harness.source_for(phase, setting)
     plan =
-      if invocation
-        info = Harness.detect(setting)
+      if invocation && info
         # The harness runs from its own repo, so the phase must be told where
         # the ticket's code actually is — a bare git call here would operate
         # on the harness checkout. AskUserQuestion is removed rather than
