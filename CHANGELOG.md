@@ -133,6 +133,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The pull request body now carries its own verification story — what ran, what
   passed, what could not run and why, and any weakening — since whoever reviews
   it on GitHub cannot see the tower.
+- **The agent roster keeps its own names.** The bundled harness's agents are
+  delegates spawned inside a run, and because it now always staffs something,
+  letting them name the roster would have renamed the Builder to "fixer" and
+  the Critic to "review-unit" in every realm. Only a harness you brought names
+  a phase; the bundled agents remain available for delegation.
+- A ticket scoped to a monorepo sub-project is verified with that
+  sub-project's commands, with the root filling in what it does not answer —
+  most monorepos lint at the root and test per package.
+- A harness implementation run leads with the ticket rather than a bare change
+  slug, which told the phase which change to apply and nothing about which
+  ticket it was working on.
+- Each run records the turn, time and token budget it was actually given, so a
+  run that hit a limit can say which one months later.
 - **The setup wizard's framework step no longer offers a way to switch the
   harness off wholesale**, and each phase row now names the harness that
   actually staffs it. A repo whose `.claude` covers four phases used to look

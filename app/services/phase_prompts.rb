@@ -186,7 +186,7 @@ module PhasePrompts
     # Rediscovering how to run this project's suites costs turns on an answer
     # that does not change between runs, and when the turns run short the phase
     # ends having verified nothing.
-    if phase == "testing" && (tools = Toolchain.describe(repo_path))
+    if phase == "testing" && (tools = Toolchain.describe(repo_path, Workspace.subpath(ticket.repo)))
       plan[:prompt] += "\n#{tools}"
     end
 
@@ -225,11 +225,11 @@ module PhasePrompts
   end
 
   def harness_prompt(ticket, phase, invocation, setting = Setting.instance, repo_path = nil, brief = nil)
-    # /opsx:apply resolves a change by slug, so pass it when we have one —
-    # but never let its absence mean "no harness implementation at all", and
-    # always name the ticket in the body so identity survives either way.
-    argument = (phase == "implementation" && change_ref(ticket).presence) ||
-               "#{ticket.code}: #{ticket.title}"
+    # The ticket's identity leads, always — a bare change slug told the phase
+    # nothing about which ticket it was working. /opsx:apply resolves a change
+    # by slug, so that follows when we have one rather than replacing it.
+    argument = "#{ticket.code}: #{ticket.title}"
+    argument += " (#{change_ref(ticket)})" if phase == "implementation" && change_ref(ticket).present?
     agents = Harness.phase_agents(phase, setting)
     scope = Workspace.subpath(ticket.repo)
 

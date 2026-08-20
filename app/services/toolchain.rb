@@ -14,19 +14,32 @@ require "json"
 module Toolchain
   Command = Struct.new(:kind, :command, :because, keyword_init: true)
 
+  ORDER = { "lint" => 0, "unit" => 1, "e2e" => 2 }.freeze
+
   module_function
 
   # [Command] ordered lint → unit → e2e, which is the order they should run in.
-  def detect(repo)
+  #
+  # scope is a monorepo sub-project: apps/web has its own package.json and its
+  # own scripts, and the root's are usually the wrong ones to run for a ticket
+  # scoped to it. The sub-project wins where it answers, and the root fills in
+  # what it does not — a monorepo commonly keeps lint at the root and tests per
+  # package.
+  def detect(repo, scope = nil)
     return [] if repo.blank? || !File.directory?(repo.to_s)
 
+    if scope.present? && File.directory?(File.join(repo.to_s, scope))
+      inner = detect(File.join(repo.to_s, scope))
+      outer = detect(repo).reject { |c| inner.any? { |i| i.kind == c.kind } }
+      return (inner + outer).sort_by { |c| ORDER.fetch(c.kind, 3) }
+    end
+
     found = ruby(repo) + node(repo) + python(repo) + go(repo) + rust(repo) + make(repo)
-    order = { "lint" => 0, "unit" => 1, "e2e" => 2 }
-    found.uniq { |c| c.command }.sort_by { |c| order.fetch(c.kind, 3) }
+    found.uniq { |c| c.command }.sort_by { |c| ORDER.fetch(c.kind, 3) }
   end
 
-  def describe(repo)
-    commands = detect(repo)
+  def describe(repo, scope = nil)
+    commands = detect(repo, scope)
     return nil if commands.empty?
 
     lines = commands.map { |c| "  - #{c.kind}: `#{c.command}`  (#{c.because})" }

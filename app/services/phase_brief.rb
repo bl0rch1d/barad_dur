@@ -66,7 +66,7 @@ module PhaseBrief
       "feedback" => ticket.feedback.presence,
       "is_rework" => ticket.feedback.present?,
       "rework_count" => ticket.phase_runs.where(phase: "implementation").count,
-      "toolchain" => toolchain(repo_path),
+      "toolchain" => toolchain(repo_path, Workspace.subpath(ticket.repo)),
       "repo_conventions" => conventions(repo_path),
       "files_changed" => changed_files(repo_path, base),
       "untracked" => GitRepo.uncommitted(repo_path).select { |f| f["status"] == "??" }.map { |f| f["path"] },
@@ -93,8 +93,8 @@ module PhaseBrief
   # PATH. "runnable": false is not the same as "no such tool", and neither is
   # ever a pass — a phase that cannot tell them apart reports green for a
   # linter that was never installed.
-  def toolchain(repo_path)
-    Toolchain.detect(repo_path).map do |command|
+  def toolchain(repo_path, scope = nil)
+    Toolchain.detect(repo_path, scope).map do |command|
       { "kind" => command.kind, "command" => command.command, "because" => command.because,
         "runnable" => runnable?(command.command) }
     end

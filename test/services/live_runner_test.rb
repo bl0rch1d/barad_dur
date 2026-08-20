@@ -426,9 +426,15 @@ class LiveRunnerTest < ActiveSupport::TestCase
     assert_equal @repo, no_change[:chdir]
     assert_includes no_change[:prompt], "/elsewhere", "the harness must be told where the code is"
 
+    # With a change slug, the ticket still leads and the slug follows: a bare
+    # slug told the phase which change to apply and nothing about which ticket
+    # it was working, so the identity vanished from its own prompt.
     ticket.artifacts = ["openspec change: add-farewell"]
     apply_plan = PhasePrompts.execution(ticket, "implementation", "/elsewhere")
-    assert apply_plan[:prompt].start_with?("/opsx:apply add-farewell")
+    assert apply_plan[:prompt].start_with?("/opsx:apply TST-H1: Harness ticket (add-farewell)"),
+           apply_plan[:prompt].lines.first
+    assert_includes apply_plan[:prompt], "The openspec change for this ticket is add-farewell",
+                    "and the body still states it unambiguously"
     assert_equal @repo, apply_plan[:chdir]
   end
 

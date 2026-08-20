@@ -91,6 +91,34 @@ class ToolchainTest < ActiveSupport::TestCase
     assert_equal %w[lint unit e2e], Toolchain.detect(@repo).map(&:kind)
   end
 
+  test "a monorepo sub-project's own commands win over the root's" do
+    write("package.json", JSON.generate(scripts: { "test" => "echo root", "lint" => "eslint ." }))
+    write("apps/web/package.json", JSON.generate(scripts: { "test" => "vitest run" }))
+
+    scoped = Toolchain.detect(@repo, "apps/web")
+
+    assert_includes scoped.map(&:command), "npm run test"
+    assert_equal 1, scoped.count { |c| c.kind == "unit" },
+                 "the root's test script is the wrong one for a ticket scoped to apps/web"
+  end
+
+  test "the root fills in what the sub-project does not answer" do
+    write("package.json", JSON.generate(scripts: { "lint" => "eslint ." }))
+    write("apps/web/package.json", JSON.generate(scripts: { "test" => "vitest run" }))
+
+    kinds = Toolchain.detect(@repo, "apps/web").map(&:kind)
+
+    assert_includes kinds, "unit", "from the sub-project"
+    assert_includes kinds, "lint", "a monorepo commonly lints at the root and tests per package"
+  end
+
+  test "a scope that does not exist is ignored rather than emptying the toolchain" do
+    write("package.json", JSON.generate(scripts: { "test" => "vitest" }))
+
+    assert_equal Toolchain.detect(@repo).map(&:command),
+                 Toolchain.detect(@repo, "apps/nowhere").map(&:command)
+  end
+
   test "a repository it cannot read produces no claims about it" do
     assert_empty Toolchain.detect(@repo), "an empty directory has no suites"
     assert_empty Toolchain.detect("/nonexistent-path")

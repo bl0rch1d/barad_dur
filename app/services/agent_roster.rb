@@ -18,19 +18,26 @@ class AgentRoster
     # One agent per pipeline phase, harness-mapped where possible. Updates
     # rows in place (tickets hold FKs); surplus rows are detached + removed.
     def rebuild!(setting = Setting.instance)
-      harness = Harness.active?(setting) ? Harness.detect(setting) : nil
       model_label = Setting::ORCHESTRATOR_MODELS[setting.orchestrator_model].to_s.downcase.presence || "opus 5"
       used = []
 
       desired = Ticket::PHASES.each_with_index.map do |phase, position|
-        harness_name = harness && (Harness.phase_agents(phase, setting) - used).first
+        # Only a harness the user brought names the roster. The bundled
+        # harness's agents are delegates spawned inside a run — naming the
+        # Builder "fixer" or the Critic "review-unit" after them would be both
+        # wrong and unreadable, and every realm would now get it, since the
+        # bundled harness always staffs something.
+        source = Harness.source_for(phase, setting).last
+        source = nil if source.nil? || source.bundled?
+
+        harness_name = source && (Harness.phase_agents(phase, setting) - used).first
         used << harness_name if harness_name
         default = DEFAULTS[phase]
         {
           name: harness_name || default[:name],
           abbr: harness_name ? abbr_for(harness_name) : default[:abbr],
           role: phase, llm_model: model_label, position: position,
-          tools: harness_name ? ["#{harness.repo} · .claude/agents"] : default[:tools],
+          tools: harness_name ? ["#{source.repo} · .claude/agents"] : default[:tools],
           status: "idle", doing: "idle — waiting for work"
         }
       end

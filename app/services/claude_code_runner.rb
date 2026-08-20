@@ -93,6 +93,11 @@ class ClaudeCodeRunner
                   meta: harness_run ? "harness run" : "live run",
                   text: "Started #{phase} run (#{harness_run ? plan[:prompt].lines.first.to_s.strip.truncate(40) : 'claude code'})")
 
+    # Recorded because a run that hit a limit should say which limit, months
+    # later, without anyone having to work out what the defaults were then.
+    run.update!(budget: { "turns" => plan[:max_turns], "timeout_s" => plan[:timeout],
+                          "tokens" => plan[:max_tokens] }.compact)
+
     result = HeadlessAgent.call(prompt: plan[:prompt], chdir: plan[:chdir],
                                 extra_args: plan[:extra_args], env: child_env,
                                 max_turns: plan[:max_turns], timeout: plan[:timeout],
@@ -626,7 +631,7 @@ class ClaudeCodeRunner
   # neither run nor explained was silently dropped — which is the difference
   # between a change that was tested and one that merely looks it.
   def report_unrun_suites(suites)
-    expected = Toolchain.detect(@repo).map(&:kind).uniq
+    expected = Toolchain.detect(@repo, Workspace.subpath(ticket.repo)).map(&:kind).uniq
     return if expected.empty?
 
     accounted = suites.map { |s| s["kind"] }.uniq
