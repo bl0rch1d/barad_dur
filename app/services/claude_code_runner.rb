@@ -180,9 +180,11 @@ class ClaudeCodeRunner
   # after a merge conflict leaves HEAD on the base branch, a retry would
   # silently throw away every implementation commit. Create it once, then only
   # ever switch to it.
+  # Every phase, not only the ones that write code. Investigation and planning
+  # write the record and the contract into .pipe/, and those belong on the
+  # ticket's branch with the work — left on whatever the shared checkout
+  # happened to be on, they land on another ticket's branch or on the trunk.
   def prepare_branch(repo)
-    return unless %w[implementation review testing deployment].include?(phase)
-
     branch = ticket.branch_name
     exists = system("git", "-C", repo, "rev-parse", "--verify", branch,
                     out: File::NULL, err: File::NULL)
@@ -567,8 +569,11 @@ class ClaudeCodeRunner
     updates[:description] = summary.truncate(1200) if summary.present? && ticket.description.blank?
     notes = data["technical_notes"].to_s.strip
     updates[:technical_notes] = notes.truncate(2000) if notes.present?
-    criteria = Array(data["acceptance_criteria"]).map { |c| c.to_s.strip.truncate(200) }
-                                                 .reject(&:blank?).first(8)
+    # contract.json is authoritative and untruncated; this column is the index
+    # the board renders. Even so, 200 chars clipped a GIVEN/WHEN/THEN clause
+    # mid-sentence, which reads as a criterion that means something else.
+    criteria = Array(data["acceptance_criteria"]).map { |c| c.to_s.strip.truncate(400) }
+                                                 .reject(&:blank?).first(12)
     updates[:acceptance_criteria] = criteria if criteria.any?
     ticket.update!(updates) if updates.any?
   end

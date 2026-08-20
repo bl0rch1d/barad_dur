@@ -35,9 +35,12 @@ class Harness
 
   # Project agents suggested for delegation per phase, when they exist.
   PHASE_AGENT_HINTS = {
-    "investigation" => %w[explorer scout],
-    "planning"      => %w[planner critic],
-    "review"        => %w[reviewer review-unit review-integration review-verifier critic fixer]
+    "investigation"  => %w[explorer scout researcher],
+    "planning"       => %w[planner architect critic],
+    "implementation" => %w[builder fixer backend-dev frontend-dev],
+    "review"         => %w[reviewer review-unit review-integration review-verifier critic fixer],
+    "testing"        => %w[tester test-runner qa],
+    "deployment"     => %w[shipper release-manager]
   }.freeze
 
   class << self

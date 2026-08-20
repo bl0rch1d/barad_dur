@@ -190,7 +190,7 @@ module PhasePrompts
       #{brief ? "" : spec_block(ticket, phase)}
       Never ask the user questions interactively — AskUserQuestion is not
       available in this mode. Make reasonable choices and record them.
-      #{"Project agents available for delegation via the Task tool: #{agents.join(', ')}.\n" if agents.any?}
+      #{"Project agents available for delegation via the Agent tool (also spelled Task): #{agents.join(', ')}.\n" if agents.any?}
       Work autonomously until the #{phase} outcome is complete, then summarize
       what you did.
     TXT
@@ -232,12 +232,15 @@ module PhasePrompts
                "do not ask again and do not contradict them:\n#{decisions}\n"
     end
 
-    if ticket.feedback.present?
-      parts << if phase == "review"
-                 "A previous review round requested these changes — verify they were addressed:\n#{ticket.feedback}\n"
-               else
-                 "The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n"
-               end
+    # Feedback is for whoever acts on it — the implementer who fixes it and the
+    # tester who confirms the fix. It is deliberately withheld from review: a
+    # re-run handed its own previous findings is anchored to confirm them
+    # rather than re-derive them, and re-deriving is the entire value of the
+    # second pass. The review skill reads the prior report and the refuted
+    # list from disk itself, which is a record it can weigh rather than a
+    # conclusion it has been handed.
+    if ticket.feedback.present? && %w[implementation testing].include?(phase)
+      parts << "The reviewer requested changes — address this feedback first:\n#{ticket.feedback}\n"
     end
     parts.join("\n")
   end

@@ -47,15 +47,16 @@ class SpecHandoffTest < ActiveSupport::TestCase
     refute_includes prompt, "Still open?", "an unanswered question is not a decision"
   end
 
-  test "review is told to verify prior feedback, not to act on it" do
+  test "feedback goes to whoever acts on it, and never back to the critic" do
     @ticket.update!(feedback: "the cache key ignores the venue")
 
     review = PhasePrompts.build(@ticket, "review")
     implementation = PhasePrompts.build(@ticket, "implementation")
 
-    assert_match(/verify they were addressed/i, review)
-    refute_match(/address this feedback first/i, review, "the critic does not fix its own findings")
     assert_match(/address this feedback first/i, implementation)
+    refute_includes review, "the cache key ignores the venue",
+                    "a re-run handed its own prior findings is anchored to confirm them, " \
+                    "and re-deriving them is the whole value of the second pass"
   end
 
   test "a harness phase is told where the code actually is" do

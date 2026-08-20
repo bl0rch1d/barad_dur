@@ -47,12 +47,18 @@ module PipelineText
 
   # Shown on the gate a ticket parks on once the agents are finished with it.
   def verdict_reason(ticket)
+    # A risky ticket says so at the moment of decision. Under the "risky"
+    # autonomy mode it was gated earlier and the operator already knows; under
+    # any other mode this verdict is the FIRST time anyone is told, which is
+    # the case that matters.
+    risk = ticket.risky? ? " (flagged risky — schema, auth, money or data)" : ""
+
     case Features.landing
     when "pull_request"
-      ticket.pr_url.present? ? "#{ticket.code} is ready — approve to merge its pull request" :
-                               "#{ticket.code} is ready — approve once its pull request is open"
-    when "local_merge" then "#{ticket.code} is ready — approve to merge it into the default branch"
-    else "#{ticket.code} is ready — approve to mark it shipped; the branch is yours to land"
+      ticket.pr_url.present? ? "#{ticket.code} is ready — approve to merge its pull request#{risk}" :
+                               "#{ticket.code} is ready — approve once its pull request is open#{risk}"
+    when "local_merge" then "#{ticket.code} is ready — approve to merge it into the default branch#{risk}"
+    else "#{ticket.code} is ready — approve to mark it shipped; the branch is yours to land#{risk}"
     end
   end
 
