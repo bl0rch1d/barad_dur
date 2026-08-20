@@ -35,3 +35,12 @@
 
 # stray screenshots dropped into the repo root
 /Screenshot*.png
+
+# Local-only: publishing this app on a public URL. Kept out of the repo
+# because it is one machine's setup, not part of what barad-dur is.
+/bin/tunnel
+/bin/tunnel.ps1
+/app/controllers/concerns/tunnel_auth.rb
+/config/initializers/tunnel_auth.rb
+/test/integration/tunnel_auth_test.rb
+/docker-compose.override.yml
