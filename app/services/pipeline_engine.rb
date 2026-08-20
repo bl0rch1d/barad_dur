@@ -95,6 +95,44 @@ class PipelineEngine
       broadcast
     end
 
+    # Send a ticket back to the start and let the whole pipeline run again.
+    #
+    # Not the same as retrying a phase: a retry resumes where it stopped and
+    # keeps everything before it, which is right when one run died for a
+    # reason that has been fixed. A restart is for when what came before is
+    # not worth resuming from — a plan built on a bad investigation, or a run
+    # that failed so early there is nothing to keep.
+    #
+    # What the human wrote is kept: the title, the description, the repo. What
+    # the pipeline produced is discarded, because leaving it means the fresh
+    # run inherits conclusions it did not reach.
+    def restart!(ticket)
+      repo = Workspace.repo_path(ticket.repo)
+      stamp = Time.current.strftime("%Y%m%d-%H%M%S")
+      PhaseRecord.archive!(repo, ticket.code, stamp) if repo
+
+      ticket.with_lock do
+        # The money stays on the ledger (SpendEntry) and on the ticket; only
+        # the runs go, so the board does not show phases as done that this
+        # attempt has not reached.
+        ticket.phase_runs.destroy_all
+        ticket.ticket_gates.pending.destroy_all
+        Question.pending.where(ticket_code: ticket.code).destroy_all
+
+        ticket.update!(state: :ready, feedback: nil, diff: [], pr_url: nil,
+                       technical_notes: nil, acceptance_criteria: [], dep_codes: [],
+                       artifacts: [], tokens_label: nil, started_at: nil, finished_at: nil)
+      end
+
+      ticket.agent&.update!(status: "idle", doing: "Last: #{ticket.code} restarted")
+      Event.record!(phase_tag: "SYS", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                    meta: "restarted",
+                    text: "#{ticket.code} restarted from the beginning — " \
+                          "#{repo ? "its previous record kept as .pipe/#{ticket.code.upcase}-#{stamp}" : 'no workspace record to keep'}")
+      broadcast
+      true
+    end
+
     # The user requested changes from the drawer: the ticket goes back to
     # implementation with the feedback wired into the agent's prompt.
     def request_changes!(ticket, feedback)

@@ -109,6 +109,7 @@ class TicketsController < ApplicationController
     when "pause"  then @setting.update!(running: false)
     when "resume" then @setting.update!(running: true)
     when "retry"  then retry_run(ticket)
+    when "restart" then PipelineEngine.restart!(ticket)
     end
     back
   end

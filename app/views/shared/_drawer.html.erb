@@ -244,6 +244,30 @@
             </details>
           <% end %>
         <% end %>
+
+        <%# A retry resumes the failed phase and keeps everything before it,
+            which is right when a run died for a reason that has been fixed.
+            When the trouble started earlier than that, resuming from it just
+            carries the trouble forward. %>
+        <% if ticket.phase_runs.any? { |r| r.status == "failed" } %>
+          <div class="phase-row" style="border-color:var(--err)">
+            <span class="dot" style="background:var(--err)"></span>
+            <span class="phase-name" style="color:var(--tx2)">Start over</span>
+            <span class="phase-note">
+              discards what the pipeline produced and runs every phase again —
+              your title and description are kept
+            </span>
+            <%= button_to "restart", ticket_phase_path(ticket.code, op: "restart"),
+                          form_class: "bt", class: "phase-btn busy-btn",
+                          style: "border-color:var(--err);color:var(--err)",
+                          data: { turbo_confirm: "Restart #{ticket.code} from the beginning?\n\n" \
+                                                 "The plan, criteria, review notes and run logs from this " \
+                                                 "attempt are discarded. The work already committed to " \
+                                                 "#{ticket.branch_name} is left alone, and the record of " \
+                                                 "this attempt is kept in .pipe/.",
+                                  turbo_submits_with: "…" } %>
+          </div>
+        <% end %>
       </div>
 
       <!-- ── diff + review actions ────────────────────────── -->

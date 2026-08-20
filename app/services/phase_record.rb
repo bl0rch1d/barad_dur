@@ -96,6 +96,24 @@ module PhaseRecord
     nil
   end
 
+  # A restart must not leave the previous attempt's record in place: the next
+  # investigation would append to sections that are already full, `degraded`
+  # would report nothing missing, and planning would build on a plan that was
+  # discarded. Moved aside rather than deleted — it is the only account of
+  # what the failed attempt actually did.
+  def archive!(repo, code, stamp)
+    dir_path = dir(repo, code)
+    return false unless File.directory?(dir_path)
+
+    target = "#{dir_path}-#{stamp}"
+    FileUtils.mv(dir_path, target)
+    FileUtils.rm_f(PhaseBrief.path(repo, code))
+    true
+  rescue SystemCallError => e
+    Rails.logger.warn { "could not archive .pipe for #{code}: #{e.class}: #{e.message}" }
+    false
+  end
+
   def read(repo, code)
     File.read(path(repo, code), 200_000).to_s.force_encoding(Encoding::UTF_8).scrub
   rescue SystemCallError

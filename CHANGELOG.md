@@ -133,6 +133,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The pull request body now carries its own verification story — what ran, what
   passed, what could not run and why, and any weakening — since whoever reviews
   it on GitHub cannot see the tower.
+- **Every agent run failed on the development image.** The CLI refuses
+  `--dangerously-skip-permissions` while running as root, and the dev
+  container has no `USER`, so it exited 1 before producing anything and every
+  phase reported "the agent exited with status 1 without a result" — a message
+  that describes the symptom and hides the cause. The CLI is now told it is in
+  a sandbox, but only when actually running as root, so an image that runs as
+  a normal user is untouched.
+- **A failed ticket can be restarted from the beginning**, next to the
+  existing per-phase retry. Retrying resumes the failed phase and keeps what
+  came before it; restarting is for when that is the part not worth resuming
+  from. It discards what the pipeline concluded — criteria, notes,
+  dependencies, the diff, the run logs — and keeps what you wrote, the money
+  already spent, and any question you answered. The previous `.pipe/` record
+  is moved aside rather than deleted: it is the only account of the failed
+  attempt, and leaving it in place would let the fresh run inherit conclusions
+  it never reached.
 - **The agent roster keeps its own names.** The bundled harness's agents are
   delegates spawned inside a run, and because it now always staffs something,
   letting them name the roster would have renamed the Builder to "fixer" and

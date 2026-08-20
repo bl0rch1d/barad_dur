@@ -47,6 +47,34 @@ class ScreensTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "your verdict is what decides them"
   end
 
+  test "a failed ticket offers a restart, and a healthy one does not" do
+    healthy = Ticket.create!(code: "TST-OK", title: "Fine", repo: "sample-repo", state: :review)
+    healthy.phase_runs.create!(phase: "review", status: "running", started_at: Time.current)
+
+    get root_path(ticket: healthy.code)
+    refute_includes response.body, "Start over", "nothing has gone wrong yet"
+
+    broken = Ticket.create!(code: "TST-BAD", title: "Broken", repo: "sample-repo", state: :investigation)
+    broken.phase_runs.create!(phase: "investigation", status: "failed", started_at: Time.current,
+                              note: "the agent exited with status 1 without a result")
+
+    get root_path(ticket: broken.code)
+    assert_includes response.body, "Start over"
+    assert_includes response.body, "op=restart"
+    assert_includes response.body, "Restart TST-BAD from the beginning?", "it must confirm first"
+  end
+
+  test "restarting from the drawer takes the ticket back to the start" do
+    ticket = Ticket.create!(code: "TST-RD", title: "Broken", repo: "sample-repo",
+                            state: :planning, acceptance_criteria: ["stale"])
+    ticket.phase_runs.create!(phase: "planning", status: "failed", started_at: Time.current)
+
+    post ticket_phase_path(ticket.code, op: "restart")
+
+    assert_equal "ready", ticket.reload.state
+    assert_empty ticket.acceptance_criteria
+  end
+
   test "wizard renders each step" do
     (1..5).each do |step|
       get root_path(wizard: step)
