@@ -375,13 +375,53 @@ class ClaudeCodeRunner
     return unless data
 
     case phase
-    when "investigation" then create_questions(data)
-    when "planning"      then apply_plan_output(data)
-    when "review"        then apply_review_output(data, reroute: reroute)
-    when "testing"       then capture_test_results(data)
+    when "investigation"  then create_questions(data)
+    when "planning"       then apply_plan_output(data)
+    when "implementation" then apply_implementation_output(data)
+    when "review"         then apply_review_output(data, reroute: reroute)
+    when "testing"        then capture_test_results(data)
+    when "deployment"     then apply_deploy_output(data)
     end
   ensure
     PhaseOutput.clear(run)
+  end
+
+  # A departure from the plan is usually right and is always worth recording:
+  # the next phase checks the code against the plan, and reads an unreported
+  # deviation as a defect it then spends a round on.
+  def apply_implementation_output(data)
+    deviations = Array(data["deviations"]).filter_map do |d|
+      next unless d.is_a?(Hash)
+
+      why = d["why"].to_s.strip.presence or next
+      { "from_plan" => d["from_plan"].to_s.truncate(120).presence, "why" => why.truncate(300) }.compact
+    end
+    addressed = Array(data["criteria_addressed"]).filter_map do |c|
+      next unless c.is_a?(Hash) && c["id"]
+
+      { "id" => c["id"].to_i, "verdict" => "addressed", "path" => c["path"].to_s.truncate(160).presence }.compact
+    end
+    run.update!(deviations: deviations, criteria_results: addressed)
+    return if deviations.empty?
+
+    Event.record!(phase_tag: "IMPL", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "deviation",
+                  text: "#{ticket.code} departed from the plan in #{deviations.size} place(s): " \
+                        "#{deviations.first['why'].to_s.truncate(90)}")
+  end
+
+  # Hygiene the shipper could not clear is a decision, not a cleanup task: it
+  # stops the ticket for a person rather than being fixed quietly.
+  def apply_deploy_output(data)
+    blocking = Array(data.dig("hygiene", "blocking")).map { |b| b.to_s.truncate(160) }.reject(&:blank?)
+    note = data["changelog"] == true ? "changelog entry added" : "no changelog in this repo — note in the record"
+    run.update!(note: blocking.any? ? "hygiene: #{blocking.size} blocking" : note)
+    return if blocking.empty?
+
+    ticket.update!(feedback: blocking.map { |b| "- #{b}" }.join("\n"))
+    Event.record!(phase_tag: "DEPLOY", tone: "var(--err)", ticket: ticket, agent: ticket.agent,
+                  meta: "hygiene",
+                  text: "#{ticket.code} is not clean to commit: #{blocking.first.truncate(100)}")
   end
 
   # How many times implementation may be sent back before the machine stops
@@ -445,7 +485,9 @@ class ClaudeCodeRunner
     # A repo where nothing could be run must never read as green. Previously
     # this returned early with no counts, tests_failed? stayed false, and a
     # non-draft pull request opened on work no suite ever touched.
-    executed = data.key?("passed") || data.key?("failed")
+    # The contract now asks for "executed" outright; the key-presence check
+    # stays as the fallback for a run that answered in the older shape.
+    executed = data.key?("executed") ? data["executed"] == true : (data.key?("passed") || data.key?("failed"))
     unless executed
       run.update!(tests_executed: false, note: "no suite ran — nothing verified this change")
       Event.record!(phase_tag: "TEST", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
@@ -462,10 +504,17 @@ class ClaudeCodeRunner
         "passed" => s["passed"], "failed" => s["failed"], "skipped" => s["skipped"].to_s.presence }.compact
     end
 
+    criteria = Array(data["criteria"]).filter_map do |c|
+      next unless c.is_a?(Hash) && c["id"]
+
+      verdict = %w[satisfied not_satisfied untestable].include?(c["verdict"].to_s) ? c["verdict"].to_s : "not_satisfied"
+      { "id" => c["id"].to_i, "verdict" => verdict, "test" => c["test"].to_s.truncate(160).presence }.compact
+    end
     run.update!(tests_command: data["command"].to_s.truncate(120).presence,
                 tests_passed: passed, tests_failed: failed, test_suites: suites,
-                tests_executed: true,
-                note: suite_note(passed, failed, suites))
+                tests_executed: true, criteria_results: criteria,
+                note: suite_note(passed, failed, suites, criteria))
+    report_unsatisfied_criteria(criteria)
     suites.each do |s|
       next unless s["skipped"]
 
@@ -498,7 +547,18 @@ class ClaudeCodeRunner
 
   # "128 passed · 0 failed · lint, unit, e2e" — the phase row should say what
   # was actually covered, not just a number.
-  def suite_note(passed, failed, suites)
+  # A suite can be green while the thing that was asked for never happened.
+  def report_unsatisfied_criteria(criteria)
+    unmet = criteria.select { |c| c["verdict"] == "not_satisfied" }
+    return if unmet.empty?
+
+    Event.record!(phase_tag: "TEST", tone: "var(--warn)", ticket: ticket, agent: ticket.agent,
+                  meta: "criteria",
+                  text: "#{ticket.code}: #{unmet.size} acceptance criterion/criteria not satisfied — " \
+                        "a passing suite is not evidence that they were")
+  end
+
+  def suite_note(passed, failed, suites, criteria = [])
     note = "#{passed} passed · #{failed} failed"
     kinds = suites.map { |s| s["kind"] }.uniq
     note += " · #{kinds.join(', ')}" if kinds.any?
@@ -508,6 +568,8 @@ class ClaudeCodeRunner
     # row reading "128 passed" above a weakened-suite warning is a mixed
     # message about the only thing this phase is for.
     note += " · suite weakened" if run.guard_flags.any?
+    unmet = criteria.count { |c| c["verdict"] == "not_satisfied" }
+    note += " · #{unmet} criteria unmet" if unmet.positive?
     note.truncate(120)
   end
 

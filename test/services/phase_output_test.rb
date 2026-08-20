@@ -72,7 +72,7 @@ class PhaseOutputTest < ActiveSupport::TestCase
   end
 
   test "every contract tells the agent to write its answer to disk first" do
-    %w[investigation planning review testing].each do |phase|
+    Ticket::PHASES.each do |phase|
       ticket = Ticket.create!(code: "TST-O#{phase[0..2]}", title: "t", repo: "sample-repo", state: phase.to_sym)
       run = ticket.phase_runs.create!(phase: phase, status: "running", started_at: Time.current)
       plan = PhasePrompts.execution(ticket, phase, "/nonexistent-repo", Setting.instance, run)
@@ -82,12 +82,14 @@ class PhaseOutputTest < ActiveSupport::TestCase
     end
   end
 
-  test "a phase with no contract is not given an out-file to write" do
+  test "a phase with nothing to report is not given an out-file to write" do
     ticket = Ticket.create!(code: "TST-O9", title: "t", repo: "sample-repo", state: :implementation)
-    run = ticket.phase_runs.create!(phase: "implementation", status: "running", started_at: Time.current)
+    run = ticket.phase_runs.create!(phase: "grooming", status: "running", started_at: Time.current)
 
-    plan = PhasePrompts.execution(ticket, "implementation", "/nonexistent-repo", Setting.instance, run)
+    plan = PhasePrompts.execution(ticket, "grooming", "/nonexistent-repo", Setting.instance, run)
 
-    refute_includes plan[:prompt], PhaseOutput.path_for(run)
+    assert_empty PhasePrompts.contract_for(ticket, "grooming")
+    refute_includes plan[:prompt], PhaseOutput.path_for(run),
+                    "an out-file with nothing to put in it is an instruction to invent something"
   end
 end

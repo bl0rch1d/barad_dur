@@ -55,6 +55,7 @@ class PushPrJob < ApplicationJob
     return "[tests failing] " if ticket.tests_failed?
     return "[suite weakened] " if ticket.tests_weakened?
     return "[unverified] " unless ticket.tests_ran?
+    return "[criteria unmet] " if ticket.criteria_unsatisfied.any?
 
     ""
   end

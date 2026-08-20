@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_19_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_20_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -87,6 +87,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_19_000006) do
   create_table "phase_runs", force: :cascade do |t|
     t.decimal "cost", precision: 8, scale: 4, default: "0.0", null: false
     t.datetime "created_at", null: false
+    t.jsonb "criteria_results", default: [], null: false
+    t.jsonb "deviations", default: [], null: false
     t.integer "duration_s"
     t.integer "exit_status"
     t.datetime "finished_at"

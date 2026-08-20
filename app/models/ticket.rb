@@ -58,7 +58,16 @@ class Ticket < ApplicationRecord
 
   def guard_flags = phase_runs.select { |r| r.phase == "testing" }.flat_map(&:guard_flags)
 
-  def verification_red? = tests_failed? || !tests_ran? || tests_weakened?
+  # A criterion the tester could not find a passing test for is the clearest
+  # signal there is that the change does not do what was asked, and it is
+  # invisible in a pass/fail count.
+  def criteria_unsatisfied
+    phase_runs.select { |r| r.phase == "testing" }
+              .flat_map(&:criteria_results)
+              .select { |c| c["verdict"] == "not_satisfied" }
+  end
+
+  def verification_red? = tests_failed? || !tests_ran? || tests_weakened? || criteria_unsatisfied.any?
 
   def gated?
     ticket_gates.pending.exists?

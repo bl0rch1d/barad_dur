@@ -13,7 +13,8 @@ module PhasePrompts
     If (and ONLY if) you hit product decisions you cannot make yourself, end
     your FINAL message with a fenced json block:
     ```json
-    {"questions": [{"q": "the decision", "why": "why it matters",
+    {"_c": "investigation.v1",
+     "questions": [{"q": "the decision", "why": "why it matters",
                     "opts": ["Option A", "Option B"]}]}
     ```
     0-2 questions, each with 2-3 short options. Omit the block entirely when
@@ -24,7 +25,7 @@ module PhasePrompts
 
     End your FINAL message with a fenced json block:
     ```json
-    {"change": "kebab-case-change-name-or-null",
+    {"_c": "planning.v1", "change": "kebab-case-change-name-or-null",
      "summary": "2-3 sentence summary of what will be built and why",
      "technical_notes": "key files, approach, risks — a short paragraph",
      "acceptance_criteria": ["verifiable outcome 1", "verifiable outcome 2"],
@@ -56,7 +57,7 @@ module PhasePrompts
 
     End your FINAL message with a fenced json block:
     ```json
-    {"verdict": "changes_requested",
+    {"_c": "review.v1", "verdict": "changes_requested",
      "findings": [{"severity": "blocking", "file": "app/models/order.rb:88",
                    "what": "the cache key omits the venue",
                    "why": "two venues collide and return each other's prices"}]}
@@ -69,21 +70,66 @@ module PhasePrompts
     Report findings — do NOT fix them yourself.
   TXT
 
+  IMPLEMENTATION_CONTRACT = <<~TXT.freeze
+
+    End your FINAL message with a fenced json block:
+    ```json
+    {"_c": "implementation.v1",
+     "files_changed": ["app/services/enrolment.rb", "spec/services/enrolment_spec.rb"],
+     "commits": ["a1b2c3d test(ALG-42): retry exhaustion returns 429"],
+     "criteria_addressed": [{"id": 1, "path": "app/services/enrolment.rb:88"}],
+     "gate": {"lint": "pass", "targeted_tests": "12 passed 0 failed"},
+     "deviations": [{"from_plan": "step 4", "why": "the column already existed"}]}
+    ```
+    criteria_addressed: for each acceptance criterion, the file:line that
+    implements it. A criterion you cannot point at is not done — say so rather
+    than listing it.
+    deviations: every departure from the plan, however small, with what you did
+    instead. Departing is often right; the plan was written having read less
+    code than you have now. Departing silently never is — the next phase checks
+    the code against the plan and reads an unreported deviation as a defect.
+  TXT
+
+  DEPLOY_CONTRACT = <<~TXT.freeze
+
+    End your FINAL message with a fenced json block:
+    ```json
+    {"_c": "deployment.v1", "changelog": true,
+     "release_note": "3-6 lines: what changed, why, risk, verification status",
+     "hygiene": {"blocking": []},
+     "unverified_claims": []}
+    ```
+    changelog: false when this repository keeps none and you correctly did not
+    invent one. That is a success, not a skipped step.
+    hygiene.blocking: anything that must not be committed — a staged credential,
+    a lockfile without its manifest, debug output left in. A non-empty list
+    stops the ticket for a person rather than being fixed quietly.
+  TXT
+
   TESTING_CONTRACT = <<~TXT.freeze
 
     End your FINAL message with a fenced json block reporting what you ran.
     List every suite separately, including the ones you could not run and why:
     ```json
-    {"command": "bundle exec rspec", "passed": 128, "failed": 0,
+    {"_c": "testing.v1", "executed": true,
+     "command": "bundle exec rspec", "passed": 128, "failed": 0,
      "suites": [
        {"kind": "lint", "command": "bundle exec rubocop", "passed": 1, "failed": 0},
        {"kind": "unit", "command": "bundle exec rspec spec/models", "passed": 96, "failed": 0},
        {"kind": "e2e", "command": "yarn cypress run", "skipped": "needs a running server"}
-     ]}
+     ],
+     "criteria": [{"id": 1, "verdict": "satisfied", "test": "spec/enrolment_spec.rb:41"},
+                  {"id": 2, "verdict": "untestable", "test": null}]}
     ```
+    "executed": false when nothing could be run at all — a repository with no
+    suite is a fact about the repository, and reporting it as zero-passed-
+    zero-failed is how unverified work reaches a human looking ready to merge.
     "command", "passed" and "failed" are the totals across everything you ran —
-    the FINAL counts, after any fixes you committed. Omit "suites" only if the
-    project genuinely has one command and nothing else.
+    the FINAL counts, after any fixes you committed.
+    criteria: one entry per acceptance criterion. "satisfied" only when a test
+    asserts it AND passes; "not_satisfied" when nothing asserts it or one fails;
+    "untestable" when it genuinely cannot be asserted here, with the reason in
+    your report. A green suite is not evidence that a criterion was met.
   TXT
 
   # Turns and seconds per phase. One global ceiling has to be set for the
@@ -146,10 +192,12 @@ module PhasePrompts
 
   def contract_for(ticket, phase)
     case phase
-    when "investigation" then QUESTIONS_CONTRACT + board_context(ticket)
-    when "planning"      then PLANNING_CONTRACT + board_context(ticket)
-    when "review"        then REVIEW_CONTRACT
-    when "testing"       then TESTING_CONTRACT
+    when "investigation"  then QUESTIONS_CONTRACT + board_context(ticket)
+    when "planning"       then PLANNING_CONTRACT + board_context(ticket)
+    when "implementation" then IMPLEMENTATION_CONTRACT
+    when "review"         then REVIEW_CONTRACT
+    when "testing"        then TESTING_CONTRACT
+    when "deployment"     then DEPLOY_CONTRACT
     else ""
     end
   end
