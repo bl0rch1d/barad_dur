@@ -83,6 +83,21 @@ class SammathTest < ActiveSupport::TestCase
     assert_match(/out_path/, rules, "a run that dies must still have reported")
   end
 
+  test "running from the source checkout warns once, because it is inside a repo" do
+    Harness.instance_variable_set(:@warned_source_checkout, nil)
+    Event.where(meta: "harness").delete_all
+
+    3.times { Harness.bundled_path }
+
+    if Harness.bundled_path == Rails.root.join("harness").to_s
+      assert_equal 1, Event.where(meta: "harness").count, "once, not once per call"
+      assert_match(/commit into barad-dûr itself/, Event.where(meta: "harness").last.text)
+    else
+      assert_equal 0, Event.where(meta: "harness").count,
+                    "the image path is outside a repo and needs no warning"
+    end
+  end
+
   test "a workspace harness still wins over the bundled one" do
     # Harness.detect prefers a scanned workspace repo; bundled is the fallback.
     source = File.read(Rails.root.join("app/services/harness.rb"))

@@ -73,8 +73,26 @@ class Harness
     end
 
     def bundled_path
-      [ENV["HARNESS_DIR"].presence, "/opt/barad-dur/harness", Rails.root.join("harness").to_s]
-        .compact.find { |dir| File.directory?(File.join(dir, ".claude", "skills")) }
+      path = [ENV["HARNESS_DIR"].presence, "/opt/barad-dur/harness", Rails.root.join("harness").to_s]
+             .compact.find { |dir| File.directory?(File.join(dir, ".claude", "skills")) }
+      warn_about_source_checkout(path) if path == Rails.root.join("harness").to_s
+      path
+    end
+
+    # In the image the harness sits at /opt, outside any git repository, so a
+    # phase whose git command forgot its -C fails loudly. The development
+    # fallback is the source tree, which IS a repository — the same mistake
+    # there stages into barad-dûr's own checkout instead. Say so once.
+    def warn_about_source_checkout(path)
+      return if @warned_source_checkout
+
+      @warned_source_checkout = true
+      Event.record!(phase_tag: "SYS", tone: "var(--warn)", agent_name: "system", meta: "harness",
+                    text: "Running the harness from the source tree at #{path} — it is inside a git " \
+                          "repository, so a phase that forgets -C can commit into barad-dûr itself. " \
+                          "The built image keeps it at /opt/barad-dur/harness, outside one.")
+    rescue StandardError
+      nil
     end
 
     def bundled_version
