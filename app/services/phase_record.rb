@@ -102,6 +102,53 @@ module PhaseRecord
     nil
   end
 
+  # Ruby writes the frozen contract rather than trusting a phase to.
+  #
+  # It is the anchor for per-criterion conformance in review, per-criterion
+  # verification in testing, and the tamper check afterwards — so the two
+  # fields that must not be wrong (the base commit and the digests of every
+  # test that already existed) are computed here, where they cannot be
+  # mistyped, guessed, or reported optimistically.
+  def freeze!(repo, code, criteria:, base_sha:, impact: [], risk: {}, existing: nil)
+    contract = {
+      "_v" => 1, "code" => code.to_s.upcase, "base_sha" => base_sha,
+      "criteria" => criteria.each_with_index.map { |text, i| { "id" => i + 1, "text" => text.to_s } },
+      "impact" => Array(impact).map(&:to_s).first(200),
+      "frozen_tests" => frozen_tests(repo, base_sha),
+      "risk" => risk
+    }
+    contract = (existing || {}).merge(contract) if existing
+    FileUtils.mkdir_p(dir(repo, code))
+    File.write(contract_path(repo, code), JSON.pretty_generate(contract))
+    contract
+  rescue SystemCallError, JSON::GeneratorError
+    nil
+  end
+
+  # Every test file that already existed at the base commit, with its blob id.
+  # `git rev-parse <sha>:<path>` is the id git already stored, so this costs
+  # one call and cannot disagree with what git thinks the file was.
+  def frozen_tests(repo, base_sha)
+    return {} if base_sha.blank?
+
+    out, ok = GitRepo.capture(repo, "ls-tree", "-r", "--name-only", base_sha)
+    return {} unless ok
+
+    out.lines.map(&:chomp).select { |path| TestGuard.test_path?(path) }.first(500).to_h do |path|
+      oid, found = GitRepo.capture(repo, "rev-parse", "#{base_sha}:#{path}")
+      [path, found ? oid.strip : nil]
+    end.compact
+  end
+
+  # What that path hashes to now — nil when it is gone.
+  def current_digest(repo, path)
+    full = File.join(repo.to_s, path)
+    return nil unless File.file?(full)
+
+    out, ok = GitRepo.capture(repo, "hash-object", "--", path)
+    ok ? out.strip.presence : nil
+  end
+
   def contract(repo, code)
     JSON.parse(File.read(contract_path(repo, code), 500_000))
   rescue SystemCallError, JSON::ParserError

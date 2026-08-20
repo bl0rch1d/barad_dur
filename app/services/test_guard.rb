@@ -40,10 +40,27 @@ module TestGuard
   def test_path?(path) = TEST_PATH.match?(path.to_s)
 
   # [{kind:, path:, detail:}] — empty when the suite was left alone.
-  def inspect_branch(repo, base)
+  def inspect_branch(repo, base, contract = nil)
     return [] if base.blank?
 
-    deleted(repo, base) + weakened(repo, base)
+    tampered(repo, contract) + deleted(repo, base) + weakened(repo, base)
+  end
+
+  # The one check that cannot be talked around. Everything else here reads
+  # intent out of a diff and can be argued with; a blob id either matches or
+  # it does not, and planning recorded these before any code was written.
+  def tampered(repo, contract)
+    frozen = contract.is_a?(Hash) ? contract["frozen_tests"] : nil
+    return [] unless frozen.is_a?(Hash)
+
+    frozen.filter_map do |path, digest|
+      now = PhaseRecord.current_digest(repo, path)
+      next if now == digest
+
+      { "kind" => "frozen", "path" => path,
+        "detail" => now.nil? ? "a test frozen before the work began was deleted"
+                             : "a test frozen before the work began was modified" }
+    end
   end
 
   def deleted(repo, base)
@@ -101,6 +118,7 @@ module TestGuard
 
     by_kind = flags.group_by { |f| f["kind"] }
     parts = []
+    parts << "#{by_kind['frozen'].size} frozen test(s) touched" if by_kind["frozen"]
     parts << "#{by_kind['deleted'].size} test file(s) deleted" if by_kind["deleted"]
     parts << "#{by_kind['skipped'].size} skip(s) added" if by_kind["skipped"]
     parts << "#{by_kind['assertions'].size} file(s) lost assertions" if by_kind["assertions"]

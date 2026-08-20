@@ -530,7 +530,10 @@ class LiveRunnerTest < ActiveSupport::TestCase
 
   test "grooming planning captures change, deps and split tickets" do
     other = Ticket.create!(code: "TST-DEP", title: "Existing work", repo: "sample-repo", state: :implementation)
-    write_stub!('{"change":"add-auth","depends_on":["TST-DEP"],"additional_tickets":[{"title":"Wire auth into UI","estimate":"30m","risky":false}]}')
+    # A plan must carry at least one acceptance criterion — without one there
+    # is nothing for review or testing to check the work against.
+    write_stub!('{"change":"add-auth","acceptance_criteria":["Login works"],"depends_on":["TST-DEP"],' \
+                '"additional_tickets":[{"title":"Wire auth into UI","estimate":"30m","risky":false}]}')
     ticket = Ticket.create!(code: "TST-P1", title: "Add auth", repo: "sample-repo", state: :planning)
     ticket.phase_runs.create!(phase: "planning", status: "running",
                               runner: "claude", started_at: Time.current)

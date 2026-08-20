@@ -115,6 +115,7 @@ class ClaudeCodeRunner
     if result.ok
       capture_outputs(repo)
       rerouted = handle_structured_output(result) == :rerouted
+      return false if phase == "planning" && !freeze_contract!(repo)
       Event.record!(phase_tag: tag, ticket: ticket, agent: ticket.agent,
                     meta: run_meta(result.raw),
                     text: "#{phase.capitalize} run finished — #{summary(result.raw)}")
@@ -251,21 +252,70 @@ class ClaudeCodeRunner
     capture_commits(repo)
     capture_diff(repo) if %w[implementation review testing].include?(phase)
     capture_plan_artifact if phase == "planning"
-    guard_tests(repo) if phase == "testing"
+    guard_tests(repo) if %w[implementation review testing].include?(phase)
+  end
+
+  # The contract is frozen by Ruby, from what planning just reported, so that
+  # the two fields nobody may be wrong about — the base commit and the digest
+  # of every test that already existed — are measured rather than asserted.
+  # Planning that produced no criteria at all has produced nothing usable, and
+  # every later phase would be checking the code against itself.
+  def freeze_contract!(repo)
+    return true unless Harness.phase_invocation("planning", Setting.instance)
+
+    existing = PhaseRecord.contract(repo, ticket.code)
+    criteria = Array(existing&.dig("criteria")).filter_map { |c| c["text"].to_s.presence }
+    criteria = ticket.reload.acceptance_criteria if criteria.empty?
+
+    if criteria.empty?
+      fail_run("planning finished without a single acceptance criterion — there would be nothing " \
+               "for review or testing to check the work against")
+      return false
+    end
+
+    PhaseRecord.freeze!(repo, ticket.code, criteria: criteria,
+                        base_sha: GitRepo.base_branch(repo)&.then { |b| rev_parse(repo, b) },
+                        impact: existing&.dig("impact") || [],
+                        risk: existing&.dig("risk") || { "flagged" => ticket.risky? },
+                        existing: existing)
+    true
+  end
+
+  def rev_parse(repo, ref)
+    out, ok = git(repo, "rev-parse", ref)
+    ok ? out.strip.presence : nil
   end
 
   # "Make the tests pass" is the instruction under which deleting the failing
   # test is the shortest path. The prompt forbids it; this checks.
   def guard_tests(repo)
-    flags = TestGuard.inspect_branch(repo, GitRepo.base_branch(repo))
+    contract = PhaseRecord.contract(repo, ticket.code)
+    flags = TestGuard.inspect_branch(repo, GitRepo.base_branch(repo), contract)
     return if flags.empty?
 
     run.update!(guard_flags: flags)
-    Event.record!(phase_tag: "TEST", tone: "var(--err)", ticket: ticket, agent: ticket.agent,
+    Event.record!(phase_tag: tag, tone: "var(--err)", ticket: ticket, agent: ticket.agent,
                   meta: "suite weakened",
                   text: "#{ticket.code}: #{TestGuard.summary(flags)} — a green run that asks less is not a green run")
+
+    # A frozen test is one planning recorded before any code existed. Touching
+    # it is not a judgement call the pipeline can weigh, so it stops here for a
+    # person rather than continuing and mentioning it on the pull request.
+    gate_on_tampering(flags.select { |f| f["kind"] == "frozen" })
   rescue StandardError => e
     Rails.logger.warn { "test guard failed for run #{run.id}: #{e.class}: #{e.message}" }
+  end
+
+  def gate_on_tampering(frozen)
+    return if frozen.empty? || ticket.gated?
+
+    paths = frozen.map { |f| f["path"] }.first(3).join(", ")
+    ticket.ticket_gates.create!(to_state: Ticket::STATES[:done],
+                                reason: "#{ticket.code} modified tests frozen before the work began " \
+                                        "(#{paths}) — approve only if each was deliberate")
+    Event.record!(phase_tag: "GATE", tone: "var(--err)", ticket: ticket, agent: ticket.agent,
+                  meta: "frozen tests",
+                  text: "#{ticket.code} held: #{frozen.size} test(s) frozen at planning were changed")
   end
 
   def capture_commits(repo)
