@@ -46,7 +46,7 @@ class HeadlessAgent
       stopped = nil
       status = nil
 
-      Open3.popen3(env, *command, chdir: chdir) do |stdin, stdout, stderr, wait|
+      Open3.popen3(sandbox_env(env), *command, chdir: chdir) do |stdin, stdout, stderr, wait|
         stdin.close
         err_reader = Thread.new { stderr.read }
         buffer = +""
@@ -118,6 +118,27 @@ class HeadlessAgent
     end
 
     private
+
+    # The CLI refuses to skip permission prompts while running as root:
+    #
+    #   --dangerously-skip-permissions cannot be used with root/sudo
+    #   privileges for security reasons
+    #
+    # It exits 1 before producing anything, so every phase fails with "the
+    # agent exited with status 1 without a result" and no clue as to why. The
+    # development image has no USER, so this is every run on it.
+    #
+    # The check exists to stop someone disabling the prompts on their own
+    # machine. Here the prompts are already the wrong boundary — the container
+    # and the mounted workspace are the boundary, which is what
+    # DEFAULT_FLAGS says — and IS_SANDBOX is the CLI's own way of saying so.
+    # Set only when actually running as root, so a deployment that runs as a
+    # normal user (the production image does) is left alone.
+    def sandbox_env(env)
+      return env unless Process.uid.zero? && ENV["IS_SANDBOX"].blank?
+
+      env.merge("IS_SANDBOX" => "1")
+    end
 
     def timeout_reason(timeout)
       limit = (timeout || ENV.fetch("CLAUDE_TIMEOUT", DEFAULT_TIMEOUT)).to_i
