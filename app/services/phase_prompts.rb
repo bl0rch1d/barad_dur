@@ -136,13 +136,18 @@ module PhasePrompts
   # longest phase, which means every short phase carries a runaway budget it
   # will never need — and review, which fans out, is the one that actually
   # needs the headroom.
+  # Turns, seconds, and tokens. The token ceiling is deliberately generous —
+  # it is a runaway guard, not a budget to work to. It counts tokens rather
+  # than dollars because tokens are in the stream exactly and a price table
+  # would have to be invented here, then drift; the money control is the
+  # realm's daily cap, which is checked from the ledger while the run works.
   BUDGETS = {
-    "investigation"  => { turns: 60,  timeout: 1800 },
-    "planning"       => { turns: 60,  timeout: 1800 },
-    "implementation" => { turns: 150, timeout: 3600 },
-    "review"         => { turns: 250, timeout: 5400 },
-    "testing"        => { turns: 100, timeout: 3600 },
-    "deployment"     => { turns: 40,  timeout: 900 }
+    "investigation"  => { turns: 60,  timeout: 1800, tokens: 400_000 },
+    "planning"       => { turns: 60,  timeout: 1800, tokens: 400_000 },
+    "implementation" => { turns: 150, timeout: 3600, tokens: 1_200_000 },
+    "review"         => { turns: 250, timeout: 5400, tokens: 2_000_000 },
+    "testing"        => { turns: 100, timeout: 3600, tokens: 800_000 },
+    "deployment"     => { turns: 40,  timeout: 900,  tokens: 250_000 }
   }.freeze
 
   module_function
@@ -153,7 +158,8 @@ module PhasePrompts
     budget = BUDGETS[phase] or return {}
 
     { max_turns: ENV["CLAUDE_MAX_TURNS"].presence&.to_i || budget[:turns],
-      timeout: ENV["CLAUDE_TIMEOUT"].presence&.to_f || budget[:timeout] }
+      timeout: ENV["CLAUDE_TIMEOUT"].presence&.to_f || budget[:timeout],
+      max_tokens: ENV["CLAUDE_MAX_TOKENS"].presence&.to_i || budget[:tokens] }
   end
 
   # Full execution plan for a phase run: prompt, working directory and extra

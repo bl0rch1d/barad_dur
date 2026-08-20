@@ -96,6 +96,7 @@ class ClaudeCodeRunner
     result = HeadlessAgent.call(prompt: plan[:prompt], chdir: plan[:chdir],
                                 extra_args: plan[:extra_args], env: child_env,
                                 max_turns: plan[:max_turns], timeout: plan[:timeout],
+                                stop_when: spend_guard(plan[:max_tokens]),
                                 model: ticket.agent&.effective_model) do |data|
       case data["type"]
       when "system"
@@ -131,6 +132,49 @@ class ClaudeCodeRunner
   end
 
   private
+
+  # How often the realm's ledger is consulted mid-run. Every message would be
+  # a query per token; a minute is fast enough to stop the next expensive turn
+  # and slow enough to cost nothing.
+  CAP_CHECK_INTERVAL = 60
+
+  # A run that has gone wrong is expensive in exactly the way nothing else
+  # catches: turns and wall-clock have their own limits, but a phase can sit
+  # inside both and still burn a fortune, and the daily cap was only ever read
+  # before a ticket was picked up — so runs already in flight could blow
+  # through it together with nothing to stop them.
+  # cap_interval is a parameter only so a test can drive it: the clock here is
+  # monotonic on purpose (immune to the wall clock moving) and travel cannot
+  # advance it.
+  def spend_guard(max_tokens, cap_interval = CAP_CHECK_INTERVAL)
+    tokens = 0
+    checked_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    lambda do |data|
+      # This runs on every streamed message, so it must not raise: "message"
+      # is a Hash on assistant turns and a plain string elsewhere, and dig on
+      # a String raises TypeError — which would kill the run it is guarding.
+      envelope = data["message"]
+      usage = envelope.is_a?(Hash) ? envelope["usage"] : nil
+      if usage.is_a?(Hash)
+        tokens += usage.values_at("input_tokens", "output_tokens",
+                                  "cache_creation_input_tokens", "cache_read_input_tokens")
+                       .compact.sum
+      end
+      if max_tokens && tokens > max_tokens
+        next "burned #{(tokens / 1000.0).round}k tokens on one #{phase} run (ceiling " \
+             "#{(max_tokens / 1000.0).round}k) — it is not converging; split the ticket or raise CLAUDE_MAX_TOKENS"
+      end
+
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      next nil if now - checked_at < cap_interval
+
+      checked_at = now
+      next nil unless Setting.instance.over_cap?
+
+      "the realm passed its daily spend cap while this run was working"
+    end
+  end
 
   # Planning without an intent, or implementation without a plan, is a phase
   # inventing the thing it was supposed to be working from. Every design that

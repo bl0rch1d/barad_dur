@@ -22,7 +22,11 @@ class HeadlessAgent
       ENV["CLAUDE_MODEL"].presence || Setting.instance.orchestrator_model
     end
 
-    def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, model: nil, extra_args: [], &on_message)
+    # stop_when: called with each streamed message; returning a string stops
+    # the run and becomes the failure reason. Used for the token ceiling and
+    # the daily spend cap, both of which can only be judged while running.
+    def call(prompt:, chdir:, env: {}, timeout: nil, max_turns: nil, model: nil,
+             extra_args: [], stop_when: nil, &on_message)
       bin = ClaudeCodeRunner.bin_path
       return Result.new(ok: false, error: "claude CLI not found", log: "") unless bin
 
@@ -39,6 +43,7 @@ class HeadlessAgent
       final = nil
       session_id = nil
       timed_out = false
+      stopped = nil
       status = nil
 
       Open3.popen3(env, *command, chdir: chdir) do |stdin, stdout, stderr, wait|
@@ -73,7 +78,16 @@ class HeadlessAgent
             session_id = data["session_id"] if data["type"] == "system" && data["session_id"]
             final = data if data["type"] == "result"
             on_message&.call(data)
+            stopped ||= stop_when&.call(data)
           end
+          next unless stopped
+
+          begin
+            Process.kill("TERM", wait.pid)
+          rescue Errno::ESRCH
+            nil
+          end
+          break
         end
 
         log << err_reader.value.to_s
@@ -82,7 +96,11 @@ class HeadlessAgent
 
       # A failed run has still spent whatever it spent — carry cost and the
       # raw result through so it is charged and reported, never silently free.
-      if timed_out
+      if stopped
+        Result.new(ok: false, error: stopped, log: log, raw: final,
+                   cost: final&.dig("total_cost_usd").to_f, duration_ms: final&.dig("duration_ms").to_i,
+                   exit_status: status&.exitstatus, session_id: session_id)
+      elsif timed_out
         Result.new(ok: false, error: timeout_reason(timeout), log: log, raw: final,
                    cost: final&.dig("total_cost_usd").to_f, duration_ms: final&.dig("duration_ms").to_i,
                    exit_status: status&.exitstatus, session_id: session_id)

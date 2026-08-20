@@ -133,6 +133,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The pull request body now carries its own verification story — what ran, what
   passed, what could not run and why, and any weakening — since whoever reviews
   it on GitHub cannot see the tower.
+- **A phase can no longer burn a fortune inside its other limits.** Turns and
+  wall-clock each had a ceiling, and a run could sit comfortably within both
+  while looping; the daily cap was read only *before* a ticket was picked up,
+  so runs already in flight could pass it together with nothing to stop them.
+  Each phase now carries a generous token ceiling, and the ledger is consulted
+  on a timer while the run works. It counts tokens rather than dollars because
+  tokens are in the stream exactly and a price table here would be invented and
+  then drift — the money control remains the realm's daily cap.
 - The stale-run sweeper uses each phase's own time limit. Per-phase budgets
   gave review 5400s while the sweeper still killed anything quiet for 2820s,
   so a long review was marked dead while it was still working — the same class
