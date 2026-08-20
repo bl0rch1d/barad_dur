@@ -183,10 +183,14 @@
       <% if step == 3 %>
         <% fw = wizard_setup("fw", "0") %>
         <div class="wizard-stack">
-          <% [["openspec", "Specs are the contract: each phase reads and writes openspec files, so plans and code stay attached to requirements.", "recommended", "var(--ok)"],
-              ["Agentic harness", "Your repo's own .claude commands, skills and agents drive the phases if it has them. If it does not, Sammath — the harness shipped with this app — does: six skills that hand each other a written brief, and a review that refutes its own findings before reporting them.", "auto-detected", "var(--info)"],
-              ["Vanilla — built-in prompts", "No harness. Every phase runs the app's own short prompts, each producing a written artifact you can review.", "fallback", "var(--tx3)"]].each_with_index do |(label, blurb, tag, tag_tone), i| %>
-            <% on = fw == i.to_s %>
+          <% choices = [["openspec is the contract",
+                         "Each phase reads and writes openspec files, so plans and code stay attached to requirements. The harness below still drives the phases.",
+                         "recommended", "var(--ok)"],
+                        ["Let the harness decide",
+                         "No openspec requirement. Phases follow whichever harness staffs them and leave their artifacts in the ticket's record.",
+                         "simplest", "var(--info)"]] %>
+          <% choices.each_with_index do |(label, blurb, tag, tag_tone), i| %>
+            <% on = fw.to_i == i %>
             <%= button_to wizard_patch_path(key: "fw", value: i, wizard: step), form_class: "bt",
                           class: "radio-card#{' on' if on}" do %>
               <span class="radio-dot"></span>
@@ -199,7 +203,7 @@
           <% end %>
 
           <% detected_harness = Harness.detect %>
-          <% if fw != "2" %>
+          <% if true %>
             <% harness_choices = Harness.available %>
             <% chosen_dir = wizard_setup("harness_dir", "") %>
             <% if harness_choices.any? || chosen_dir.present? %>
@@ -241,9 +245,12 @@
                       <%= picked[:commands] %> commands · <%= picked[:skills] %> skills · <%= picked[:agents] %> agents
                       <%= "· outside the repos you selected — chosen deliberately, so it is used anyway" unless picked[:selected] %>
                     </span>
-                  <% elsif chosen_dir.present? %>
-                    <span class="mono-meta" style="color:var(--warn)">
-                      <%= chosen_dir %> has no .claude commands or skills — falling back to auto-detection
+                  <% elsif chosen_dir.present? && chosen_dir != Harness::BUNDLED_CHOICE %>
+                    <span class="mono-meta" style="color:var(--err)">
+                      <strong><%= chosen_dir %> is not a harness.</strong> It has no
+                      <span class="mono">.claude</span> commands or skills, so the phases are being
+                      staffed by <%= detected_harness&.label || "nothing" %> instead — which is
+                      almost certainly not what you picked it for. Choose again above, or clear it.
                     </span>
                   <% else %>
                     <span class="mono-meta">auto picks the first selected repo that carries one; pick a directory to override</span>
@@ -253,11 +260,18 @@
             <% end %>
           <% end %>
 
-          <% if detected_harness && fw != "2" %>
+          <% if detected_harness %>
             <div class="panel harness-panel">
+              <% staffed = Ticket::PHASES.map { |ph| Harness.source_for(ph).last }.compact %>
+              <% filled = staffed.count(&:bundled?) %>
+              <% mixed = filled.positive? && !detected_harness.bundled? %>
               <div class="panel-hd">
                 <span class="k-label" style="color:var(--info)">
-                  Harness in use · <%= detected_harness.label %><%= " — shipped with this app" if detected_harness.bundled? %>
+                  <% if mixed %>
+                    Harness in use · <%= detected_harness.label %>, with <%= Harness.bundled&.label %> filling <%= filled %> phase<%= "s" if filled > 1 %>
+                  <% else %>
+                    Harness in use · <%= detected_harness.label %><%= " — shipped with this app" if detected_harness.bundled? %>
+                  <% end %>
                 </span>
                 <span class="spacer"></span>
                 <span class="mono-meta"><%= detected_harness.commands.size %> commands · <%= detected_harness.skills.size %> skills · <%= detected_harness.agents.size %> agents</span>
@@ -265,26 +279,23 @@
               <div style="padding:12px 13px;display:flex;flex-direction:column;gap:7px">
                 <div class="k-label" style="letter-spacing:.08em;padding-bottom:2px">Phase → command · click a row to switch source</div>
                 <% Ticket::PHASES.each do |phase| %>
+                  <% active_inv, source = Harness.source_for(phase) %>
                   <% default_inv = Harness.default_invocation(phase) %>
-                  <% active_inv = Harness.phase_invocation(phase) %>
                   <% overridden = wizard_setup("map:#{phase}", "") == "built-in" %>
-                  <% if default_inv %>
-                    <%= button_to wizard_patch_path(key: "map:#{phase}", value: overridden ? "harness" : "built-in", wizard: step),
-                                  form_class: "bt", class: "map-row#{' on' if active_inv}" do %>
-                      <span class="dot" style="background:<%= active_inv ? 'var(--info)' : 'var(--tx3)' %>"></span>
-                      <span class="map-phase"><%= phase.capitalize %></span>
-                      <span class="mono-meta" style="flex:none">→</span>
-                      <span class="map-cmd" style="color:<%= active_inv ? 'var(--info)' : 'var(--tx3)' %>"><%= active_inv || "built-in: default prompt" %></span>
-                      <span class="tag" style="color:<%= active_inv ? 'var(--info)' : 'var(--tx3)' %>"><%= active_inv ? "harness" : "built-in" %></span>
-                    <% end %>
-                  <% else %>
-                    <div class="map-row" style="cursor:default">
-                      <span class="dot" style="background:var(--tx3)"></span>
-                      <span class="map-phase"><%= phase.capitalize %></span>
-                      <span class="mono-meta" style="flex:none">→</span>
-                      <span class="map-cmd" style="color:var(--tx3)">built-in prompt (no harness match)</span>
-                      <span class="tag" style="color:var(--tx3)">built-in</span>
-                    </div>
+                  <% tone = active_inv ? (source&.bundled? ? "var(--accent)" : "var(--info)") : "var(--tx3)" %>
+                  <%= button_to wizard_patch_path(key: "map:#{phase}", value: overridden ? "harness" : "built-in", wizard: step),
+                                form_class: "bt", class: "map-row#{' on' if active_inv}" do %>
+                    <span class="dot" style="background:<%= tone %>"></span>
+                    <span class="map-phase"><%= phase.capitalize %></span>
+                    <span class="mono-meta" style="flex:none">→</span>
+                    <span class="map-cmd" style="color:<%= tone %>">
+                      <%= active_inv || (default_inv ? "built-in prompt (you switched this off)" : "built-in prompt") %>
+                    </span>
+                    <%# Which harness staffs it matters: half your conventions and half a
+                        shipped default is a thing you should be able to see at a glance. %>
+                    <span class="tag" style="color:<%= tone %>">
+                      <%= active_inv ? (source&.bundled? ? "shipped" : source&.repo.to_s.truncate(14)) : "built-in" %>
+                    </span>
                   <% end %>
                 <% end %>
                 <% if detected_harness.agents.any? %>
@@ -422,7 +433,7 @@
       <% if step == 5 %>
         <div class="wizard-stack">
           <div class="summary-grid">
-            <% fw_label = ["openspec", "custom harness", "vanilla prompts"][wizard_setup("fw", "0").to_i] || "openspec" %>
+            <% fw_label = ["openspec + harness", "harness"][wizard_setup("fw", "0").to_i] || "harness" %>
             <% auth_label = wizard_setup("auth", "0") == "1" ? "API key" : "subscription" %>
             <% harness = Harness.detect %>
             <% [["Workspace", ws_repos.any? ? "#{Workspace.root.basename} · #{repos_selected} of #{ws_repos.size} repos" : "not bound"],

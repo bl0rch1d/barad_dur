@@ -133,6 +133,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The pull request body now carries its own verification story — what ran, what
   passed, what could not run and why, and any weakening — since whoever reviews
   it on GitHub cannot see the tower.
+- **The setup wizard's framework step no longer offers a way to switch the
+  harness off wholesale**, and each phase row now names the harness that
+  actually staffs it. A repo whose `.claude` covers four phases used to look
+  identical to one covering all six; the rows say which source each command
+  came from, and the header admits when two harnesses are sharing the work. A
+  harness directory that resolves to nothing is a loud error rather than a
+  silent fall-through to whatever else was lying around.
 - **A phase can no longer burn a fortune inside its other limits.** Turns and
   wall-clock each had a ceiling, and a run could sit comfortably within both
   while looping; the daily cap was read only *before* a ticket was picked up,
